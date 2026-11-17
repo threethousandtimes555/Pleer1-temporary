@@ -2,9 +2,6 @@ name: Pleer1 companion — temporary Qwen3 8B audit
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 permissions:
   contents: read
