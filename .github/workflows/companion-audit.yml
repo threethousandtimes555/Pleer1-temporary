@@ -63,7 +63,7 @@ jobs:
               (130, 205), (205, 300), (300, 435), (448, 494), (515, 590), (680, 720), (760, 793)
           ])
 
-          prompt = f"""Ты проводишь доказательный статический аудит автопереключения в iOS-плеере. У тебя нет устройства, runtime-логов или доступа к сети. Анализируй ТОЛЬКО исходный код ниже и пользовательские наблюдения. Не меняй код и не утверждай, что выполнял runtime-проверки.
+          prompt = f"""Ты проводишь доказательный статический аудит автопереключения в iOS-плеере. У тебя нет устройства, runtime-логов или доступа к сети. Анализируй ТОЛЬКО исходный код ниже и пользовательские наблюдения. Не меняй код и не утверждай, что выполнял runtime-проверки. Не возвращай HTTP/API-ошибки, объекты code/message или текст 403. Если доказательств недостаточно, верни корректный JSON по схеме, укажи это в limitations и не выдумывай дефекты.
 
           НАБЛЮДЕНИЯ (не лабораторные факты):
           - Telegram-файл → YouTube: переключилось нормально.
@@ -124,12 +124,37 @@ jobs:
               "prompt": prompt,
               "stream": False,
               "think": False,
-              "format": "json",
+              "format": {
+                  "type": "object",
+                  "properties": {
+                      "chain_summary": {"type": "string"},
+                      "claims": {"type": "array", "items": {
+                          "type": "object",
+                          "properties": {
+                              "kind": {"type": "string"},
+                              "priority": {"type": "string"},
+                              "path": {"type": "string"},
+                              "start_line": {"type": "integer"},
+                              "end_line": {"type": "integer"},
+                              "quote": {"type": "string"},
+                              "scenario": {"type": "string"},
+                              "confidence": {"type": "string"}
+                          },
+                          "required": ["kind", "priority", "path", "start_line", "end_line", "quote", "scenario", "confidence"],
+                          "additionalProperties": false
+                      }},
+                      "delay_assessment": {"type": "string"},
+                      "diagnostics": {"type": "array", "items": {"type": "string"}},
+                      "limitations": {"type": "array", "items": {"type": "string"}}
+                  },
+                  "required": ["chain_summary", "claims", "delay_assessment", "diagnostics", "limitations"],
+                  "additionalProperties": false
+              },
               "options": {
-                  "temperature": 0.1,
+                  "temperature": 0.0,
                   "top_p": 0.8,
                   "num_ctx": 8192,
-                  "num_predict": 1800
+                  "num_predict": 2200
               }
           }
           request = urllib.request.Request(
@@ -160,6 +185,12 @@ jobs:
               raise RuntimeError(f"Model response is not valid JSON: {exc}")
 
           print("\n=== SOURCE CITATION VALIDATION ===")
+          required_fields = ["chain_summary", "claims", "delay_assessment", "diagnostics", "limitations"]
+          missing_fields = [key for key in required_fields if key not in report]
+          if missing_fields:
+              raise RuntimeError("Model JSON is missing required fields: " + ", ".join(missing_fields))
+          if not isinstance(report.get("chain_summary"), str) or not report["chain_summary"].strip():
+              raise RuntimeError("Model returned an empty chain_summary instead of an audit")
           claims = report.get("claims", [])
           if not isinstance(claims, list):
               raise RuntimeError("claims must be a JSON array")
@@ -208,8 +239,8 @@ jobs:
           if isinstance(diagnostics, list):
               for item in diagnostics[:4]:
                   print("- " + str(item))
-          if len(diagnostics) != 4:
-              print("WARNING: model did not return exactly four diagnostics")
+          if not isinstance(diagnostics, list) or len(diagnostics) != 4:
+              raise RuntimeError("Model must return exactly four runtime diagnostics")
           print("\n=== LIMITATIONS ===")
           for item in report.get("limitations", []):
               print("- " + str(item))
