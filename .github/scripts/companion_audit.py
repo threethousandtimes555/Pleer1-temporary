@@ -91,7 +91,11 @@ def main():
                     f.write(piece); f.flush()
                     print(piece,end="",flush=True)
                 if item.get("done"):
-                    f.write("\n\n---\n\nГенерация завершена.\n")
+                    f.write("\n\n---\n\n")
+                    if item.get("done_reason") == "length":
+                        f.write("ОСТАНОВЛЕНО ПО ЛИМИТУ ТОКЕНОВ: отчёт может быть неполным; незавершённые выводы не считать окончательными.\n")
+                    else:
+                        f.write("Генерация завершена штатно.\n")
                     f.write(f"Метрики: prompt_eval_count={item.get('prompt_eval_count')}; eval_count={item.get('eval_count')}; done_reason={item.get('done_reason')}\\n")
                     f.flush()
                     break
