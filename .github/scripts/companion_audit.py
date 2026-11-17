@@ -1,89 +1,104 @@
 #!/usr/bin/env python3
-import datetime, json, pathlib, subprocess, sys, urllib.request
+import datetime, json, pathlib, re, subprocess, sys, urllib.request
 
 STAGES = {
- "history": ("01-history.md", "История изменений", "Восстанови хронологию между контрольной точкой Build #5 и Build #14. Выдели коммиты, которые меняли воспроизведение, поиск и диагностику. Не делай выводов о работоспособности только по названию коммита. Составь карту изменений: SHA, файл/подсистема, фактическое изменение, что требует проверки."),
- "playback": ("02-playback.md", "Изменения воспроизведения", "Сравни поведение и код воспроизведения между Build #5 и Build #12, затем Build #12 и Build #14. Ищи изменения в цепочке окончания трека, watchdog, advance, load, паузе/прерывании и выборе следующего источника. Отделяй доказанные изменения кода от гипотез о причинах зависаний. Укажи точные SHA и пути."),
- "search": ("03-search.md", "Аудит поиска", "Отдельно проанализируй реализацию поиска YouTube: отдельные треки, плейлисты, InnerTube, HTML fallback, разбор результатов и объединение. Найди существенные изменения между Build #5 и Build #14, особенно возврат/удаление фильтров и изменения парсинга. Не называй поиск исправным без пользовательского подтверждения."),
- "diagnostics": ("04-diagnostics.md", "Аудит диагностики", "Оцени диагностические изменения: какие события и поля реально помогают различить причины проблем поиска и воспроизведения, какие дублируют друг друга или создают шум. Не предлагай удалять логи без объяснения, какую неопределённость они устраняют. Заверши коротким планом проверок, по одному проверяемому предположению за раз.")
+ "history": ("01-history.md", "История изменений", "Собери хронологию изменений между Build #5, #12 и #14. Выдели коммиты по подсистемам. Не делай выводов о работоспособности только по названиям коммитов."),
+ "playback": ("02-playback.md", "Изменения воспроизведения", "Разбери изменения Player.swift: окончание трека, watchdog, advance, load, пауза/прерывание и выбор следующего источника. Для каждого замечания укажи конкретный участок diff и SHA, если он известен."),
+ "search": ("03-search.md", "Аудит поиска", "Разбери YouTubeEngine.swift, YouTubeHTMLSearch.swift и YouTubePlaylistEngine.swift: отдельные треки, плейлисты, InnerTube, HTML fallback, парсинг и объединение результатов. Найди возможные причины того, что плейлисты находятся, а отдельные треки — нет."),
+ "diagnostics": ("04-diagnostics.md", "Аудит диагностики", "Оцени диагностические изменения и их пользу: какие события различают причины проблем, какие дублируют друг друга или шумят. Сформулируй конкретные проверяемые гипотезы и минимальные тесты.")
 }
 
 def run(*args):
     return subprocess.run(args, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
 
-def clip(s, limit=26000):
-    if len(s) <= limit: return s
-    return s[:limit] + "\n\n[ОБРЕЗАНО: контекст ограничен для окна модели]"
+def clip(s, limit=14500):
+    return s if len(s) <= limit else s[:limit] + "\n\n[Часть данных не помещена в контекст; укажи это как ограничение.]"
+
+def evidence_files():
+    return {
+      "5to12": pathlib.Path("audit-evidence/build5-to-12.md").read_text(encoding="utf-8"),
+      "12to14": pathlib.Path("audit-evidence/build12-to-14.md").read_text(encoding="utf-8")
+    }
+
+def section_for(diff, path):
+    marker = "### " + path + " "
+    start = diff.find(marker)
+    if start < 0: return ""
+    end = diff.find("\n### ", start + len(marker))
+    return diff[start:] if end < 0 else diff[start:end]
 
 def collect(stage):
-    base = "6ff25c7b249e01f7ae9867dbffe6ee0f34c6d9e3"
-    mid = "f6ef9ad4d20b1526f9affcda21796ae9fe0178c2"
-    head = "14956c5fbe07d39af97f73d4b462efc3fb42e66f"
+    ev = evidence_files()
     if stage == "history":
-        return run("git", "log", "--reverse", "--format=%H%n%s", "--name-status", f"{base}..{head}")
+        parts=[]
+        for key in ("5to12","12to14"):
+            data=ev[key]
+            match=re.search(r"## Commit sequence\n(.*?)\n\n## Per-file diffs",data,re.S)
+            parts.append("=== "+key+" ===\n"+(match.group(1) if match else data[:3000]))
+        return "\n\n".join(parts)
     if stage == "playback":
-        a = run("git", "diff", "--find-renames", f"{base}..{mid}", "--", "plei/Sources/Player.swift")
-        b = run("git", "diff", "--find-renames", f"{mid}..{head}", "--", "plei/Sources/Player.swift")
-        return "=== Build #5 → Build #12: Player.swift ===\n" + a + "\n=== Build #12 → Build #14: Player.swift ===\n" + b
+        return "\n\n".join("=== "+key+" ===\n"+section_for(ev[key],"plei/Sources/Player.swift") for key in ("5to12","12to14"))
     if stage == "search":
-        files = run("bash", "-lc", "git ls-files 'plei/Sources/*' | grep -Ei 'youtube|search|playlist|engine' | head -35 || true").splitlines()
-        chunks = []
-        for path in files:
-            try:
-                diff = run("git", "diff", "--find-renames", f"{base}..{head}", "--", path)
-                if diff.strip(): chunks.append(f"=== {path} ===\n{diff}")
-            except Exception: pass
-        return "\n\n".join(chunks) or "Не удалось автоматически найти diff по именам файлов; изучи список файлов и сообщи об ограничении."
+        paths=("plei/Sources/YouTubeEngine.swift","plei/Sources/YouTubeHTMLSearch.swift","plei/Sources/YouTubePlaylistEngine.swift")
+        return "\n\n".join("=== "+key+" ===\n"+"\n\n".join(section_for(ev[key],p) for p in paths) for key in ("5to12","12to14"))
     if stage == "diagnostics":
-        matches = run("bash", "-lc", "git grep -n -i -E 'diagnostic|journal|watchdog|logEvent|logger' " + head + " -- plei/Sources 2>/dev/null | head -500 || true")
-        paths = run("bash", "-lc", "git ls-tree -r --name-only " + head + " | grep -Ei 'diagnostic|journal|log' | head -30 || true")
-        return "=== DIAGNOSTIC REFERENCES ===\n" + matches + "\n=== RELATED FILE PATHS ===\n" + paths
+        data=ev["12to14"]
+        paths=("plei/Sources/Player.swift","plei/Sources/YouTubeDiagnostics.swift","plei/Sources/YouTubeEngine.swift","plei/Sources/YouTubeHTMLSearch.swift","plei/Sources/YouTubePlaylistEngine.swift")
+        return "\n\n".join(section_for(data,p) for p in paths)
     raise ValueError(stage)
 
 def main():
     if len(sys.argv) != 2 or sys.argv[1] not in STAGES:
         raise SystemExit("usage: companion_audit.py history|playback|search|diagnostics")
-    stage = sys.argv[1]
-    filename, title, task = STAGES[stage]
-    out = pathlib.Path("reports")
-    out.mkdir(exist_ok=True)
-    target = out / filename
+    stage=sys.argv[1]
+    filename,title,task=STAGES[stage]
+    out=pathlib.Path("reports"); out.mkdir(exist_ok=True)
+    target=out/filename
+    header=f"# {title}\n\nЭтап: {stage}\nВремя UTC: {datetime.datetime.now(datetime.timezone.utc).isoformat()}\nМодель: qwen3:8b (локальный Ollama)\n\n"
+    target.write_text(header+"## Промежуточный вывод\nАнализ начат; ниже ответ будет дописываться по мере генерации.\n\n",encoding="utf-8")
     try:
-        evidence = collect(stage)
-        prompt = f"""Ты — независимый read-only аудитор проекта Pleer1. Это этап {stage}: {title}.
-Работай только с предоставленными Git-данными. Ничего не меняй и не предлагай сразу применять патчи.
+        evidence=clip(collect(stage))
+        prompt=f"""Ты — независимый read-only аудитор Pleer1. Этап: {stage}.
 {task}
 
-Правила:
-- Пиши по-русски, конкретно и компактно.
-- Разделяй ФАКТ ИЗ DIFF, ГИПОТЕЗУ и НЕИЗВЕСТНОЕ.
-- Не выдумывай runtime-поведение, номера строк или цитаты.
-- Для каждого важного вывода укажи SHA коммита и путь; если данных нет — прямо скажи.
-- Не выдавай успешную компиляцию за проверку поведения на реальном iPhone.
-- Не считай Build #12 подтверждённо рабочим: он компилировался, но полноценной пользовательской проверки не было; YouTube-миксы не работали.
-- Build #5 подтверждён пользователем только для трёх полных прослушиваний «Избранного» в фоне/с заблокированным экраном и переключения треков через Siri. Это не доказывает работу остальных функций.
-- В конце добавь: «Что уже установлено», «Что пока неизвестно», «Следующий минимальный тест».
-Данные могут быть неполными из-за лимита контекста; обозначай это явно.
+ПРАВИЛА:
+- Пиши по-русски. Сразу выдавай конкретные наблюдения, не откладывай выводы до общего заключения.
+- Каждое замечание оформляй: ФАКТ ИЗ DIFF / ВОЗМОЖНАЯ ПРОБЛЕМА / ПОЧЕМУ ЭТО ВАЖНО / ЧТО ПРОВЕРИТЬ.
+- Указывай точный файл, фрагмент/название функции и SHA, если он присутствует в данных. Не выдумывай номера строк.
+- Чётко отделяй доказанное изменение от гипотезы и неизвестного.
+- Build #12 компилировался, но пользователь не проводил полноценную проверку; YouTube-миксы не работали.
+- Build #5 подтверждён пользователем только для трёх полных прослушиваний «Избранного» в фоне/с заблокированным экраном и переключения треков через Siri.
+- Не предлагай патчи и не меняй код. Цель — оставить команде рабочие зацепки.
+- Если не хватает данных, назови, что именно отсутствует, и всё равно сохрани частичные наблюдения.
+- Заверши разделами: «Что уже установлено», «Гипотезы для проверки», «Следующий минимальный тест».
 
-=== GIT EVIDENCE ===
-{clip(evidence)}
+=== ИСТОРИЧЕСКИЕ DIFF ===
+{evidence}
 """
-        payload = {"model":"qwen3:8b","prompt":prompt,"stream":False,"think":True,
-                   "options":{"temperature":0,"top_p":0.8,"num_ctx":8192,"num_predict":2200}}
-        req = urllib.request.Request("http://127.0.0.1:11434/api/generate",
-            data=json.dumps(payload).encode(), headers={"Content-Type":"application/json"}, method="POST")
-        with urllib.request.urlopen(req, timeout=2700) as response:
-            result = json.loads(response.read().decode())
-        answer = (result.get("response") or "").strip()
-        if not answer: raise RuntimeError("Qwen вернул пустой ответ")
-        header = f"# {title}\n\nЭтап: {stage}\nСнимок репозитория: {run('git','rev-parse','HEAD').strip()}\nВремя UTC: {datetime.datetime.now(datetime.timezone.utc).isoformat()}\nМодель: qwen3:8b (локальный Ollama)\n\n"
-        target.write_text(header + answer + "\n", encoding="utf-8")
-        print(target.read_text(encoding="utf-8"))
-        print(f"\nМетрики: prompt_eval_count={result.get('prompt_eval_count')}; eval_count={result.get('eval_count')}")
+        payload={"model":"qwen3:8b","prompt":prompt,"stream":True,"think":True,
+                 "options":{"temperature":0,"top_p":0.8,"num_ctx":8192,"num_predict":2200}}
+        req=urllib.request.Request("http://127.0.0.1:11434/api/generate",data=json.dumps(payload).encode(),
+             headers={"Content-Type":"application/json"},method="POST")
+        with urllib.request.urlopen(req,timeout=2700) as response, target.open("a",encoding="utf-8") as f:
+            f.write("## Выводы компаньона\n\n"); f.flush()
+            for raw in response:
+                if not raw.strip(): continue
+                item=json.loads(raw)
+                piece=item.get("response","")
+                if piece:
+                    f.write(piece); f.flush()
+                    print(piece,end="",flush=True)
+                if item.get("done"):
+                    f.write("\n\n---\n\nГенерация завершена.\n")
+                    f.write(f"Метрики: prompt_eval_count={item.get('prompt_eval_count')}; eval_count={item.get('eval_count')}\n")
+                    f.flush()
+                    break
     except Exception as exc:
-        target.write_text(f"# {title}\n\nЭтап не завершён. Ошибка: {type(exc).__name__}: {exc}\n", encoding="utf-8")
-        print(target.read_text(encoding="utf-8"))
+        with target.open("a",encoding="utf-8") as f:
+            f.write(f"\n\n## Этап прерван\nПричина: {type(exc).__name__}: {exc}\n")
+        print(f"\nЭтап прерван: {type(exc).__name__}: {exc}",file=sys.stderr)
         raise
+    print("\n\nОтчёт сохранён:",target)
 
-if __name__ == "__main__":
+if __name__=="__main__":
     main()
