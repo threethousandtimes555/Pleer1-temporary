@@ -77,7 +77,7 @@ def main():
 === ИСТОРИЧЕСКИЕ DIFF ===
 {evidence}
 """
-        payload={"model":"qwen3:8b","prompt":prompt,"stream":True,"think":True,
+        payload={"model":"qwen3:8b","prompt":prompt,"stream":True,"think":False,
                  "options":{"temperature":0,"top_p":0.8,"num_ctx":8192,"num_predict":2200}}
         req=urllib.request.Request("http://127.0.0.1:11434/api/generate",data=json.dumps(payload).encode(),
              headers={"Content-Type":"application/json"},method="POST")
