@@ -72,13 +72,13 @@ def main():
 - Build #5 подтверждён пользователем только для трёх полных прослушиваний «Избранного» в фоне/с заблокированным экраном и переключения треков через Siri.
 - Не предлагай патчи и не меняй код. Цель — оставить команде рабочие зацепки.
 - Если не хватает данных, назови, что именно отсутствует, и всё равно сохрани частичные наблюдения.
-- Заверши разделами: «Что уже установлено», «Гипотезы для проверки», «Следующий минимальный тест».
+- Заверши разделами: «Что уже установлено», «Гипотезы для проверки», «Следующий минимальный тест», «Ограничения и степень уверенности».\n- Будь компактным: не повторяй один факт в нескольких разделах; предпочитай несколько точных выводов длинному списку общих предположений.\n- Входные данные — исторические diff и заметки, а не полный актуальный исходный код. Не утверждай, что проверил текущую реализацию или конкретную строку, если её нет во входных данных.
 
 === ИСТОРИЧЕСКИЕ DIFF ===
 {evidence}
 """
         payload={"model":"qwen3:8b","prompt":prompt,"stream":True,"think":False,
-                 "options":{"temperature":0,"top_p":0.8,"num_ctx":8192,"num_predict":2200}}
+                 "options":{"temperature":0,"top_p":0.8,"num_ctx":8192,"num_predict":3400}}
         req=urllib.request.Request("http://127.0.0.1:11434/api/generate",data=json.dumps(payload).encode(),
              headers={"Content-Type":"application/json"},method="POST")
         with urllib.request.urlopen(req,timeout=2700) as response, target.open("a",encoding="utf-8") as f:
@@ -92,7 +92,7 @@ def main():
                     print(piece,end="",flush=True)
                 if item.get("done"):
                     f.write("\n\n---\n\nГенерация завершена.\n")
-                    f.write(f"Метрики: prompt_eval_count={item.get('prompt_eval_count')}; eval_count={item.get('eval_count')}\n")
+                    f.write(f"Метрики: prompt_eval_count={item.get('prompt_eval_count')}; eval_count={item.get('eval_count')}; done_reason={item.get('done_reason')}\\n")
                     f.flush()
                     break
     except Exception as exc:
