@@ -5,6 +5,7 @@ import json
 import pathlib
 import sys
 import urllib.request
+from zoneinfo import ZoneInfo
 
 ROOT = pathlib.Path(".")
 STAGES = {
@@ -22,7 +23,7 @@ def read_file(path):
     p = ROOT / path
     return p.read_text(encoding="utf-8") if p.is_file() else ""
 
-def clip(value, limit=15000):
+def clip(value, limit=12000):
     if len(value) <= limit:
         return value
     return value[:limit] + "\n[Обрезано по лимиту контекста; не делай выводов по отсутствующей части.]"
@@ -46,7 +47,8 @@ def relevant_source(path, terms, radius=7, max_lines=150):
             break
         selected.extend((i+1,lines[i]) for i in range(a,b))
     if not selected:
-        selected = [(i+1,line) for i,line in enumerate(lines[:min(30,max_lines)])]
+        return (f"=== АКТУАЛЬНЫЙ ФАЙЛ {path} доступен, но по заданным маркерам "
+                "релевантные строки не найдены; случайный фрагмент не подставлялся. ===")
     return f"=== АКТУАЛЬНЫЙ ФАЙЛ {path}; номера строк точные ===\n" + "\n".join(f"{n}: {line}" for n,line in selected)
 
 def collect(stage):
@@ -59,13 +61,13 @@ def collect(stage):
             relevant_source("plei/Sources/Player.swift",
                 ("watchdog","advance","finish","readyToPlay","timeControlStatus","userPausedPlayback",
                  "audioSession","replaceCurrentItem","player.play","player.pause","currentItem","isPlaying"),
-                radius=8,max_lines=180)))
+                radius=6,max_lines=120)))
     if stage == "search":
         return "\n\n".join((
             "=== ИСТОРИЧЕСКИЙ DIFF ===\n"+read_file("audit-evidence/search-key-commits.md"),
-            relevant_source("plei/Sources/YouTubeEngine.swift",("search","parse","renderer","videoId","playlist","music"),6,150),
+            relevant_source("plei/Sources/YouTubeEngine.swift",("search","parse","renderer","videoId","playlist","music"),5,100),
             relevant_source("plei/Sources/YouTubeHTMLSearch.swift",("search","renderer","videoId","music"),5,80),
-            relevant_source("plei/Sources/YouTubePlaylistEngine.swift",("radio","playlist","renderer","nextEndpoint"),5,80)))
+            relevant_source("plei/Sources/YouTubePlaylistEngine.swift",("radio","playlist","renderer","nextEndpoint"),4,60)))
     if stage == "diagnostics":
         return "\n\n".join((
             "=== ИСТОРИЧЕСКИЙ DIFF ===\n"+read_file("audit-evidence/build12-to-14.md")[:7000],
@@ -85,39 +87,45 @@ def main():
     out = ROOT/"reports"
     out.mkdir(exist_ok=True)
     target = out/filename
-    stamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    stamp_utc = now_utc.isoformat()
+    stamp_msk = now_utc.astimezone(ZoneInfo("Europe/Moscow")).strftime("%Y-%m-%d %H:%M:%S МСК (UTC+03:00)")
     prompt = f"""Ты — независимый технический аудитор iOS-проекта Pleer1. Работаешь только на чтение.
 ЗАДАЧА: {task}
 
 ПРАВИЛА ДОКАЗАТЕЛЬНОСТИ:
 1. Не выдумывай код, функции, строки, SHA, логи или результаты тестов.
-2. Для утверждения о текущем коде указывай точный файл и номер строки из пронумерованного исходника.
-3. Для исторического изменения указывай файл/diff/SHA только если они явно есть во входных данных.
-4. Если актуальный файл отсутствует, прямо скажи: «текущую реализацию проверить не удалось».
+2. Для утверждения о текущем коде указывай точный файл и номер строки из пронумерованного исходника; приводи короткую цитату, достаточную для проверки.
+3. Для исторического изменения указывай файл/diff/SHA только если они явно есть во входных данных; не выдавай diff за текущую реализацию.
+4. Если актуальный файл отсутствует или нужные строки не попали во входные данные, прямо скажи: «текущую реализацию проверить не удалось».
 5. Разделяй ПОДТВЕРЖДЕНО ДАННЫМИ / ГИПОТЕЗА / НЕИЗВЕСТНО.
 6. Компиляция не доказывает правильность воспроизведения.
 7. Build #5 подтверждён пользователем только для трёх полных прослушиваний «Избранного» в фоне/с заблокированным экраном и переключения через Siri.
 8. Build #12 компилировался, но миксы не работали; полноценной проверки пользователем не было.
 9. Не предлагай патчи и не меняй код.
+10. Не называй само наличие поля, таймера или диагностического события ошибкой. Для находки нужна конкретная связь кода с наблюдаемым симптомом.
+11. Не перечисляй проверки, которые можно сделать когда-нибудь. Выбери один тест, который сильнее всего различает текущие гипотезы.
 
 ФОРМАТ:
 - Краткий вывод — до 3 предложений.
-- Не более 3 находок. Для каждой: статус; конкретное доказательство (файл:строка или фрагмент diff); связь с симптомом; что проверить.
-- Один следующий минимальный тест, различающий гипотезы.
+- Не более 2 находок. Для каждой: статус; файл и точные строки; короткая цитата; почему это важно для указанного симптома.
+- Один следующий минимальный тест с ожидаемыми различиями результатов.
 - Что нельзя заключить по этим данным.
-- Если находок с доказательствами нет — прямо так и напиши. Не заполняй отчёт общими предположениями.
-- Не повторяй одну мысль. Цель — полезность, а не объём.
+- Если доказательных находок нет — напиши это прямо и не заполняй отчёт общими предположениями.
+- Запрещены формулировки вида «может быть избыточным», «возможно шумит» без конкретного подтверждающего участка кода.
+- Цель — короткий технический вывод, а не длинный список общих проверок.
 
 ВХОДНЫЕ ДАННЫЕ:
 {evidence}
 """
     target.write_text(
-        f"# {title}\n\nЗадача: {stage}\nВремя UTC: {stamp}\n"
+        f"# {title}\n\nЗадача: {stage}\nВремя МСК: {stamp_msk}\nВремя UTC: {stamp_utc}\n"
+        f"Размер входных данных: {len(evidence)} символов\n"
         "Модель: qwen3:8b (локальный Ollama)\nРежим: один целевой аудит; только чтение\n\n## Отчёт\n\n",
         encoding="utf-8")
     payload = {
         "model":"qwen3:8b","prompt":prompt,"stream":True,"think":False,
-        "options":{"temperature":0.1,"top_p":0.8,"num_ctx":8192,"num_predict":1500}
+        "options":{"temperature":0.1,"top_p":0.8,"num_ctx":8192,"num_predict":1200}
     }
     req = urllib.request.Request(
         "http://127.0.0.1:11434/api/generate",
