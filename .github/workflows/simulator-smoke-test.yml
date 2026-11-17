@@ -1,0 +1,62 @@
+name: Pleer1 simulator build and search smoke test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pleer1-temporary-simulator-smoke
+  cancel-in-progress: false
+
+jobs:
+  simulator:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout temporary verification copy
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: plei
+        run: xcodegen generate
+
+      - name: Select simulator and run app plus search UI test
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEVICE_ID="$(xcrun simctl list devices available --json | python3 -c 'import json,sys; d=json.load(sys.stdin); xs=[x for group in d["devices"].values() for x in group if x["isAvailable"] and x["name"].startswith("iPhone")]; print(xs[0]["udid"] if xs else "")')"
+          if [ -z "$DEVICE_ID" ]; then
+            echo "No available iPhone simulator found"
+            xcrun simctl list devices available
+            exit 1
+          fi
+          echo "Using simulator: $DEVICE_ID"
+          xcrun simctl boot "$DEVICE_ID" || true
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          xcodebuild test \
+            -project plei/Plei.xcodeproj \
+            -scheme Plei \
+            -destination "platform=iOS Simulator,id=$DEVICE_ID" \
+            -derivedDataPath "$RUNNER_TEMP/Pleer1DerivedData" \
+            -resultBundlePath "$RUNNER_TEMP/Pleer1Simulator.xcresult" \
+            -parallel-testing-enabled NO \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            2>&1 | tee "$RUNNER_TEMP/pleer1-simulator.log"
+
+      - name: Upload simulator result and log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pleer1-temporary-simulator-results
+          path: |
+            ${{ runner.temp }}/Pleer1Simulator.xcresult
+            ${{ runner.temp }}/pleer1-simulator.log
+          if-no-files-found: warn
+          retention-days: 7

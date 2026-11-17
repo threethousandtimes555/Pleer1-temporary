@@ -1,0 +1,226 @@
+name: Pleer1 companion — temporary Qwen3 8B audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pleer1-companion-manual-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: One-shot local Qwen3 8B evidence-checked audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout temporary verification copy
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Start temporary local Ollama and load Qwen3 8B
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --name ollama -p 11434:11434 ollama/ollama:latest
+          for attempt in {1..60}; do
+            if curl --silent --fail http://127.0.0.1:11434/api/tags >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --silent --fail http://127.0.0.1:11434/api/tags >/dev/null
+          timeout --signal=TERM --kill-after=20s 25m docker exec ollama ollama pull qwen3:8b
+
+      - name: Run one-shot audit and verify every source citation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' | tee pleer1-audit-report.txt
+          import json
+          import pathlib
+          import urllib.request
+          import datetime
+
+          root = pathlib.Path(".")
+          source_path = "plei/Sources/Player.swift"
+          source_lines = (root / source_path).read_text(encoding="utf-8").splitlines()
+
+          def excerpt(ranges):
+              parts = []
+              for start, end in ranges:
+                  actual_end = min(end, len(source_lines))
+                  block = "\n".join(f"{i}: {source_lines[i-1]}" for i in range(start, actual_end + 1))
+                  parts.append(f"--- {source_path}:{start}-{actual_end} ---\n{block}")
+              return "\n\n".join(parts)
+
+          player = excerpt([
+              (130, 205), (205, 300), (300, 435), (448, 494), (515, 590), (680, 720), (760, 793)
+          ])
+
+          prompt = f"""Ты проводишь доказательный статический аудит автопереключения в iOS-плеере. У тебя нет устройства, runtime-логов или доступа к сети. Анализируй ТОЛЬКО исходный код ниже и пользовательские наблюдения. Не меняй код и не утверждай, что выполнял runtime-проверки.
+
+          НАБЛЮДЕНИЯ (не лабораторные факты):
+          - Telegram-файл → YouTube: переключилось нормально.
+          - YouTube → YouTube: иногда зависает; ручное нажатие «Следующий» после зависания загружает YouTube-трек.
+          - YouTube → Telegram-файл: иногда переключается само, но с очень большой задержкой; такое наблюдалось дважды.
+          - В другие попытки те же типы переходов проходили нормально.
+          - Управление выполнялось через Dynamic Island; приложение специально не открывали.
+          - Ранее успешные переходы при открытом чате ChatGPT не доказывают причинную связь.
+
+          ЗАДАЧИ:
+          1. Восстанови цепочку AVPlayerItemDidPlayToEndTime → finishCurrentItem → advance(auto:) → load() → start()/loadYouTube()/expandArchive().
+          2. Проверь token, currentItem identity, completionHandledToken и то, что код реально позволяет заключить о событии окончания.
+          3. Сравни ветки YouTube и обычного файла/URL: сброс состояния, isPlaying, player.play().
+          4. Проверь, может ли youtubePrefetchTask блокировать локальный следующий трек или только YouTube.
+          5. Объясни, что согласуется с непостоянной задержкой и почему ручной Next может сработать.
+          6. Не выдумывай реализацию Telegram, если её нет в переданном коде.
+
+          КРИТИЧЕСКИЕ ПРАВИЛА ДОКАЗАТЕЛЬСТВ:
+          - Не выдумывай номера строк, имена функций, цитаты или поведение.
+          - Каждое замечание о коде обязано содержать точную дословную цитату из Player.swift и диапазон строк, в котором эта цитата реально находится.
+          - Цитата должна быть короткой и достаточной для проверки. Не цитируй несуществующие строки.
+          - Если цитата не подтверждает вывод напрямую, пометь его как гипотезу/условный риск, а не дефект.
+          - Не делай вывод, что событие AVPlayer задерживается, только по статическому коду.
+          - Если код не позволяет определить причину, прямо скажи «по статическому коду не установлено».
+          - Не предлагай исправления наугад.
+          - Верни только JSON, без Markdown и без текста вне JSON.
+
+          СХЕМА JSON:
+          {{
+            "chain_summary": "краткая фактическая цепочка",
+            "claims": [
+              {{
+                "kind": "дефект | условный риск | гипотеза | рекомендация",
+                "priority": "высокий | средний | низкий",
+                "path": "plei/Sources/Player.swift",
+                "start_line": 1,
+                "end_line": 1,
+                "quote": "дословная непрерывная цитата из указанных строк",
+                "scenario": "какой сценарий и почему",
+                "confidence": "низкая | средняя | высокая"
+              }}
+            ],
+            "delay_assessment": "что вероятнее задерживается и что неизвестно",
+            "diagnostics": [
+              "ровно четыре конкретных поля или события для следующего зависания"
+            ],
+            "limitations": ["что нельзя заключить из этих фрагментов"]
+          }}
+
+          Лимит: максимум 4 claims, ровно 4 diagnostics, русский язык.
+
+          === ИСХОДНИК С НОМЕРАМИ СТРОК ===
+          {player}
+          """
+
+          payload = {
+              "model": "qwen3:8b",
+              "prompt": prompt,
+              "stream": False,
+              "think": False,
+              "format": "json",
+              "options": {
+                  "temperature": 0.1,
+                  "top_p": 0.8,
+                  "num_ctx": 8192,
+                  "num_predict": 1800
+              }
+          }
+          request = urllib.request.Request(
+              "http://127.0.0.1:11434/api/generate",
+              data=json.dumps(payload).encode("utf-8"),
+              headers={"Content-Type": "application/json"},
+              method="POST"
+          )
+
+          print("Pleer1 Build #14 snapshot — evidence-checked local audit")
+          print("Snapshot commit: 09a70352e8bc2d246ecf2ae4a6ea893a9ef4f5af")
+          print("Temporary repository branch: main")
+          print("Audit time UTC:", datetime.datetime.now(datetime.timezone.utc).isoformat())
+          print("Model: qwen3:8b (local Ollama; no hosted inference)")
+          print("Prompt characters:", len(prompt))
+          print("\n=== MODEL RESPONSE ===\n")
+
+          with urllib.request.urlopen(request, timeout=2400) as response:
+              result = json.loads(response.read().decode("utf-8"))
+          raw = (result.get("response") or "").strip()
+          if not raw:
+              raise RuntimeError("Ollama returned an empty model response")
+          print(raw)
+
+          try:
+              report = json.loads(raw)
+          except json.JSONDecodeError as exc:
+              raise RuntimeError(f"Model response is not valid JSON: {exc}")
+
+          print("\n=== SOURCE CITATION VALIDATION ===")
+          claims = report.get("claims", [])
+          if not isinstance(claims, list):
+              raise RuntimeError("claims must be a JSON array")
+          if len(claims) > 4:
+              print("WARNING: model returned more than four claims; only first four checked")
+              claims = claims[:4]
+
+          valid_claims = []
+          rejected_claims = []
+          for index, claim in enumerate(claims, 1):
+              if not isinstance(claim, dict):
+                  rejected_claims.append({"claim": index, "reason": "claim is not an object"})
+                  continue
+              path = claim.get("path")
+              start = claim.get("start_line")
+              end = claim.get("end_line")
+              quote = claim.get("quote")
+              reason = None
+              if path != source_path:
+                  reason = "path is outside the audited source file"
+              elif not isinstance(start, int) or not isinstance(end, int) or start < 1 or end < start or end > len(source_lines):
+                  reason = "invalid source line range"
+              elif not isinstance(quote, str) or not quote.strip():
+                  reason = "missing exact quote"
+              elif quote not in "\n".join(source_lines[start-1:end]):
+                  reason = "quoted text does not exactly occur in the cited line range"
+              if reason:
+                  rejected_claims.append({"claim": index, "reason": reason, "quote": quote})
+              else:
+                  valid_claims.append(claim)
+
+          print("Valid source-backed claims:", len(valid_claims))
+          print("Rejected claims:", len(rejected_claims))
+          for claim in valid_claims:
+              print("\n- [{kind}] {priority} — {path}:{start_line}-{end_line}".format(**claim))
+              print("  Exact quote: " + claim["quote"])
+              print("  Scenario: " + str(claim.get("scenario", "")))
+              print("  Confidence: " + str(claim.get("confidence", "")))
+          for rejected in rejected_claims:
+              print("\n- REJECTED:", json.dumps(rejected, ensure_ascii=False))
+
+          diagnostics = report.get("diagnostics", [])
+          print("\n=== DELAY ASSESSMENT ===")
+          print(report.get("delay_assessment", "Not supplied"))
+          print("\n=== FOUR RUNTIME DIAGNOSTICS ===")
+          if isinstance(diagnostics, list):
+              for item in diagnostics[:4]:
+                  print("- " + str(item))
+          if len(diagnostics) != 4:
+              print("WARNING: model did not return exactly four diagnostics")
+          print("\n=== LIMITATIONS ===")
+          for item in report.get("limitations", []):
+              print("- " + str(item))
+          print("\n=== MODEL METRICS ===")
+          print("prompt_eval_count:", result.get("prompt_eval_count"))
+          print("eval_count:", result.get("eval_count"))
+          print("total_duration_ns:", result.get("total_duration"))
+          PY
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pleer1-temporary-companion-audit
+          path: pleer1-audit-report.txt
+          if-no-files-found: warn
+          retention-days: 7
