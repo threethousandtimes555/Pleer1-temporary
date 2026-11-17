@@ -1,34 +1,39 @@
-name: Pleer1 companion — staged read-only Qwen3 audit
+name: Pleer1 companion — focused read-only audit
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/scripts/companion_audit.py
-      - .github/workflows/companion-audit.yml
+    inputs:
+      task:
+        description: "Одна задача для компаньона"
+        required: true
+        type: choice
+        default: playback
+        options:
+          - playback
+          - search
+          - diagnostics
+          - history
 
 permissions:
   contents: read
 
 concurrency:
-  group: pleer1-companion-staged-audit
+  group: pleer1-companion-focused-audit
   cancel-in-progress: false
 
 jobs:
-  staged-audit:
-    name: Staged local Qwen3 8B audit (read-only)
+  focused-audit:
+    name: Focused Qwen3 8B audit (${{ github.event.inputs.task || 'playback' }})
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 75
     steps:
-      - name: Checkout temporary verification copy with full Git history
+      - name: Checkout temporary verification copy
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Start temporary local Ollama and load Qwen3 8B once
+      - name: Start local Ollama and load Qwen3 8B once
         shell: bash
         run: |
           set -euo pipefail
@@ -42,63 +47,16 @@ jobs:
           python3 --version
           git log -1 --oneline
 
-      - name: Stage 1 — map the commit history
-        if: always()
-        run: python3 .github/scripts/companion_audit.py history || true
+      - name: Run exactly one focused audit
+        env:
+          AUDIT_TASK: ${{ github.event.inputs.task || 'playback' }}
+        run: python3 .github/scripts/companion_audit.py "$AUDIT_TASK"
 
-      - name: Save Stage 1 report immediately
+      - name: Upload focused report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pleer1-companion-stage-01-history
-          path: reports/01-history.md
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Stage 2 — audit playback changes
-        if: always()
-        run: python3 .github/scripts/companion_audit.py playback || true
-
-      - name: Save Stage 2 report immediately
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pleer1-companion-stage-02-playback
-          path: reports/02-playback.md
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Stage 3 — audit YouTube search changes
-        if: always()
-        run: python3 .github/scripts/companion_audit.py search || true
-
-      - name: Save Stage 3 report immediately
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pleer1-companion-stage-03-search
-          path: reports/03-search.md
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Stage 4 — audit diagnostics and propose minimal tests
-        if: always()
-        run: python3 .github/scripts/companion_audit.py diagnostics || true
-
-      - name: Save Stage 4 report immediately
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pleer1-companion-stage-04-diagnostics
-          path: reports/04-diagnostics.md
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Upload all reports together
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pleer1-companion-all-stages
+          name: pleer1-companion-${{ github.event.inputs.task || 'playback' }}
           path: reports/*.md
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 30
