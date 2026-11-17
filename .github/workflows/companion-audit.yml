@@ -1,5 +1,4 @@
 name: Pleer1 companion — focused read-only audit
-
 on:
   push:
     paths:
@@ -11,32 +10,32 @@ on:
         description: "Одна задача для компаньона"
         required: true
         type: choice
-        default: playback
-        options:
-          - playback
-          - search
-          - diagnostics
-          - history
-
+        default: search
+        options: [playback, search, diagnostics, history]
 permissions:
   contents: read
-
 concurrency:
   group: pleer1-companion-focused-audit
   cancel-in-progress: false
-
 jobs:
   focused-audit:
-    name: Focused Qwen3 8B audit (${{ github.event.inputs.task || 'playback' }})
+    name: Focused Qwen3 8B audit
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
-      - name: Checkout temporary verification copy
+      - name: Checkout companion instructions and historical evidence
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
-
+      - name: Checkout current Pleer1 working branch as audit source
+        uses: actions/checkout@v4
+        with:
+          repository: threethousandtimes555/Pleer1
+          ref: work/restore-youtube-module-2026-11-17
+          path: source-project
+          fetch-depth: 1
+          persist-credentials: false
       - name: Start local Ollama and load Qwen3 8B once
         shell: bash
         run: |
@@ -49,18 +48,22 @@ jobs:
           curl --silent --fail http://127.0.0.1:11434/api/tags >/dev/null
           timeout --signal=TERM --kill-after=20s 35m docker exec ollama ollama pull qwen3:8b
           python3 --version
-          git log -1 --oneline
-
+          git -C source-project rev-parse HEAD
       - name: Run exactly one focused audit
         env:
-          AUDIT_TASK: ${{ github.event.inputs.task || 'playback' }}
-        run: python3 .github/scripts/companion_audit.py "$AUDIT_TASK"
-
+          AUDIT_TASK: \${{ github.event.inputs.task || 'search' }}
+          PLEER1_SOURCE_DIR: source-project/plei/Sources
+          PLEER1_TEST_DIR: source-project/plei/UITests
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PLEER1_SOURCE_SHA="$(git -C source-project rev-parse HEAD)"
+          python3 .github/scripts/companion_audit.py "$AUDIT_TASK"
       - name: Upload focused report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pleer1-companion-${{ github.event.inputs.task || 'playback' }}
+          name: pleer1-companion-\${{ github.event.inputs.task || 'search' }}
           path: reports/*.md
           if-no-files-found: warn
           retention-days: 30
