@@ -60,10 +60,10 @@ jobs:
               return "\n\n".join(parts)
 
           player = excerpt([
-              (130, 205), (205, 300), (300, 435), (448, 494), (515, 590), (680, 720), (760, 793)
+              (170, 205), (215, 435), (435, 520), (680, 720)
           ])
 
-          prompt = f"""Ты проводишь доказательный статический аудит автопереключения в iOS-плеере. У тебя нет устройства, runtime-логов или доступа к сети. Анализируй ТОЛЬКО исходный код ниже и пользовательские наблюдения. Не меняй код и не утверждай, что выполнял runtime-проверки. Не возвращай HTTP/API-ошибки, объекты code/message или текст 403. Если доказательств недостаточно, верни корректный JSON по схеме, укажи это в limitations и не выдумывай дефекты.
+          prompt = f"""Ты проводишь узкий доказательный статический аудит причины задержек автопереключения. У тебя есть только переданные ниже строки Player.swift и наблюдения пользователя. Не описывай функции как claims и не перечисляй, что код «хорошо структурирован». В claims включай только конкретный дефект, условный риск, гипотезу или рекомендацию по автопереключению; если их нельзя доказать — верни пустой массив. Каждый quote обязан быть дословной непрерывной цитатой из исходника, максимум две строки, без многоточий, без пересказа и без троеточий. path всегда ровно plei/Sources/Player.swift, без номеров строк в path. Номера start_line/end_line — фактические номера из префиксов исходника. В diagnostics укажи ровно четыре конкретных поля журнала, которые позволят различить задержку события окончания, обработчика, prefetch и загрузки следующего источника. Не возвращай HTTP/API-ошибки или объекты code/message. Не меняй код и не утверждай, что выполнял runtime-проверки.
 
           НАБЛЮДЕНИЯ (не лабораторные факты):
           - Telegram-файл → YouTube: переключилось нормально.
@@ -123,28 +123,28 @@ jobs:
               "model": "qwen3:8b",
               "prompt": prompt,
               "stream": False,
-              "think": False,
+              "think": True,
               "format": {
                   "type": "object",
                   "properties": {
                       "chain_summary": {"type": "string"},
-                      "claims": {"type": "array", "items": {
+                      "claims": {"type": "array", "minItems": 0, "maxItems": 4, "items": {
                           "type": "object",
                           "properties": {
-                              "kind": {"type": "string"},
-                              "priority": {"type": "string"},
-                              "path": {"type": "string"},
+                              "kind": {"type": "string", "enum": ["дефект", "условный риск", "гипотеза", "рекомендация"]},
+                              "priority": {"type": "string", "enum": ["высокий", "средний", "низкий"]},
+                              "path": {"type": "string", "enum": ["plei/Sources/Player.swift"]},
                               "start_line": {"type": "integer"},
                               "end_line": {"type": "integer"},
                               "quote": {"type": "string"},
                               "scenario": {"type": "string"},
-                              "confidence": {"type": "string"}
+                              "confidence": {"type": "string", "enum": ["низкая", "средняя", "высокая"]}
                           },
                           "required": ["kind", "priority", "path", "start_line", "end_line", "quote", "scenario", "confidence"],
                           "additionalProperties": False
                       }},
                       "delay_assessment": {"type": "string"},
-                      "diagnostics": {"type": "array", "items": {"type": "string"}},
+                      "diagnostics": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "string"}},
                       "limitations": {"type": "array", "items": {"type": "string"}}
                   },
                   "required": ["chain_summary", "claims", "delay_assessment", "diagnostics", "limitations"],
@@ -154,7 +154,7 @@ jobs:
                   "temperature": 0.0,
                   "top_p": 0.8,
                   "num_ctx": 8192,
-                  "num_predict": 2200
+                  "num_predict": 1800
               }
           }
           request = urllib.request.Request(
