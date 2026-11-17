@@ -1,9 +1,5 @@
 name: Pleer1 companion — focused read-only audit
 on:
-  push:
-    paths:
-      - ".github/scripts/companion_audit.py"
-      - ".github/workflows/companion-audit.yml"
   workflow_dispatch:
     inputs:
       task:
@@ -28,6 +24,17 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Verify read-only source token is configured
+        env:
+          PLEER1_READ_TOKEN: ${{ secrets.PLEER1_READ_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${PLEER1_READ_TOKEN:-}" ]]; then
+            echo "::error::PLEER1_READ_TOKEN is not configured in repository Actions secrets. No private source was accessed."
+            exit 1
+          fi
 
       - name: Checkout the current private Pleer1 working branch (read-only)
         uses: actions/checkout@v4
