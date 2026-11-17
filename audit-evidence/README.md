@@ -36,6 +36,9 @@
 - Коммиты рабочей ветки: [1fbc3cc](https://github.com/threethousandtimes555/Pleer1/commit/1fbc3cc2d389adfdd565e70d1af2d2ab8a0bf565), [e37fdaa](https://github.com/threethousandtimes555/Pleer1/commit/e37fdaa7b0335e5998d6e06e219e2e05dbbedc8c), [02815f9](https://github.com/threethousandtimes555/Pleer1/commit/02815f9df9cbf609fd4c2ff4b9ed6a2946c65fc4).
 - Поиск оставляет YouTube, Audius, Jamendo и Internet Archive; ccMixter и Funkwhale удалены.
 - Меню источников теперь должно управлять запросами к провайдерам, а выбор сохраняется локально на устройстве.
-- Финальная проверка simulator workflow для коммита 02815f9 на момент записи ещё выполняется: [run 44190085890](https://github.com/threethousandtimes555/Pleer1/actions/runs/44190085890).
+- Итоговая симуляция для коммита 02815f9 завершилась ошибкой поисковых UI-тестов: приложение скомпилировалось, но не появилась ожидаемая YouTube-строка [run 44190085890](https://github.com/threethousandtimes555/Pleer1/actions/runs/44190085890).
+- Отчёт компаньона по поиску [run 44185787207](https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/44185787207) содержит неподтверждённый вывод о том, что YouTube не участвует; не считать это установленной причиной.
+- Отчёт компаньона по playback [run 44157707730](https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/44157707730) перечисляет гипотезы о watchdog и аудиопрерываниях, но не подтверждает исправление воспроизведения.
+- Сверка исторических записей №001–010 и актуальные статусы: [Запись №012](DECISION-AND-ERROR-LOG.md#запись-№012--разбор-отчётов-компаньона-и-итоговой-симуляции-поиска).
 
 **Важно:** временный репозиторий не является зеркалом текущей приватной рабочей ветки. Не считать snapshot-файлы в `source-project/` обновлёнными этими изменениями и не переносить код из временного репозитория обратно в Pleer1. Этот раздел — указатель на текущую работу и её доказательства.
