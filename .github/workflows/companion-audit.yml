@@ -2,6 +2,12 @@ name: Pleer1 companion — staged read-only Qwen3 audit
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/scripts/companion_audit.py
+      - .github/workflows/companion-audit.yml
 
 permissions:
   contents: read
