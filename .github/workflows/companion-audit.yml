@@ -3,6 +3,8 @@ on:
   push:
     paths:
       - ".github/scripts/companion_audit.py"
+      - ".github/workflows/companion-audit.yml"
+      - "source-project/**"
   workflow_dispatch:
     inputs:
       task:
