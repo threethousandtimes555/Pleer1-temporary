@@ -11,7 +11,7 @@ STAGES = {
 def run(*args):
     return subprocess.run(args, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
 
-def clip(s, limit=14500):
+def clip(s, limit=22000):
     return s if len(s) <= limit else s[:limit] + "\n\n[Часть данных не помещена в контекст; укажи это как ограничение.]"
 
 def evidence_files():
@@ -37,11 +37,12 @@ def collect(stage):
             parts.append("=== "+key+" ===\n"+(match.group(1) if match else data[:3000]))
         return "\n\n".join(parts)
     if stage == "playback":
-        key_commits = pathlib.Path("audit-evidence/key-commits.md").read_text(encoding="utf-8")
-        return "\n\n".join("=== "+key+" ===\n"+section_for(ev[key],"plei/Sources/Player.swift") for key in ("5to12","12to14")) + "\n\n=== KEY COMMIT DIFFS WITH EXACT SHAS ===\n" + key_commits
+        return pathlib.Path("audit-evidence/playback-key-commits.md").read_text(encoding="utf-8")
     if stage == "search":
         paths=("plei/Sources/YouTubeEngine.swift","plei/Sources/YouTubeHTMLSearch.swift","plei/Sources/YouTubePlaylistEngine.swift")
-        return "\n\n".join("=== "+key+" ===\n"+"\n\n".join(section_for(ev[key],p) for p in paths) for key in ("5to12","12to14")) + "\n\n=== SELECTED COMMIT-LEVEL DIFFS ===\n" + pathlib.Path("audit-evidence/key-commits.md").read_text(encoding="utf-8")
+        aggregate = "\n\n".join("=== "+key+" ===\n"+"\n\n".join(section_for(ev[key],p) for p in paths) for key in ("5to12","12to14"))
+        exact = pathlib.Path("audit-evidence/search-key-commits.md").read_text(encoding="utf-8")
+        return aggregate + "\n\n=== EXACT SEARCH COMMIT ===\n" + exact
     if stage == "diagnostics":
         data=ev["12to14"]
         paths=("plei/Sources/Player.swift","plei/Sources/YouTubeDiagnostics.swift","plei/Sources/YouTubeEngine.swift","plei/Sources/YouTubeHTMLSearch.swift","plei/Sources/YouTubePlaylistEngine.swift")
