@@ -66,7 +66,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: threethousandtimes555/Pleer1
-          token: \${{ secrets.PLEER1_READ_TOKEN }}
+          token: ${{ secrets.PLEER1_READ_TOKEN }}
           ref: work/restore-youtube-module-2026-11-17
           path: source-project
           fetch-depth: 1
@@ -86,7 +86,7 @@ jobs:
           git -C source-project rev-parse HEAD
       - name: Run exactly one focused audit
         env:
-          AUDIT_TASK: \${{ github.event.inputs.task || 'search' }}
+          AUDIT_TASK: ${{ github.event.inputs.task || 'search' }}
           PLEER1_SOURCE_DIR: source-project/plei/Sources
           PLEER1_TEST_DIR: source-project/plei/UITests
         shell: bash
@@ -98,7 +98,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pleer1-companion-\${{ github.event.inputs.task || 'search' }}
+          name: pleer1-companion-${{ github.event.inputs.task || 'search' }}
           path: reports/*.md
           if-no-files-found: warn
           retention-days: 30
