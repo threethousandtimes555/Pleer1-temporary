@@ -3,7 +3,6 @@ on:
   push:
     paths:
       - ".github/scripts/companion_audit.py"
-      - ".github/workflows/companion-audit.yml"
   workflow_dispatch:
     inputs:
       task:
@@ -28,6 +27,41 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Diagnose read-only token access without exposing it
+        env:
+          GH_TOKEN: ${{ secrets.PLEER1_READ_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::error::PLEER1_READ_TOKEN secret is empty or unavailable to this workflow."
+            exit 1
+          fi
+          body="$RUNNER_TEMP/pleer1-token-check.json"
+          status="$(curl --silent --show-error --output "$body" --write-out "%{http_code}" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/threethousandtimes555/Pleer1)"
+          echo "Repository API HTTP status: $status"
+          if [[ "$status" != "200" ]]; then
+            echo "GitHub API response: $(jq -r '.message // "No error message returned"' "$body" 2>/dev/null || echo "unreadable response")"
+            echo "::error::The token could not read the Pleer1 repository metadata. Check token owner, selected repository, expiration, and Contents: Read-only permission."
+            exit 1
+          fi
+          echo "Repository metadata access: OK"
+          content_status="$(curl --silent --show-error --output "$body" --write-out "%{http_code}" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/threethousandtimes555/Pleer1/contents/plei/Sources?ref=work/restore-youtube-module-2026-11-17")"
+          echo "Source contents API HTTP status: $content_status"
+          if [[ "$content_status" != "200" ]]; then
+            echo "GitHub API response: $(jq -r '.message // "No error message returned"' "$body" 2>/dev/null || echo "unreadable response")"
+            echo "::error::The token can read repository metadata but cannot read the source directory on the requested branch."
+            exit 1
+          fi
+          echo "Source directory access: OK"
       - name: Checkout current Pleer1 working branch as audit source
         uses: actions/checkout@v4
         with:
