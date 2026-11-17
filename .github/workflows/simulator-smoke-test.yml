@@ -2,6 +2,9 @@ name: Pleer1 simulator build and search smoke test
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
