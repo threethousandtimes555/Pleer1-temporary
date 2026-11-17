@@ -4,7 +4,6 @@ on:
     paths:
       - ".github/scripts/companion_audit.py"
       - ".github/workflows/companion-audit.yml"
-      - "source-project/**"
   workflow_dispatch:
     inputs:
       task:
@@ -29,15 +28,30 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Verify pinned read-only source snapshot
+
+      - name: Checkout the current private Pleer1 working branch (read-only)
+        uses: actions/checkout@v4
+        with:
+          repository: threethousandtimes555/Pleer1
+          ref: work/restore-youtube-module-2026-11-17
+          token: ${{ secrets.PLEER1_READ_TOKEN }}
+          path: pleer1-source
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify and identify exact source revision
+        id: source
         shell: bash
         run: |
           set -euo pipefail
-          test -s source-project/plei/Sources/Player.swift
-          test -s source-project/plei/Sources/Providers.swift
-          test -s source-project/plei/Sources/YouTubeEngine.swift
-          test -s source-project/plei/UITests/SearchSmokeTests.swift
-          echo "Pinned Pleer1 source snapshot: 14d8920008878319555276637c7f4790ed7e4ddf"
+          test -s pleer1-source/plei/Sources/Player.swift
+          test -s pleer1-source/plei/Sources/Providers.swift
+          test -s pleer1-source/plei/Sources/YouTubeEngine.swift
+          test -s pleer1-source/plei/UITests/SearchSmokeTests.swift
+          SHA="$(git -C pleer1-source rev-parse HEAD)"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Auditing private Pleer1 working branch at $SHA"
+
       - name: Start local Ollama and load Qwen3 8B once
         shell: bash
         run: |
@@ -50,16 +64,18 @@ jobs:
           curl --silent --fail http://127.0.0.1:11434/api/tags >/dev/null
           timeout --signal=TERM --kill-after=20s 35m docker exec ollama ollama pull qwen3:8b
           python3 --version
+
       - name: Run exactly one focused audit
         env:
           AUDIT_TASK: ${{ github.event.inputs.task || 'search' }}
-          PLEER1_SOURCE_DIR: source-project/plei/Sources
-          PLEER1_TEST_DIR: source-project/plei/UITests
+          PLEER1_SOURCE_DIR: pleer1-source/plei/Sources
+          PLEER1_TEST_DIR: pleer1-source/plei/UITests
+          PLEER1_SOURCE_SHA: ${{ steps.source.outputs.sha }}
         shell: bash
         run: |
           set -euo pipefail
-          export PLEER1_SOURCE_SHA="14d8920008878319555276637c7f4790ed7e4ddf"
           python3 .github/scripts/companion_audit.py "$AUDIT_TASK"
+
       - name: Upload focused report
         if: always()
         uses: actions/upload-artifact@v4
