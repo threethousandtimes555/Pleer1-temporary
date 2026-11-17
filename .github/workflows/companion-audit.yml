@@ -141,14 +141,14 @@ jobs:
                               "confidence": {"type": "string"}
                           },
                           "required": ["kind", "priority", "path", "start_line", "end_line", "quote", "scenario", "confidence"],
-                          "additionalProperties": false
+                          "additionalProperties": False
                       }},
                       "delay_assessment": {"type": "string"},
                       "diagnostics": {"type": "array", "items": {"type": "string"}},
                       "limitations": {"type": "array", "items": {"type": "string"}}
                   },
                   "required": ["chain_summary", "claims", "delay_assessment", "diagnostics", "limitations"],
-                  "additionalProperties": false
+                  "additionalProperties": False
               },
               "options": {
                   "temperature": 0.0,
