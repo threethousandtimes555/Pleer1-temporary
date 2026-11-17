@@ -1,7 +1,7 @@
 import XCTest
 
 final class SearchSmokeTests: XCTestCase {
-    func testSearchCompletesAndReportsVisibleResults() {
+    func testSearchFindsPrygaiKiska() {
         let app = XCUIApplication()
         app.launch()
 
@@ -12,24 +12,29 @@ final class SearchSmokeTests: XCTestCase {
         }
         XCTAssertTrue(searchField.waitForExistence(timeout: 15), "Search field did not appear")
 
+        let query = "Прыгай киска"
         searchField.tap()
-        searchField.typeText("Daft Punk")
+        searchField.typeText(query)
         searchField.typeText("\n")
 
-        let jamendoCompletion = app.staticTexts["Нет ключа Jamendo (Настройки)"]
+        let expectedTrack = app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS[cd] %@", query)
+        ).firstMatch
+
         XCTAssertTrue(
-            jamendoCompletion.waitForExistence(timeout: 90),
-            "Search did not reach SearchModel completion within 90 seconds"
+            expectedTrack.waitForExistence(timeout: 90),
+            "Search completed without showing a result containing: \(query)"
         )
 
         let visibleRows = app.cells.count
         let screenshot = XCTAttachment(screenshot: app.screenshot())
-        screenshot.name = "Pleer1 search results — Daft Punk"
+        screenshot.name = "Pleer1 search results — Прыгай киска"
         screenshot.lifetime = .keepAlways
         add(screenshot)
 
-        print("SEARCH_SMOKE_QUERY=Daft Punk")
+        print("SEARCH_SMOKE_QUERY=\(query)")
+        print("SEARCH_SMOKE_MATCH=\(expectedTrack.label)")
         print("SEARCH_SMOKE_VISIBLE_CELLS=\(visibleRows)")
-        print("SEARCH_SMOKE_COMPLETION=confirmed")
+        print("SEARCH_SMOKE_RESULT=confirmed")
     }
 }
