@@ -35,7 +35,7 @@ def collect(stage):
             data=ev[key]
             match=re.search(r"## Commit sequence\n(.*?)\n\n## Per-file diffs",data,re.S)
             parts.append("=== "+key+" ===\n"+(match.group(1) if match else data[:3000]))
-        return "\n\n".join(parts)
+        return "\n\n".join(parts) + "\n\n=== LIMITATIONS AND COMMIT ANCHORS ===\n" + pathlib.Path("audit-evidence/README.md").read_text(encoding="utf-8")
     if stage == "playback":
         return pathlib.Path("audit-evidence/playback-key-commits.md").read_text(encoding="utf-8")
     if stage == "search":
