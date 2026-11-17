@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'plei/**'
+      - '.github/workflows/simulator-smoke-test.yml'
 
 permissions:
   contents: read
