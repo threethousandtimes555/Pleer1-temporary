@@ -37,10 +37,11 @@ def collect(stage):
             parts.append("=== "+key+" ===\n"+(match.group(1) if match else data[:3000]))
         return "\n\n".join(parts)
     if stage == "playback":
-        return "\n\n".join("=== "+key+" ===\n"+section_for(ev[key],"plei/Sources/Player.swift") for key in ("5to12","12to14"))
+        key_commits = pathlib.Path("audit-evidence/key-commits.md").read_text(encoding="utf-8")
+        return "\n\n".join("=== "+key+" ===\n"+section_for(ev[key],"plei/Sources/Player.swift") for key in ("5to12","12to14")) + "\n\n=== KEY COMMIT DIFFS WITH EXACT SHAS ===\n" + key_commits
     if stage == "search":
         paths=("plei/Sources/YouTubeEngine.swift","plei/Sources/YouTubeHTMLSearch.swift","plei/Sources/YouTubePlaylistEngine.swift")
-        return "\n\n".join("=== "+key+" ===\n"+"\n\n".join(section_for(ev[key],p) for p in paths) for key in ("5to12","12to14"))
+        return "\n\n".join("=== "+key+" ===\n"+"\n\n".join(section_for(ev[key],p) for p in paths) for key in ("5to12","12to14")) + "\n\n=== SELECTED COMMIT-LEVEL DIFFS ===\n" + pathlib.Path("audit-evidence/key-commits.md").read_text(encoding="utf-8")
     if stage == "diagnostics":
         data=ev["12to14"]
         paths=("plei/Sources/Player.swift","plei/Sources/YouTubeDiagnostics.swift","plei/Sources/YouTubeEngine.swift","plei/Sources/YouTubeHTMLSearch.swift","plei/Sources/YouTubePlaylistEngine.swift")
