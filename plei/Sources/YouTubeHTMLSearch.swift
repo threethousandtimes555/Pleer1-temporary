@@ -91,7 +91,7 @@ enum YouTubeHTMLSearch {
         return nil
     }
 
-    private static func tracks(from raw: Any, includeCollections: Bool, searchID: String) -> [Track] {
+    static func tracks(from raw: Any, includeCollections: Bool, searchID: String) -> [Track] {
         var items: [[String: Any]] = []
         findVideoItems(raw, into: &items)
 
