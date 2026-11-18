@@ -10,6 +10,9 @@ struct Track: Codable, Identifiable, Hashable {
     var archive: String? = nil
     var added: Double = 0
     var artFile: String? = nil
+    var youtubePlaylistID: String? = nil
+    var youtubeRadioID: String? = nil
+    var youtubeRadioVideoID: String? = nil
 
     var isLocal: Bool { return file != nil }
 
