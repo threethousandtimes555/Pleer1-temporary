@@ -1,4 +1,4 @@
-name: Pleer1 simulator build and search smoke test # current Lab source sync
+name: Pleer1 iOS device build and simulator tests
 
 on:
   workflow_dispatch:
@@ -34,6 +34,18 @@ jobs:
         working-directory: plei
         run: xcodegen generate
 
+      - name: Build app for generic iOS device
+        working-directory: plei
+        run: |
+          set -o pipefail
+          xcodebuild build \\
+            -project Plei.xcodeproj \\
+            -scheme Plei \\
+            -destination 'generic/platform=iOS' \\
+            -derivedDataPath "$RUNNER_TEMP/Pleer1DeviceDerivedData" \\
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \\
+            2>&1 | tee "$RUNNER_TEMP/pleer1-ios-device-build.log"
+
       - name: Select simulator and run app plus search UI test
         shell: bash
         run: |
@@ -65,5 +77,6 @@ jobs:
           path: |
             ${{ runner.temp }}/Pleer1Simulator.xcresult
             ${{ runner.temp }}/pleer1-simulator.log
+            ${{ runner.temp }}/pleer1-ios-device-build.log
           if-no-files-found: warn
           retention-days: 7
