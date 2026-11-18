@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - verify/youtube-search-macos-2026-11-18
     paths:
       - 'plei/**'
       - '.github/workflows/simulator-smoke-test.yml'
