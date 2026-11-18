@@ -406,3 +406,18 @@
 - **Проверка исправления:** run #33 [44205801639](https://github.com/threethousandtimes555/Pleer1/actions/runs/44205801639) проверяет запрос `Concrete` и существующий отдельный сценарий плейлиста. На момент записи выполняется; до завершения нельзя объявлять поиск исправленным.
 - **Диагностика воспроизведения:** commit [2eb85bf6](https://github.com/threethousandtimes555/Pleer1/commit/2eb85bf6a6c062ddcf6248fad8539e002063e9f1) добавил вывод событий YouTubeDiagnostics в консоль simulator tests, чтобы следующая проверка показала точную ошибку resolve/HTTP, а не только `0:00`. Run #34 ожидает освобождения simulator job.
 - **Границы:** изменена только рабочая ветка `work/restore-youtube-module-2026-11-17` и этот журнал во временном публичном репозитории. `main`, стабильный checkpoint и PR не изменялись.
+
+
+#### Дополнение к записи №019 — точное время и результаты simulator run #33
+
+- **Часовой пояс:** все timestamps GitHub Actions ниже приведены в UTC; местное время Нидерландов 18.11.2026 — CET (UTC+1).
+- **Run #33:** [44205801639](https://github.com/threethousandtimes555/Pleer1/actions/runs/44205801639), commit `4892ceee`.
+  - Workflow создан/запущен: **18.11.2026 00:11:44 UTC (01:11:44 CET)**.
+  - Simulator job начался: **00:11:56 UTC (01:11:56 CET)**.
+  - Первый UI-сценарий начался: **00:13:43 UTC (01:13:43 CET)**; завершился ошибкой в **00:15:23 UTC (01:15:23 CET)**.
+  - Второй UI-сценарий начался: **00:15:23 UTC (01:15:23 CET)**; завершился ошибкой в **00:18:34 UTC (01:18:34 CET)**.
+  - Xcode test run закончен: **00:18:57 UTC (01:18:57 CET)**; GitHub Actions run обновлён/завершён: **00:19:22 UTC (01:19:22 CET)**.
+  - Итог: **2 UI tests, 3 failures**. Standalone-video test не нашёл YouTube video; playlist test не нашёл ожидаемый YouTube playlist. В этом run playback до выбора трека не дошёл, поэтому он не проверяет и не опровергает аудио-resolve.
+- **Диагностика поиска из accessibility hierarchy:** интерфейс показал `YouTube не вернул распознанных видео ни через InnerTube, ни через резервную HTML-страницу.` Для `Concrete` в списке были Audius-треки, но не YouTube-видео. Для `crystal castles playlist` видны Archive результаты, включая `Crystal Castles Playlist`, а не YouTube playlist. Это означает, что UI smoke test подтвердил отсутствие распознанных YouTube результатов в этих двух запросах; точная причина HTTP/response parsing пока не установлена.
+- **Run #34:** [44206068634](https://github.com/threethousandtimes555/Pleer1/actions/runs/44206068634), commit `2eb85bf6`. Workflow создан **00:13:38 UTC (01:13:38 CET)**; simulator job реально стартовал **00:19:24 UTC (01:19:24 CET)**. Он добавляет `PLEER1_DIAG` строки в CI-консоль для фиксации HTTP-статусов, структуры ответов и числа распознанных renderer-ов. На момент этого дополнения run ещё выполнялся; его результат не предполагать.
+- **Следующее действие:** получить диагностические строки run #34 и определить, является ли причиной сетевой/HTTP отказ YouTube, изменение формата ответа или недостаток parser-а. До этого не добавлять новые поисковые параметры и не запускать дополнительные симуляции.
