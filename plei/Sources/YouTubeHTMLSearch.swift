@@ -102,7 +102,10 @@ enum YouTubeHTMLSearch {
         }
         let playlists = includeCollections ? YouTubePlaylistEngine.playlistTracks(from: raw) : []
         let radios = includeCollections ? YouTubePlaylistEngine.radioTracks(from: raw) : []
-        let combined = (videos + playlists + radios).filter { seen.insert($0.id).inserted }
+        // Video IDs are already in seen; deduplicate collections separately so
+        // the final merge does not accidentally filter out every parsed video.
+        let collections = (playlists + radios).filter { seen.insert($0.id).inserted }
+        let combined = videos + collections
         YouTubeDiagnostics.record("search.html.parse.summary", details: "id=\(searchID), candidates=\(items.count), videos=\(videos.count), playlists=\(playlists.count), radios=\(radios.count), returned=\(combined.count)")
         return combined
     }
