@@ -966,3 +966,15 @@
 - **Ограничение:** доступные GitHub-инструменты предоставляют чтение workflow runs и логов, но не отмену run. Поэтому уже созданные #45 (queued) и #47 (pending) нельзя было отменить из этого чата; это не означает, что они завершились или прошли тесты. Пользователь может вручную отменить их в GitHub Actions UI, если они ещё ожидают запуска.
 - **Статус:** push-триггер удалён и изменение сохранено в изолированной ветке. Новый macOS-only Codemagic workflow не затрагивается. Старый simulator workflow оставлен для ручного запуска по явному решению пользователя.
 - **Следующий шаг:** запустить только Codemagic workflow pleer1-macos-search-tests; не нажимать Run для simulator workflow.
+
+
+### Запись №054 — успешный macOS harness: все пять групп assertions пройдены
+
+- **Дата:** 18.11.2026.
+- **Область:** YouTube search intent / InnerTube parser / HTML parser / CI verification.
+- **Codemagic:** build ID `6afdede1d133a39c4a12cf2a`; workflow `Pleer1 macOS YouTube search logic tests (no simulator)`; branch `verify/youtube-search-macos-2026-11-18`; commit `96b067c`; runner Mac mini M2.
+- **Артефакт:** пользователь передал `Pleer1-temporary_2_artifacts.zip`. Проверен `ci-results/macos-search-tests.log`; compile log `macos-search-compile.log` пустой. Исполняемый harness завершился строкой `SEARCH_LOGIC_HARNESS: PASS (5 groups)`.
+- **Фактические parser assertions в логе:** InnerTube track mode: `videos=1, playlists=0, radios=0, returned=1`; InnerTube collection mode: `videos=1, playlists=1, radios=1, returned=3`; HTML track mode: `videos=1, playlists=0, radios=0, returned=1`; HTML collection mode: `videos=1, playlists=1, radios=1, returned=3`. Остальные группы harness проверяют intent classification, direct playlist/Mix URLs и различение обычного playlistRenderer от RD Mix.
+- **Вывод:** исправление дедупликации в обоих production parser-путях прошло исполняемые fixture assertions на macOS. Это успешная проверка логики на тестовых данных, не live YouTube network test, не XCTest/iOS UI test и не подтверждение выдачи в установленной сборке на iPhone.
+- **Ограничения:** Codemagic build использовал отдельный workflow без iOS Simulator; решение пользователя прекратить повторные симуляции соблюдено. Main и Pleer1-Lab не изменялись.
+- **Следующий шаг:** зафиксировать успех и оценить следующий минимальный этап проверки реального поиска без повторения уже подтверждённых playlist/audio тестов и без запуска симулятора.
