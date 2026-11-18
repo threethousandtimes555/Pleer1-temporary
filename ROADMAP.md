@@ -324,7 +324,7 @@ HTML fallback получает HTTP 200, но не извлекает `ytInitial
 
 Harness проверяет пять групп сценариев: распознавание track-vs-collection intent; InnerTube parser в обоих режимах; HTML parser в обоих режимах; прямые URL плейлиста и Mix; классификацию RD Mix отдельно от обычного плейлиста. Для проверки HTML parser его метод tracks(from:includeCollections:searchID:) сделан internal вместо private; логика парсера не изменена. Harness находится в verification/SearchLogicHarness.swift.
 
-Коммиты: harness 0ab127c; доступность HTML parser для теста a067853; отдельный macOS Codemagic workflow a216698. Текущий head ветки verify/youtube-search-macos-2026-11-18 — a216698b50f554e6cc8700d03bba6ee39ea16780.
+Коммиты: harness 0ab127c; доступность HTML parser для теста a067853; отдельный macOS Codemagic workflow a216698; переносимый вывод ошибки harness 3602165. После документальных коммитов текущий head ветки обновился до 3602165952778d5dabf3fe0d00c8844bf8037750.
 
 Статус: конфигурация и сценарии добавлены и сохранены в изолированной публичной временной ветке. Сам macOS compile/run ещё не выполнялся; не считать исправление прошедшим тест. GitHub Actions #45 и #46 по-прежнему были queued/pending при последней проверке. Новых симуляторных запусков не инициировано. Main, Pleer1-Lab и Pleer1-Next не изменялись.
 
