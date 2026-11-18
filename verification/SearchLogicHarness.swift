@@ -90,8 +90,7 @@ struct SearchLogicHarness {
 
     private static func expect(_ condition: @autoclosure () -> Bool, _ message: String) {
         guard condition() else {
-            fputs("SEARCH_LOGIC_HARNESS: FAIL — \(message)\n", stderr)
-            exit(1)
+            fatalError("SEARCH_LOGIC_HARNESS: FAIL — \(message)")
         }
     }
 }
