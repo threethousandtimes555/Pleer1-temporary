@@ -66,6 +66,8 @@ struct MiniPlayer: View {
             .padding(.bottom, 4)
             .contentShape(Rectangle())
             .onTapGesture { show = true }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("player.mini")
         }
     }
 }
@@ -93,7 +95,7 @@ struct TrackRow: View {
                     Cover(track: track, size: 56)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(track.title).lineLimit(2)
-                        Text(track.artist + (track.tag.isEmpty ? "" : " · " + track.tag))
+                        Text(track.artist + (track.youtubeRadioID != nil ? " · YouTube-микс" : (track.youtubePlaylistID == nil ? (track.tag.isEmpty ? "" : " · " + track.tag) : " · YouTube-плейлист")))
                             .font(.footnote)
                             .foregroundColor(.secondary)
                             .lineLimit(1)
@@ -103,8 +105,13 @@ struct TrackRow: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier(
+                track.tag == "YouTube" && track.youtubePlaylistID == nil && track.youtubeRadioID == nil
+                    ? "search.result.youtube.track"
+                    : "search.result.track"
+            )
 
-            if !track.isLocal && track.archive == nil {
+            if !track.isLocal && track.archive == nil && track.youtubePlaylistID == nil && track.youtubeRadioID == nil {
                 Button { store.toggleFav(track) } label: {
                     Image(systemName: store.isFav(track) ? "heart.fill" : "heart").foregroundColor(accent)
                 }
@@ -123,7 +130,7 @@ struct TrackRow: View {
                         }
                     }
                 }
-                if !track.isLocal && track.archive == nil {
+                if !track.isLocal && track.archive == nil && track.youtubePlaylistID == nil && track.youtubeRadioID == nil {
                     Button(store.isFav(track) ? "Убрать из избранного" : "В избранное") { store.toggleFav(track) }
                 }
                 if track.isLocal || store.isFav(track) || removeLabel != nil {
@@ -142,7 +149,7 @@ struct TrackRow: View {
             .buttonStyle(.borderless)
         }
         .swipeActions(edge: .leading) {
-            if !track.isLocal && track.archive == nil {
+            if !track.isLocal && track.archive == nil && track.youtubePlaylistID == nil && track.youtubeRadioID == nil {
                 Button { store.toggleFav(track) } label: { Label("Лайк", systemImage: "heart") }
                     .tint(.pink)
             }
@@ -168,12 +175,7 @@ struct SearchView: View {
     @EnvironmentObject var player: Player
     @StateObject private var model = SearchModel()
     @State private var q = ""
-    @State private var filter = ""
     @Binding var showPlayer: Bool
-
-    var shown: [Track] {
-        return filter.isEmpty ? model.results : model.results.filter { $0.tag == filter }
-    }
 
     var body: some View {
         NavigationStack {
@@ -185,8 +187,8 @@ struct SearchView: View {
                         }
                     }
                 }
-                ForEach(shown) { t in
-                    TrackRow(track: t, list: shown)
+                ForEach(model.results) { t in
+                    TrackRow(track: t, list: model.results)
                 }
             }
             .listStyle(.plain)
@@ -196,16 +198,22 @@ struct SearchView: View {
             .onSubmit(of: .search) {
                 let text = q.trimmingCharacters(in: .whitespaces)
                 if text.isEmpty { return }
-                Task { await model.run(text, key: store.jamendoKey, host: store.funkHost) }
+                Task { await model.run(text, key: store.jamendoKey, enabledSources: store.enabledSearchSources) }
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
-                        Picker("Источник", selection: $filter) {
-                            Text("Все").tag("")
-                            ForEach(["YouTube", "Jamendo", "Audius", "ccMixter", "Funkwhale", "Archive"], id: \.self) { n in
-                                Text(n).tag(n)
-                            }
+                        ForEach(["YouTube", "Audius", "Jamendo", "Archive"], id: \.self) { source in
+                            Toggle(source, isOn: Binding(
+                                get: { store.enabledSearchSources.contains(source) },
+                                set: { enabled in
+                                    if enabled {
+                                        store.enabledSearchSources.insert(source)
+                                    } else {
+                                        store.enabledSearchSources.remove(source)
+                                    }
+                                }
+                            ))
                         }
                     } label: {
                         Image(systemName: "line.3.horizontal.decrease.circle")
@@ -365,6 +373,8 @@ struct SettingsView: View {
     @State private var diagnosticsRevision = 0
 
     var body: some View {
+        let journalSnapshot = YouTubeDiagnostics.exportText
+        let journalLines = journalSnapshot.split(whereSeparator: \.isNewline).count
         NavigationStack {
             Form {
                 Section("Jamendo (client_id)") {
@@ -372,13 +382,8 @@ struct SettingsView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 }
-                Section("Funkwhale (сервер)") {
-                    TextField("open.audio", text: $store.funkHost)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                }
-                Section("Диагностика переключения") {
-                    Text("Журнал хранится только на этом iPhone и не отправляется автоматически. Здесь будут отметки окончания трека, перехода очереди и запуска следующего источника.")
+                Section("Отладка YouTube") {
+                    Text("Журнал хранится только на этом iPhone. В нём есть поисковые запросы, ответы YouTube и состояние аудиоплеера. Он не отправляется автоматически.")
                         .font(.footnote)
                         .foregroundColor(.secondary)
                     Button {
@@ -386,9 +391,13 @@ struct SettingsView: View {
                     } label: {
                         Label("Обновить журнал", systemImage: "arrow.clockwise")
                     }
-                    ShareLink(item: YouTubeDiagnostics.exportText) {
+                    Text("Снимок: \(journalLines) строк · \(journalSnapshot.count) символов")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    ShareLink(item: journalSnapshot) {
                         Label("Поделиться журналом", systemImage: "square.and.arrow.up")
                     }
+                    .disabled(journalSnapshot.isEmpty)
                     .id(diagnosticsRevision)
                     Button("Очистить журнал", role: .destructive) {
                         YouTubeDiagnostics.clear()
@@ -424,10 +433,13 @@ struct SeekBar: View {
                     if !e { player.seek(value) }
                 }
             )
+            .accessibilityIdentifier("player.seekbar")
             HStack {
                 Text(fmt(seeking ? value : clock.position))
+                    .accessibilityIdentifier("player.elapsed")
                 Spacer()
                 Text(fmt(clock.duration))
+                    .accessibilityIdentifier("player.duration")
             }
             .font(.caption)
             .foregroundColor(.secondary)
@@ -475,6 +487,7 @@ struct PlayerView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(t.title).font(.title3.weight(.semibold)).lineLimit(2)
+                                    .accessibilityIdentifier("player.track.title")
                                 Text(t.artist).foregroundColor(.secondary).lineLimit(1)
                             }
                             Spacer()
@@ -498,6 +511,7 @@ struct PlayerView: View {
                             }
                             Button { player.advance() } label: { Image(systemName: "forward.fill").font(.title) }
                             Button { showQueue = true } label: { Image(systemName: "list.bullet") }
+                                .accessibilityIdentifier("player.queue.open")
                         }
                         .font(.title2)
                         .foregroundColor(.primary)
@@ -567,6 +581,7 @@ struct QueueView: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("player.queue.track.\(i)")
                 }
             }
             .listStyle(.plain)
