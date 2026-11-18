@@ -45,7 +45,9 @@ enum YouTubeEngine {
     static func search(_ query: String) async throws -> [Track] {
         let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalized.isEmpty else { return [] }
-        YouTubeDiagnostics.record("search.begin", details: "query=\(normalized)")
+        let searchID = String(UUID().uuidString.prefix(8))
+        let includeCollections = YouTubeSearchIntent.includesCollections(for: normalized)
+        YouTubeDiagnostics.record("search.begin", details: "id=\(searchID), query=\(normalized), mode=\(includeCollections ? "collections+videos" : "videos")")
         if let playlist = YouTubePlaylistEngine.playlistTrack(from: normalized) {
             YouTubeDiagnostics.record("search.input_playlist", details: "id=\(playlist.id)")
             return [playlist]
@@ -53,27 +55,27 @@ enum YouTubeEngine {
 
         // Start both independent transports together, but retain each error
         // instead of swallowing it so the exported journal shows which path failed.
-        async let primaryTask = searchInnerTube(normalized)
-        async let fallbackTask = YouTubeHTMLSearch.search(normalized)
+        async let primaryTask = searchInnerTube(normalized, searchID: searchID, includeCollections: includeCollections)
+        async let fallbackTask = YouTubeHTMLSearch.search(normalized, searchID: searchID, includeCollections: includeCollections)
 
         var primary: [Track] = []
         var fallback: [Track] = []
         do {
             primary = try await primaryTask
-            YouTubeDiagnostics.record("search.innertube.success", details: "tracks=\(primary.count)")
+            YouTubeDiagnostics.record("search.innertube.success", details: "id=\(searchID), tracks=\(primary.count)")
         } catch {
-            YouTubeDiagnostics.record("search.innertube.failure", details: error.localizedDescription)
+            YouTubeDiagnostics.record("search.innertube.failure", details: "id=\(searchID), error=\(error.localizedDescription)")
         }
         do {
             fallback = try await fallbackTask
-            YouTubeDiagnostics.record("search.html.success", details: "tracks=\(fallback.count)")
+            YouTubeDiagnostics.record("search.html.success", details: "id=\(searchID), tracks=\(fallback.count)")
         } catch {
-            YouTubeDiagnostics.record("search.html.failure", details: error.localizedDescription)
+            YouTubeDiagnostics.record("search.html.failure", details: "id=\(searchID), error=\(error.localizedDescription)")
         }
 
         var seen = Set<String>()
         let combined = (primary + fallback).filter { seen.insert($0.id).inserted }
-        YouTubeDiagnostics.record("search.complete", details: "innertube=\(primary.count), html=\(fallback.count), merged=\(combined.count)")
+        YouTubeDiagnostics.record("search.complete", details: "id=\(searchID), innertube=\(primary.count), html=\(fallback.count), merged=\(combined.count)")
 
         guard !combined.isEmpty else {
             throw makeError("YouTube не вернул распознанных видео ни через InnerTube, ни через резервную HTML-страницу.")
@@ -81,39 +83,51 @@ enum YouTubeEngine {
         return combined
     }
 
-    private static func searchInnerTube(_ query: String) async throws -> [Track] {
-        let body: [String: Any] = [
+    private static func searchInnerTube(_ query: String, searchID: String, includeCollections: Bool) async throws -> [Track] {
+        var body: [String: Any] = [
             "context": ["client": [
                 "clientName": "WEB",
                 "clientVersion": "2.20241126.01.00",
                 "hl": "ru",
                 "gl": "RU"
             ]],
-            "query": query,
+            "query": query
         ]
-        YouTubeDiagnostics.record("search.innertube.request", details: "client=WEB, query=\(query)")
+        // Apply YouTube's Videos filter only to ordinary track searches.
+        // Explicit playlist/Mix searches must keep the collection renderers.
+        if !includeCollections {
+            body["params"] = "EgIQAQ%3D%3D"
+        }
+        YouTubeDiagnostics.record("search.innertube.request", details: "id=\(searchID), client=WEB, query=\(query), includeCollections=\(includeCollections), videoFilter=\(!includeCollections)")
         let raw = try await post(searchURL, body: body, headers: [
             "Origin": "https://www.youtube.com",
             "Referer": "https://www.youtube.com/"
         ])
-        let parsed = tracks(from: raw)
-        YouTubeDiagnostics.record("search.innertube.parsed", details: "tracks=\(parsed.count)")
+        let parsed = tracks(from: raw, includeCollections: includeCollections, searchID: searchID)
+        YouTubeDiagnostics.record("search.innertube.parsed", details: "id=\(searchID), tracks=\(parsed.count)")
         return parsed
     }
 
-    private static func tracks(from raw: Any) -> [Track] {
+    static func tracks(from raw: Any, includeCollections: Bool, searchID: String = "fixture") -> [Track] {
+        let rootKeys = ((raw as? [String: Any])?.keys.sorted() ?? []).joined(separator: ",")
+        let rendererKeys = ["videoRenderer", "gridVideoRenderer", "compactVideoRenderer", "videoWithContextRenderer", "reelItemRenderer", "playlistPanelVideoRenderer", "musicResponsiveListItemRenderer", "lockupViewModel"]
+        let rendererCounts = rendererKeys.map { "\($0)=\(countOccurrences(of: $0, in: raw))" }.joined(separator: ",")
+        YouTubeDiagnostics.record("search.response.structure", details: "id=\(searchID), rootKeys=\(rootKeys), renderers={\(rendererCounts)}")
+
         var items: [[String: Any]] = []
         findVideoItems(raw, into: &items)
+        YouTubeDiagnostics.record("search.parse.candidates", details: "id=\(searchID), candidateItems=\(items.count)")
 
         var seen = Set<String>()
         let videos = items.compactMap { item -> Track? in
             guard let track = track(from: item), seen.insert(track.id).inserted else { return nil }
             return track
         }
-        let playlists = YouTubePlaylistEngine.playlistTracks(from: raw)
-        let radios = YouTubePlaylistEngine.radioTracks(from: raw)
-        YouTubeDiagnostics.record("search.parse.summary", details: "videos=\(videos.count), playlists=\(playlists.count), radios=\(radios.count)")
-        return (videos + playlists + radios).filter { seen.insert($0.id).inserted }
+        let playlists = includeCollections ? YouTubePlaylistEngine.playlistTracks(from: raw) : []
+        let radios = includeCollections ? YouTubePlaylistEngine.radioTracks(from: raw) : []
+        let combined = (videos + playlists + radios).filter { seen.insert($0.id).inserted }
+        YouTubeDiagnostics.record("search.parse.summary", details: "id=\(searchID), candidates=\(items.count), videos=\(videos.count), playlists=\(playlists.count), radios=\(radios.count), returned=\(combined.count)")
+        return combined
     }
 
     private static func track(from item: [String: Any]) -> Track? {
@@ -335,9 +349,19 @@ enum YouTubeEngine {
 
     // MARK: Search response parsing
 
+    private static func countOccurrences(of key: String, in value: Any) -> Int {
+        if let object = value as? [String: Any] {
+            return (object[key] == nil ? 0 : 1) + object.values.reduce(0) { $0 + countOccurrences(of: key, in: $1) }
+        }
+        if let array = value as? [Any] {
+            return array.reduce(0) { $0 + countOccurrences(of: key, in: $1) }
+        }
+        return 0
+    }
+
     private static func findVideoItems(_ value: Any, into result: inout [[String: Any]]) {
         if let object = value as? [String: Any] {
-            for key in ["videoRenderer", "gridVideoRenderer", "compactVideoRenderer", "videoWithContextRenderer", "reelItemRenderer", "playlistPanelVideoRenderer"] {
+            for key in ["videoRenderer", "gridVideoRenderer", "compactVideoRenderer", "videoWithContextRenderer", "reelItemRenderer"] {
                 if let renderer = object[key] as? [String: Any],
                    string(renderer["videoId"]) != nil {
                     result.append(["__videoRenderer": renderer])
