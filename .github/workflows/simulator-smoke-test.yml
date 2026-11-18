@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: pleer1-temporary-simulator-smoke-v2
+  group: pleer1-temporary-simulator-smoke-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
