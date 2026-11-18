@@ -1,0 +1,59 @@
+workflows:
+  pleer1-ios-simulator:
+    name: Pleer1 iOS build and simulator tests
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+    scripts:
+      - name: Install XcodeGen
+        script: |
+          set -euo pipefail
+          brew install xcodegen
+
+      - name: Generate Xcode project
+        script: |
+          set -euo pipefail
+          cd "$CM_BUILD_DIR/plei"
+          xcodegen generate
+
+      - name: Build app for generic iOS device (unsigned)
+        script: |
+          set -euo pipefail
+          mkdir -p "$CM_BUILD_DIR/ci-results"
+          cd "$CM_BUILD_DIR/plei"
+          set -o pipefail
+          xcodebuild build \
+            -project Plei.xcodeproj \
+            -scheme Plei \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$CM_BUILD_DIR/ci-results/DeviceDerivedData" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            2>&1 | tee "$CM_BUILD_DIR/ci-results/ios-device-build.log"
+
+      - name: Boot iPhone simulator and run UI tests
+        script: |
+          set -euo pipefail
+          DEVICE_ID="$(xcrun simctl list devices available --json | python3 -c 'import json,sys; d=json.load(sys.stdin); xs=[x for group in d["devices"].values() for x in group if x["isAvailable"] and x["name"].startswith("iPhone")]; print(xs[0]["udid"] if xs else "")')"
+          if [ -z "$DEVICE_ID" ]; then
+            echo "No available iPhone simulator found"
+            xcrun simctl list devices available
+            exit 1
+          fi
+          echo "Using simulator: $DEVICE_ID"
+          xcrun simctl boot "$DEVICE_ID" || true
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          set -o pipefail
+          xcodebuild test \
+            -project "$CM_BUILD_DIR/plei/Plei.xcodeproj" \
+            -scheme Plei \
+            -destination "platform=iOS Simulator,id=$DEVICE_ID" \
+            -derivedDataPath "$CM_BUILD_DIR/ci-results/SimulatorDerivedData" \
+            -resultBundlePath "$CM_BUILD_DIR/ci-results/Pleer1Simulator.xcresult" \
+            -parallel-testing-enabled NO \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            2>&1 | tee "$CM_BUILD_DIR/ci-results/pleer1-simulator.log"
+
+    artifacts:
+      - $CM_BUILD_DIR/ci-results/**/*.xcresult
+      - $CM_BUILD_DIR/ci-results/*.log
