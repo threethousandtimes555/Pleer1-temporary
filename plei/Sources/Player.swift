@@ -67,7 +67,6 @@ final class Player: ObservableObject {
     private var lastYouTubeDiagnosticState: String? = nil
     private var lastYouTubeDiagnosticAt = Date.distantPast
     private var lastWatchdogBlockedAt = Date.distantPast
-    private var lastNearEndDiagnosticAt = Date.distantPast
     private var userPausedPlayback = false
     private var audioSessionInterrupted = false
     private var completionHandledToken: Int? = nil
@@ -85,8 +84,13 @@ final class Player: ObservableObject {
 
     init() {
         let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.playback, mode: .default)
-        try? session.setActive(true)
+        do {
+            try session.setCategory(.playback, mode: .default)
+            try session.setActive(true)
+            YouTubeDiagnostics.record("playback.audio_session", details: "phase=init, active=true, category=playback")
+        } catch {
+            YouTubeDiagnostics.record("playback.audio_session_error", details: "phase=init, error=\(error.localizedDescription)")
+        }
         player.automaticallyWaitsToMinimizeStalling = true
 
         timeObs = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.5, preferredTimescale: 600), queue: .main) { [weak self] t in
@@ -97,8 +101,9 @@ final class Player: ObservableObject {
             let reason = observedPlayer.reasonForWaitingToPlay.map { String(describing: $0) } ?? "none"
             let position = observedPlayer.currentItem?.currentTime().seconds ?? -1
             Task { @MainActor in
-                guard let self else { return }
-                YouTubeDiagnostics.record("playback.time_control", details: "kind=\(self.playbackKind(self.current)), status=\(status), reason=\(reason), position=\(String(format: "%.2f", position))")
+                if self?.current?.id.first == "y" {
+                    YouTubeDiagnostics.record("playback.time_control", details: "status=\(status), reason=\(reason), position=\(String(format: "%.2f", position))")
+                }
             }
         }
         // AVPlayer's periodic observer may become quiet after a stream stalls.
@@ -201,23 +206,10 @@ final class Player: ObservableObject {
         return AudioCache.shared.lookup(t)
     }
 
-    private func playbackKind(_ track: Track?) -> String {
-        guard let track else { return "none" }
-        if track.youtubeRadioID != nil { return "youtube_radio" }
-        if track.youtubePlaylistID != nil { return "youtube_playlist" }
-        if track.id.first == "y" { return "youtube" }
-        if track.file != nil { return "local_file" }
-        if track.archive != nil { return "archive" }
-        if track.url != nil { return "remote_url" }
-        return "unknown"
-    }
-
     private func load() {
         guard let t = current else { return }
         loadToken += 1
         let token = loadToken
-        lastNearEndDiagnosticAt = .distantPast
-        YouTubeDiagnostics.record("playback.load.begin", details: "kind=\(playbackKind(t)), token=\(token), index=\(index), queueCount=\(queue.count)")
         if t.id.first == "y" {
             YouTubeDiagnostics.record("playback.load", details: "id=\(t.id), title=\(t.title), queueCount=\(queue.count), index=\(index)")
         }
@@ -281,7 +273,6 @@ final class Player: ObservableObject {
         } else if let s = t.url, let u = URL(string: s) {
             start(u, t, streaming: true)
         } else {
-            YouTubeDiagnostics.record("playback.load.no_source", details: "kind=\(playbackKind(t)), token=\(token), index=\(index)")
             store?.say("Файл не найден")
         }
         updateNowPlaying()
@@ -374,7 +365,6 @@ final class Player: ObservableObject {
     }
 
     private func start(_ url: URL, _ t: Track, streaming: Bool, recoverable: Bool = true) {
-        YouTubeDiagnostics.record("playback.start.begin", details: "kind=\(playbackKind(t)), token=\(loadToken), streaming=\(streaming), recoverable=\(recoverable), fileURL=\(url.isFileURL), host=\(url.host ?? "file")")
         let asset: AVURLAsset
         if url.isFileURL {
             asset = AVURLAsset(url: url)
@@ -392,35 +382,38 @@ final class Player: ObservableObject {
         }
         if let o = endObs { NotificationCenter.default.removeObserver(o) }
         let token = loadToken
-        let kind = playbackKind(t)
         endObs = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { [weak self] _ in
-            YouTubeDiagnostics.record("playback.end_notification", details: "kind=\(kind), token=\(token)")
-            Task { @MainActor in self?.finishCurrentItem(token: token, item: item, source: "notification") }
+            Task { @MainActor in self?.finishCurrentItem(token: token, item: item) }
         }
         statusObs = item.observe(\.status, options: [.initial, .new]) { [weak self] it, _ in
             let st = it.status
             let msg = it.error?.localizedDescription ?? ""
             Task { @MainActor in self?.itemStatus(st, msg, t, token, streaming, recoverable) }
         }
+        if t.id.first == "y" {
+            do {
+                let session = AVAudioSession.sharedInstance()
+                try session.setCategory(.playback, mode: .default)
+                try session.setActive(true)
+                YouTubeDiagnostics.record("playback.audio_session", details: "phase=start, active=true")
+            } catch {
+                YouTubeDiagnostics.record("playback.audio_session_error", details: "phase=start, error=\(error.localizedDescription)")
+            }
+            YouTubeDiagnostics.record("playback.start_requested", details: "id=\(t.id), speed=\(speed), pausedByUser=\(userPausedPlayback), interrupted=\(audioSessionInterrupted)")
+        }
         player.replaceCurrentItem(with: item)
         player.play()
         player.rate = Float(speed)
-        YouTubeDiagnostics.record("playback.play_called", details: "kind=\(playbackKind(t)), token=\(token), timeControl=\(String(describing: player.timeControlStatus))")
+        if t.id.first == "y" {
+            YouTubeDiagnostics.record("playback.start_state", details: "id=\(t.id), rate=\(player.rate), control=\(player.timeControlStatus.rawValue), item=\(item.status.rawValue)")
+        }
     }
 
-    private func finishCurrentItem(token: Int, item: AVPlayerItem, source: String = "notification") {
-        let tokenMatches = token == loadToken
-        let itemMatches = player.currentItem === item
-        let alreadyHandled = completionHandledToken == token
-        let kind = playbackKind(current)
-        YouTubeDiagnostics.record("playback.finish_handler.begin", details: "source=\(source), kind=\(kind), token=\(token), currentToken=\(loadToken), itemMatches=\(itemMatches), alreadyHandled=\(alreadyHandled), position=\(String(format: "%.2f", player.currentTime().seconds))")
-        guard tokenMatches, itemMatches, !alreadyHandled else {
-            let reason = !tokenMatches ? "stale_token" : (!itemMatches ? "item_mismatch" : "already_handled")
-            YouTubeDiagnostics.record("playback.finish_handler.rejected", details: "source=\(source), kind=\(kind), reason=\(reason), token=\(token), currentToken=\(loadToken)")
-            return
-        }
+    private func finishCurrentItem(token: Int, item: AVPlayerItem) {
+        guard token == loadToken,
+              player.currentItem === item,
+              completionHandledToken != token else { return }
         completionHandledToken = token
-        YouTubeDiagnostics.record("playback.finish_handler.accepted", details: "source=\(source), kind=\(kind), token=\(token)")
         if current?.id.first == "y" {
             YouTubeDiagnostics.record("playback.finish_event", details: "id=\(current?.id ?? "unknown"), position=\(String(format: "%.2f", player.currentTime().seconds)), duration=\(String(format: "%.2f", knownYouTubeDuration ?? 0))")
         }
@@ -435,9 +428,26 @@ final class Player: ObservableObject {
 
     private func itemStatus(_ st: AVPlayerItem.Status, _ msg: String, _ t: Track, _ token: Int, _ streaming: Bool, _ recoverable: Bool) {
         if token != loadToken { return }
-        let statusName = st == .readyToPlay ? "readyToPlay" : (st == .failed ? "failed" : "unknown")
-        YouTubeDiagnostics.record("playback.item_status", details: "kind=\(playbackKind(t)), token=\(token), status=\(statusName), error=\(msg)")
+        if t.id.first == "y" {
+            let statusName = st == .readyToPlay ? "readyToPlay" : (st == .failed ? "failed" : "unknown")
+            YouTubeDiagnostics.record("playback.item_status", details: "id=\(t.id), status=\(statusName), error=\(msg)")
+        }
         if st == .readyToPlay {
+            if t.id.first == "y" {
+                if !userPausedPlayback && !audioSessionInterrupted {
+                    do {
+                        try AVAudioSession.sharedInstance().setActive(true)
+                        player.play()
+                        player.rate = Float(speed)
+                        isPlaying = true
+                        YouTubeDiagnostics.record("playback.ready_resume", details: "id=\(t.id), rate=\(player.rate), control=\(player.timeControlStatus.rawValue)")
+                    } catch {
+                        YouTubeDiagnostics.record("playback.audio_session_error", details: "phase=ready_resume, error=\(error.localizedDescription)")
+                    }
+                } else {
+                    YouTubeDiagnostics.record("playback.ready_resume_skipped", details: "id=\(t.id), pausedByUser=\(userPausedPlayback), interrupted=\(audioSessionInterrupted)")
+                }
+            }
             updateNowPlaying()
             prefetchNext()
         } else if st == .failed {
@@ -559,29 +569,22 @@ final class Player: ObservableObject {
     }
 
     func advance(auto: Bool = false) {
-        let fromTrack = current
-        YouTubeDiagnostics.record("playback.advance", details: "auto=\(auto), fromKind=\(playbackKind(fromTrack)), index=\(index), plannedNext=\(plannedNext.map { String($0) } ?? "nil"), token=\(loadToken), timeControl=\(String(describing: player.timeControlStatus))")
-        if queue.isEmpty {
-            YouTubeDiagnostics.record("playback.advance.noop", details: "reason=empty_queue, auto=\(auto)")
-            return
+        if current?.id.first == "y" {
+            YouTubeDiagnostics.record("playback.advance", details: "auto=\(auto), id=\(current?.id ?? "unknown"), index=\(index), plannedNext=\(plannedNext.map { String($0) } ?? "nil"), timeControl=\(String(describing: player.timeControlStatus))")
         }
+        if queue.isEmpty { return }
         var j: Int? = nil
         if auto || repeatMode != .one { j = plannedNext }
         if j == nil {
             if index < queue.count - 1 { j = index + 1 } else if repeatMode != .off { j = 0 }
         }
         if let n = j {
-            let nextTrack = queue[n]
-            YouTubeDiagnostics.record("playback.advance.select", details: "auto=\(auto), fromKind=\(playbackKind(fromTrack)), toKind=\(playbackKind(nextTrack)), fromIndex=\(index), toIndex=\(n), token=\(loadToken)")
             index = n
             load()
-        } else {
-            YouTubeDiagnostics.record("playback.advance.no_next", details: "auto=\(auto), kind=\(playbackKind(fromTrack)), index=\(index), repeat=\(repeatMode.rawValue)")
-            if auto {
-                player.pause()
-                isPlaying = false
-                updateProgress()
-            }
+        } else if auto {
+            player.pause()
+            isPlaying = false
+            updateProgress()
         }
     }
 
@@ -597,7 +600,19 @@ final class Player: ObservableObject {
     }
 
     func seek(_ s: Double) {
-        player.seek(to: CMTime(seconds: s, preferredTimescale: 600))
+        let target = CMTime(seconds: s, preferredTimescale: 600)
+        let trackID = current?.id ?? "unknown"
+        let token = loadToken
+        let itemStatus = player.currentItem?.status.rawValue ?? -1
+        let duration = player.currentItem?.duration.seconds ?? -1
+        YouTubeDiagnostics.record("playback.seek.request", details: "id=\(trackID), target=\(String(format: "%.2f", s)), token=\(token), itemStatus=\(itemStatus), duration=\(String(format: "%.2f", duration))")
+        player.seek(to: target) { [weak self] finished in
+            Task { @MainActor in
+                guard let self else { return }
+                let actual = self.player.currentTime().seconds
+                YouTubeDiagnostics.record("playback.seek.complete", details: "id=\(trackID), finished=\(finished), requested=\(String(format: "%.2f", s)), actual=\(String(format: "%.2f", actual)), currentID=\(self.current?.id ?? "unknown"), token=\(self.loadToken), control=\(self.player.timeControlStatus.rawValue)")
+            }
+        }
         clock.position = s
         updateProgress()
     }
@@ -650,19 +665,6 @@ final class Player: ObservableObject {
             clock.duration = d
             updateProgress()
         }
-        // Capture the last seconds of every track so we can distinguish a missing
-        // end notification from a delay after the notification. This is observational.
-        if let item = player.currentItem {
-            let expectedDuration = knownYouTubeDuration ?? item.duration.seconds
-            if expectedDuration.isFinite, expectedDuration > 0, s.isFinite, s >= expectedDuration - 4.0 {
-                let now = Date()
-                if now.timeIntervalSince(lastNearEndDiagnosticAt) >= 2.0 {
-                    lastNearEndDiagnosticAt = now
-                    YouTubeDiagnostics.record("playback.near_end", details: "kind=\(playbackKind(current)), position=\(String(format: "%.2f", s)), duration=\(String(format: "%.2f", expectedDuration)), timeControl=\(String(describing: player.timeControlStatus)), bufferEmpty=\(item.isPlaybackBufferEmpty), likelyToKeepUp=\(item.isPlaybackLikelyToKeepUp)")
-                }
-            }
-        }
-
         // Capture AVPlayer's state transitions and buffer indicators. This is
         // deliberately observational: it does not alter playback or advance the queue.
         if current?.id.first == "y", let item = player.currentItem {
@@ -711,7 +713,7 @@ final class Player: ObservableObject {
                let item = player.currentItem,
                item.status == .readyToPlay {
                 YouTubeDiagnostics.record("playback.watchdog_advance", details: "pos=\(String(format: "%.2f", s)), expected=\(String(format: "%.2f", expected)), timeControl=\(String(describing: player.timeControlStatus)), bufferEmpty=\(item.isPlaybackBufferEmpty)")
-                finishCurrentItem(token: loadToken, item: item, source: "watchdog")
+                finishCurrentItem(token: loadToken, item: item)
                 return
             }
         }
