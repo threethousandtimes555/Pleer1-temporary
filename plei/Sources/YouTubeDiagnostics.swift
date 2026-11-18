@@ -1,6 +1,6 @@
 import Foundation
 
-/// Local, opt-in diagnostic journal for playback and YouTube activity.
+/// Local, opt-in diagnostic journal for YouTube search and playback.
 /// Entries stay on the device until the user explicitly shares them from Settings.
 enum YouTubeDiagnostics {
     private static let lock = NSLock()
@@ -24,6 +24,9 @@ enum YouTubeDiagnostics {
             entries.removeFirst(entries.count - capacity)
         }
         UserDefaults.standard.set(entries, forKey: storageKey)
+        // Also mirror the opt-in local journal into the simulator test console.
+        // This makes HTTP/player failures observable in CI instead of leaving only 0:00.
+        print("PLEER1_DIAG " + line)
         NSLog("Pleer1 YouTube: %@", line)
     }
 
