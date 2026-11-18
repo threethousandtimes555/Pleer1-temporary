@@ -58,7 +58,6 @@ workflows:
       - $CM_BUILD_DIR/ci-results/**/*.xcresult
       - $CM_BUILD_DIR/ci-results/*.log
 
-workflows:
   pleer1-macos-search-tests:
     name: Pleer1 macOS YouTube search logic tests (no simulator)
     max_build_duration: 20
