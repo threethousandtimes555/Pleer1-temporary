@@ -332,3 +332,19 @@ Harness проверяет пять групп сценариев: распоз�
 
 
 **Дополнительная защита от случайных симуляций:** после обнаружения автоматического GitHub Actions run #47 push-триггер в .github/workflows/simulator-smoke-test.yml отключён; оставлен только workflow_dispatch. Это изменение сделано только во временной ветке (commit 033e559). Уже созданные ранее runs #45 и #47 остаются отдельными queued/pending запусками; доступное GitHub-подключение не предоставляет операцию cancel, поэтому нельзя утверждать, что они отменены. Новые push в эту ветку больше не должны автоматически создавать simulator runs.
+
+
+## 18. Первый успешный macOS parser harness — 18 ноября 2026 года
+
+Codemagic build ID `6afdede1d133a39c4a12cf2a`, commit `96b067c`, workflow `Pleer1 macOS YouTube search logic tests (no simulator)`, ветка `verify/youtube-search-macos-2026-11-18`. Пользователь передал artifacts ZIP; изучен `ci-results/macos-search-tests.log`. Итоговый маркер: `SEARCH_LOGIC_HARNESS: PASS (5 groups)`. Compile log пустой (обычно для успешного swiftc без предупреждений); executable harness запустился и завершил все assertions с PASS.
+
+В логах подтверждены:
+- InnerTube parser, обычный режим: 1 видео распознано и возвращено (`videos=1, playlists=0, radios=0, returned=1`).
+- InnerTube parser, режим коллекций: видео + playlist + Mix (`videos=1, playlists=1, radios=1, returned=3`).
+- HTML parser, обычный режим: 1 видео возвращено.
+- HTML parser, режим коллекций: видео + playlist + Mix, всего 3 результата.
+- Общий harness завершился `PASS (5 groups)`; эти пять групп также включают intent classification, direct playlist/Mix URLs и классификацию RD Mix.
+
+**Значение результата:** исправленная дедупликация обоих parser-путей прошла исполняемые fixture assertions на реальных production Swift source files. Это первая успешная автоматическая проверка исправления без iOS Simulator. Это НЕ подтверждает ещё реальный сетевой поиск YouTube, выдачу результатов на устройстве, XCTest target или физическое поведение UI; fixtures синтетические и проверяют parser/intent logic.
+
+**Следующий шаг:** зафиксировать успешный run, затем подготовить следующий этап проверки — анализ актуального кода и тестовых пробелов, без повторной симуляции. Не просить пользователя повторно проверять плейлист/20-секундное воспроизведение; не менять Main или Pleer1-Lab без отдельного разрешения.
