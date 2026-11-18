@@ -425,8 +425,8 @@
 
 ### Запись №020 — отдельная ошибка классификации YouTube Mix и результат диагностического run #34
 
-- **Дата и время обнаружения (МСК, UTC+3):** 18.11.2026, 03:45 (время фиксации записи; точное время первоначального чтения кода не фиксировалось).
-- **Время UTC:** 18.11.2026, 00:45.
+- **Дата обнаружения:** 18.11.2026 (точное время первоначального чтения кода не зафиксировано).
+- **Время UTC:** не зафиксировано.
 - **Область:** YouTube search classification / playlist vs radio Mix / CI diagnostics.
 - **Подтверждённая ошибка в коде:** в `YouTubePlaylistEngine.swift` функция `playlistTracks(from:)` принимает любой непустой `playlistId` из playlist renderers и создаёт обычный Track с `youtubePlaylistID`, не исключая идентификаторы с префиксом `RD`. При этом специальная функция `radioTracks(from:)` принимает только ID с префиксом `RD`, извлекает seed video ID и создаёт Track с `youtubeRadioID` и `youtubeRadioVideoID`. Прямой URL parser отдельно распознаёт `RD` как radio. Следовательно, если поисковая выдача представляет Mix в одном из playlist renderer форматов, он может быть ошибочно классифицирован как обычный плейлист и уйти в неверный путь загрузки.
 - **Факты и источник:** текущая рабочая ветка `work/restore-youtube-module-2026-11-17`, файл `plei/Sources/YouTubePlaylistEngine.swift`: строки функции `playlistTracks(from:)` (guard проверяет только наличие/непустоту playlistId) и `radioTracks(from:)` (guard требует префикс RD и seed video ID); прямой URL parser также проверяет RD. Проверено чтением актуального файла через GitHub.
