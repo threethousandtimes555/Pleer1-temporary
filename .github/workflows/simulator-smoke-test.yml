@@ -1,14 +1,8 @@
 name: Pleer1 iOS device build and simulator tests
 
 on:
+  # Deliberately manual-only: routine parser/source commits must not start a simulator.
   workflow_dispatch:
-  push:
-    branches:
-      - main
-      - verify/youtube-search-macos-2026-11-18
-    paths:
-      - 'plei/**'
-      - '.github/workflows/simulator-smoke-test.yml'
 
 permissions:
   contents: read
