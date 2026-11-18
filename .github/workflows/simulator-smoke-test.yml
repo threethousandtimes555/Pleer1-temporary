@@ -38,12 +38,12 @@ jobs:
         working-directory: plei
         run: |
           set -o pipefail
-          xcodebuild build \\
-            -project Plei.xcodeproj \\
-            -scheme Plei \\
-            -destination 'generic/platform=iOS' \\
-            -derivedDataPath "$RUNNER_TEMP/Pleer1DeviceDerivedData" \\
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \\
+          xcodebuild build \
+            -project Plei.xcodeproj \
+            -scheme Plei \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/Pleer1DeviceDerivedData" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             2>&1 | tee "$RUNNER_TEMP/pleer1-ios-device-build.log"
 
       - name: Select simulator and run app plus search UI test
