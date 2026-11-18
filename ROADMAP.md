@@ -316,3 +316,16 @@ HTML fallback получает HTTP 200, но не извлекает `ytInitial
 Ветка уже содержала отдельное разделение обычного video search и явного playlist/Mix search (`YouTubeSearchIntent`, фильтр `EgIQAQ%3D%3D` для обычного поиска). Но тот новый путь унаследовал ту же дедупликационную ошибку. Исправлены оба парсера: теперь `seen` применяется только к коллекциям, а итог — `videos + collections`. Изменения только в `verify/youtube-search-macos-2026-11-18`: `710dff4` (InnerTube) и `01fb4d6` (HTML). Существующий `SearchLogicTests.testSearchParserDoesNotLeakPlaylistsOrMixesIntoTrackMode` покрывает ожидаемое поведение, но XCTest ещё не запускался.
 
 Пользователь намеренно прослушал `Crystal Castles - Concrete` около 20 секунд; это подтверждает слышимое воспроизведение второго трека. Не повторять этот тест без необходимости. Следующий шаг — проверить изменения и провести предусмотренную одну целевую проверку unit tests; не запускать новые симуляции и не менять Main/Lab.
+
+
+## 17. Отдельная macOS-проверка YouTube search без iOS Simulator — 18 ноября 2026 года
+
+Чтобы не нарушать решение пользователя прекратить повторные симуляции, в codemagic.yaml добавлен отдельный workflow pleer1-macos-search-tests. Он компилирует на macOS непосредственно production-файлы Pleer1 (Models.swift, YouTubeDiagnostics.swift, YouTubeEngine.swift, YouTubeHTMLSearch.swift, YouTubePlaylistEngine.swift, YouTubeSearchIntent.swift) вместе с небольшим исполняемым harness. Никакие iOS Simulator, simctl, xcodebuild test или UI-тесты в этом workflow не вызываются.
+
+Harness проверяет пять групп сценариев: распознавание track-vs-collection intent; InnerTube parser в обоих режимах; HTML parser в обоих режимах; прямые URL плейлиста и Mix; классификацию RD Mix отдельно от обычного плейлиста. Для проверки HTML parser его метод tracks(from:includeCollections:searchID:) сделан internal вместо private; логика парсера не изменена. Harness находится в verification/SearchLogicHarness.swift.
+
+Коммиты: harness 0ab127c; доступность HTML parser для теста a067853; отдельный macOS Codemagic workflow a216698. Текущий head ветки verify/youtube-search-macos-2026-11-18 — a216698b50f554e6cc8700d03bba6ee39ea16780.
+
+Статус: конфигурация и сценарии добавлены и сохранены в изолированной публичной временной ветке. Сам macOS compile/run ещё не выполнялся; не считать исправление прошедшим тест. GitHub Actions #45 и #46 по-прежнему были queued/pending при последней проверке. Новых симуляторных запусков не инициировано. Main, Pleer1-Lab и Pleer1-Next не изменялись.
+
+Следующий шаг: в Codemagic выбрать workflow pleer1-macos-search-tests на ветке verify/youtube-search-macos-2026-11-18 и выполнить один запуск. Ожидаемый маркер успешного завершения — SEARCH_LOGIC_HARNESS: PASS (5 groups). Если компиляция или assertion завершится ошибкой, анализировать конкретный лог; не запускать iOS Simulator и не повторять прогон без исправления причины.
