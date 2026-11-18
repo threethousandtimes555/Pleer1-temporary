@@ -273,4 +273,6 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 
 **Подтверждено:** runner, XcodeGen, генерация Xcode-проекта, generic iOS build и boot симулятора.
 **Не подтверждено:** успешная линковка новых test targets, выполнение unit-тестов, выполнение UI-тестов, успешный итоговый Codemagic build.
+**Текущая исправленная версия CI:** commit `0e0dc7c` содержит отдельную цель `PleiTests`, UI-файл с корректным классом `SearchSmokeTests` и без `@testable import Plei`, а также четыре unit-теста в `SearchLogicTests`. Последующая проверка содержимого файлов подтвердила: UI-target содержит 2 UI-сценария, unit-target — 4 логических теста. Это структурная проверка файлов, не компиляция Xcode.
+
 **Следующий шаг:** повторный Codemagic build после разделения целей; проверить, что unit- и UI-тесты действительно стартовали и завершились, а не только что сборка приложения прошла.

@@ -31,7 +31,7 @@ workflows:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             2>&1 | tee "$CM_BUILD_DIR/ci-results/ios-device-build.log"
 
-      - name: Boot iPhone simulator and run UI tests
+      - name: Boot iPhone simulator and run unit + UI tests
         script: |
           set -euo pipefail
           DEVICE_ID="$(xcrun simctl list devices available --json | python3 -c 'import json,sys; d=json.load(sys.stdin); xs=[x for group in d["devices"].values() for x in group if x["isAvailable"] and x["name"].startswith("iPhone")]; print(xs[0]["udid"] if xs else "")')"
