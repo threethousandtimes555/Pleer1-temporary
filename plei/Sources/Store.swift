@@ -14,8 +14,10 @@ final class Store: ObservableObject {
     @Published var jamendoKey: String = UserDefaults.standard.string(forKey: "jk") ?? "" {
         didSet { UserDefaults.standard.set(jamendoKey, forKey: "jk") }
     }
-    @Published var funkHost: String = UserDefaults.standard.string(forKey: "fh") ?? "tanukitunes.com open.audio" {
-        didSet { UserDefaults.standard.set(funkHost, forKey: "fh") }
+    @Published var enabledSearchSources: Set<String> = Set(
+        UserDefaults.standard.stringArray(forKey: "searchSources") ?? ["YouTube", "Jamendo", "Audius", "Archive"]
+    ) {
+        didSet { UserDefaults.standard.set(Array(enabledSearchSources).sorted(), forKey: "searchSources") }
     }
 
     private var saveTasks: [String: Task<Void, Never>] = [:]
