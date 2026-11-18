@@ -40,6 +40,17 @@ targets:
         CODE_SIGNING_REQUIRED: NO
         CODE_SIGN_IDENTITY: ""
 
+  PleiTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: Plei
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mylocal.plei.tests
+
   PleiUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -56,7 +67,9 @@ schemes:
     build:
       targets:
         Plei: all
+        PleiTests: [test]
         PleiUITests: [test]
     test:
       targets:
+        - PleiTests
         - PleiUITests

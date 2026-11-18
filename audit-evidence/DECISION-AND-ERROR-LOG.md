@@ -833,3 +833,16 @@
 - **Решение:** Codemagic — основной текущий путь проверки, GitHub Actions — резерв. Не запускать новые одинаковые rerun, не менять Swift-код и не возвращаться к повторной диагностике уже разобранной поисковой ошибки.
 - **Следующий шаг:** дождаться старта CI runner; после старта проверить каждый этап и сохранить логи/xcresult. После успешных UI-тестов перейти к проверке на физическом iPhone. До неё UI и оптимизацию не менять.
 - **Границы:** изменения только в документах публичного временного репозитория; основной Pleer1 и приватный Pleer1-Lab не изменялись.
+
+
+### Запись №044 — первый запуск Codemagic: generic build успешен, UI-test linker failure
+
+- **Дата:** 18.11.2026.
+- **Область:** Codemagic / XcodeGen / структура iOS-тестов / изолированная ветка.
+- **Build:** `6afdc2d6d133a39c4a12bd21`, workflow `Pleer1 iOS build and simulator tests`, ветка `verify/youtube-search-macos-2026-11-18`, исходный commit `4f0129a`.
+- **Подтверждённые шаги:** Preparing build machine, Fetching app sources, Install XcodeGen, Generate Xcode project, Build app for generic iOS device (unsigned) — завершились; затем iPhone Simulator был загружен.
+- **Ошибка:** шаг `Boot iPhone simulator and run UI tests` завершился с exit 65 на линковке `PleiUITests`. `ld: symbol(s) not found for architecture arm64`; undefined symbols относятся к `YouTubeEngine`, `YouTubeSearchIntent`, `YouTubePlaylistEngine` и `Plei.Track`. Тестовые методы не успели выполниться; это не провал assertion и не доказательство ошибки логики поиска.
+- **Причина по проверке конфигурации:** четыре unit-проверки Swift API находились внутри `PleiUITests` вместе с UI-сценариями и `@testable import Plei`. Это заставляет UI-test bundle ссылаться на внутренние символы app module. В конфигурации не было отдельной unit-test цели.
+- **Решение:** во временной ветке создать `PleiTests` (`bundle.unit-test`) для четырёх чистых проверок; оставить в `PleiUITests` только сценарии `XCUIApplication`; убрать `@testable import Plei` из UI-test файла; включить обе цели в scheme. Не менять app Swift sources, Lab или Main.
+- **Ограничения:** исходная сборка приложения для generic iOS device прошла, но это не симуляторный тест. Симулятор загрузился, однако unit/UI tests не запускались из-за linker failure. IPA не создавался.
+- **Следующий шаг:** один новый Codemagic build после структурного исправления; проверить фактические результаты обеих test targets и сохранить логи/xcresult.
