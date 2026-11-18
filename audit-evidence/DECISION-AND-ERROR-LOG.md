@@ -786,3 +786,16 @@
 - **Решение:** добавлена секция 13 в существующий ROADMAP.md с картой репозиториев, зафиксированным порядком этапов, правилами доказательности и текущим активным шагом. Новый отдельный roadmap или журнал не создавался.
 - **Повторная проверка:** workflow run 44313765862, job 134857415507, на момент проверки остаётся queued; шаги отсутствуют, runner не назначен. Следовательно, сборка и UI-тесты ещё не стартовали. Это не ошибка Swift-кода и не результат симуляции.
 - **Следующее действие:** дождаться старта runner; если job не стартует или будет отменён до шагов, диагностировать GitHub Actions hosted runner/queue. Исходники приложения пока не менять.
+
+
+### Запись №040 — подтверждение pre-runner cancellation и смена стратегии CI
+
+- **Дата:** 18.11.2026.
+- **Область:** GitHub Actions / macOS runner / альтернативная iOS CI.
+- **Факт:** повторная попытка run [44313765862](https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/44313765862), attempt 2, job `134857415507`, завершилась `cancelled`. Job не получил runner, `steps=null`, `logs_url=null`; workflow завершён как failure. Примерно 15 минут ожидания, без checkout/build/test.
+- **Сопоставление:** GitHub Community discussions [#212075](https://github.com/orgs/community/discussions/212075) и [#211885](https://github.com/orgs/community/discussions/211885) описывают сходные macOS hosted-runner allocation failures: около 15 минут ожидания, затем cancelled, нулевой runner/пустые steps; в #212075 упомянуты macos-latest и macos-15-intel. Это подтверждает, что такой класс сбоя встречается у других пользователей, но не доказывает общую причину именно наших запусков. Пользовательское сообщение от 17 ноября также сообщает о проблемах macOS Actions runners.
+- **Статус GitHub:** публичная Status Page на момент проверки показывает Actions Operational; в истории есть resolved incident 16 ноября с задержками запуска Actions. Не утверждать, что сейчас официально активен глобальный инцидент.
+- **Вывод:** текущие попытки не доходят до workflow steps; причины в Swift-коде не подтверждены. Повторять тот же macOS hosted job без изменения подхода нецелесообразно.
+- **Решение:** подготовить альтернативный CI на Codemagic для изолированной проверки. Официальная документация Codemagic описывает сборки iOS Simulator без подписи; pricing/docs указывают free tier для individual users — 500 build minutes/month на M2 на момент исследования. Сценарий: checkout → install XcodeGen → xcodegen generate → unsigned generic iOS build → xcodebuild test на iPhone Simulator → upload xcresult/logs.
+- **Ограничение:** подключение GitHub-репозитория к Codemagic и выдача доступа должны быть выполнены пользователем. До этого workflow не создан/не запущен. Не менять Lab/main; сначала проверить альтернативный pipeline на временной ветке.
+- **Резерв:** GitHub Actions оставить без новых неизменённых rerun; вернуться к hosted macOS после восстановления стабильного назначения runner.
