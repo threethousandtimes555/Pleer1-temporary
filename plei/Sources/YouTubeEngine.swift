@@ -125,7 +125,11 @@ enum YouTubeEngine {
         }
         let playlists = includeCollections ? YouTubePlaylistEngine.playlistTracks(from: raw) : []
         let radios = includeCollections ? YouTubePlaylistEngine.radioTracks(from: raw) : []
-        let combined = (videos + playlists + radios).filter { seen.insert($0.id).inserted }
+        // Video IDs were already inserted into seen while building videos.
+        // Deduplicate only collection results against videos and earlier collections;
+        // filtering the whole concatenated array would discard every video.
+        let collections = (playlists + radios).filter { seen.insert($0.id).inserted }
+        let combined = videos + collections
         YouTubeDiagnostics.record("search.parse.summary", details: "id=\(searchID), candidates=\(items.count), videos=\(videos.count), playlists=\(playlists.count), radios=\(radios.count), returned=\(combined.count)")
         return combined
     }
