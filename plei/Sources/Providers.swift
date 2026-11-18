@@ -92,66 +92,7 @@ enum Sources {
         return out
     }
 
-    // MARK: ccMixter
-    static func ccmixter(_ q: String) async throws -> [Track] {
-        let path = "ccmixter.org/api/query?f=json&limit=25&search_type=all&search=\(enc(q))"
-        var j: Any
-        do {
-            j = try await json("https://" + path)
-        } catch {
-            j = try await json("http://" + path)
-        }
-        let arr = j as? [[String: Any]] ?? []
-        return arr.compactMap { r in
-            guard let id = s(r["upload_id"]), let name = s(r["upload_name"]) else { return nil }
-            let files = r["files"] as? [[String: Any]] ?? []
-            let urls = files.compactMap { s($0["download_url"]) }
-            guard let u = urls.first(where: { $0.lowercased().hasSuffix(".mp3") }) else { return nil }
-            let fixed = (u.hasPrefix("https://") && u.contains("ccmixter.org")) ? "http://" + String(u.dropFirst(8)) : u
-            return Track(id: "c" + id, title: name, artist: s(r["user_name"]) ?? "ccMixter", url: fixed)
-        }
-    }
 
-    // MARK: Funkwhale
-    static func funkwhale(_ q: String, host: String) async throws -> [Track] {
-        let hosts = host.split(whereSeparator: { $0 == "," || $0 == " " }).map { String($0) }
-        var lastError: Error? = nil
-        for h in hosts {
-            do {
-                let r = try await funkwhaleOne(q, host: h)
-                if !r.isEmpty { return r }
-            } catch {
-                lastError = error
-            }
-        }
-        if let e = lastError { throw e }
-        return []
-    }
-
-    static func funkwhaleOne(_ q: String, host: String) async throws -> [Track] {
-        let h = host.replacingOccurrences(of: "https://", with: "").trimmingCharacters(in: CharacterSet(charactersIn: "/ "))
-        if h.isEmpty { return [] }
-        let j = try await json("https://\(h)/api/v1/tracks/?q=\(enc(q))&playable=true&page_size=25")
-        let rs = (j as? [String: Any])?["results"] as? [[String: Any]] ?? []
-        return rs.compactMap { r in
-            guard let id = s(r["id"]), let title = s(r["title"]) else { return nil }
-            var listen = s(r["listen_url"])
-            if listen == nil, let ups = r["uploads"] as? [[String: Any]] {
-                listen = ups.compactMap { s($0["listen_url"]) }.first
-            }
-            guard let l = listen else { return nil }
-            let full = l.hasPrefix("http") ? l : "https://\(h)\(l)"
-            let url = full + (full.contains("?") ? "&" : "?") + "to=mp3"
-            let artist = (r["artist"] as? [String: Any]).flatMap { s($0["name"]) } ?? ""
-            var art: String? = nil
-            if let cover = (r["album"] as? [String: Any])?["cover"] as? [String: Any],
-               let urls = cover["urls"] as? [String: Any] {
-                art = s(urls["medium_square_crop"]) ?? s(urls["original"])
-            }
-            if let a = art, !a.hasPrefix("http") { art = "https://\(h)\(a)" }
-            return Track(id: "f" + h + id, title: title, artist: artist, art: art, url: url)
-        }
-    }
 }
 
 @MainActor
@@ -160,30 +101,37 @@ final class SearchModel: ObservableObject {
     @Published var errors: [String] = []
     @Published var loading = false
 
-    func run(_ q: String, key: String, host: String) async {
-        YouTubeDiagnostics.record("search.all_sources.begin", details: "query=\(q)")
+    func run(_ q: String, key: String, enabledSources: Set<String>) async {
+        YouTubeDiagnostics.record("search.all_sources.begin", details: "query=\(q), sources=\(enabledSources.sorted().joined(separator: ","))")
         results = []
         errors = []
         loading = true
         var parts: [String: [Track]] = [:]
         var errs: [String] = []
         await withTaskGroup(of: (String, [Track], String?).self) { g in
-            g.addTask { await Sources.run("YouTube") { try await YouTubeEngine.search(q) } }
-            if !key.isEmpty {
-                g.addTask { await Sources.run("Jamendo") { try await Sources.jamendo(q, key: key) } }
+            if enabledSources.contains("YouTube") {
+                g.addTask { await Sources.run("YouTube") { try await YouTubeEngine.search(q) } }
             }
-            g.addTask { await Sources.run("Audius") { try await Sources.audius(q) } }
-            g.addTask { await Sources.run("ccMixter") { try await Sources.ccmixter(q) } }
-            g.addTask { await Sources.run("Funkwhale") { try await Sources.funkwhale(q, host: host) } }
-            g.addTask { await Sources.run("Internet Archive") { try await Sources.archive(q) } }
+            if enabledSources.contains("Jamendo") {
+                if !key.isEmpty {
+                    g.addTask { await Sources.run("Jamendo") { try await Sources.jamendo(q, key: key) } }
+                } else {
+                    errs.append("Нет ключа Jamendo (Настройки)")
+                }
+            }
+            if enabledSources.contains("Audius") {
+                g.addTask { await Sources.run("Audius") { try await Sources.audius(q) } }
+            }
+            if enabledSources.contains("Archive") {
+                g.addTask { await Sources.run("Internet Archive") { try await Sources.archive(q) } }
+            }
             for await r in g {
                 parts[r.0] = r.1
                 if let e = r.2 { errs.append("\(r.0): \(e)") }
             }
         }
-        if key.isEmpty { errs.append("Нет ключа Jamendo (Настройки)") }
         var all: [Track] = []
-        for n in ["YouTube", "Jamendo", "Audius", "ccMixter", "Funkwhale", "Internet Archive"] { all += parts[n] ?? [] }
+        for n in ["YouTube", "Jamendo", "Audius", "Internet Archive"] { all += parts[n] ?? [] }
         results = all
         errors = errs
         loading = false
