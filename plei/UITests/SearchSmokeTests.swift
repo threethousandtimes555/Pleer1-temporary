@@ -1,5 +1,6 @@
 import XCTest
 
+final class SearchSmokeTests: XCTestCase {
     func testSearchFindsStandaloneYouTubeVideo() {
         let app = XCUIApplication()
         app.launch()

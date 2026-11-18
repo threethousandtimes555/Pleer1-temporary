@@ -1,7 +1,7 @@
 import XCTest
 @testable import Plei
 
-final class SearchSmokeTests: XCTestCase {
+final class SearchLogicTests: XCTestCase {
     func testSearchIntentSeparatesTrackSearchFromCollectionSearch() {
         XCTAssertFalse(YouTubeSearchIntent.includesCollections(for: "Concrete"))
         XCTAssertFalse(YouTubeSearchIntent.includesCollections(for: "Kunteynir"))
