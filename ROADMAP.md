@@ -243,3 +243,12 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 Ссылки на внешние наблюдения и документацию: GitHub Community discussion #212075 (4 Nov 2026), #211885 (2 Nov 2026); Codemagic docs «iOS simulator builds» и pricing/getting started; GitHub Status history (16 Nov 2026).
 
 **Оперативное дополнение от 18 ноября 2026 года:** по прямой просьбе пользователя выполнен ещё один rerun job в существующем run [44313765862](https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/44313765862), attempt 3, новый job `134890909656`. На момент фиксации job находится в `queued`, macOS runner не назначен, шаги сборки/тестов отсутствуют. Это только постановка в очередь, а не старт симуляции. Подробности внесены в запись №041 журнала. Если попытка снова завершится до первого шага, вернуться к альтернативе Codemagic вместо очередного одинакового rerun.
+
+
+### Оперативное дополнение — Codemagic подключён, конфигурация добавлена (18 ноября 2026)
+
+- Пользователь подключил GitHub к Codemagic.
+- В публичном временном репозитории `threethousandtimes555/Pleer1-temporary`, ветка `verify/youtube-search-macos-2026-11-18`, создан файл `codemagic.yaml` (commit `264777e64692de62a664f859e5a5533593920317`).
+- Workflow `pleer1-ios-simulator` использует macOS M2, устанавливает XcodeGen, генерирует проект из `plei/project.yml`, выполняет unsigned generic iOS build и запускает UI-тесты на доступном iPhone Simulator; логи и xcresult настроены как артефакты.
+- Файл создан только во временной ветке; основной Pleer1 и приватный Lab не изменялись. Codemagic build ещё НЕ запускался и результат сборки/симуляции отсутствует.
+- Следующий шаг: в Codemagic выбрать эту ветку и нажать проверку конфигурации. До подтверждения правильного репозитория/ветки и отображения workflow не запускать сборку и не включать billing.
