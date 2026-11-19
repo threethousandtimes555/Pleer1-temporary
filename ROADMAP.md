@@ -494,3 +494,12 @@ The user clarified that the actual failure was at the end of the audio track: pl
 **Текущий вывод:** отсутствие автоперехода относится к предыдущему тесту с ручной перемоткой; его причина открыта. Фоновый тест не является повторным подтверждением сбоя автоперехода на первом треке, поскольку пользователь нажал Next вручную. При этом watchdog автоматический переход на следующем треке выполнил.
 
 **Следующий этап:** продолжить только source-level аудит источника duration, end notification, watchdog и поведения в фоне. До общего разбора и отдельного решения пользователя — никаких скачиваний, сборок, IPA, симуляций, CI или изменений кода.
+
+
+## 26. YouTube Resolve failure for an unavailable queue item — 19 November 2026
+
+A diagnostic export (53 entries, 01:41:07–01:41:27 UTC) shows that queue item `я молодой вампир vamp` (`yWdy0Fye626c`, index 5/12) failed to resolve. VISIONOS, ANDROID_VR and IOS player clients all returned HTTP 200 but reported `UNPLAYABLE` / «Видео недоступно». This is an application-level unavailable-video response, not an HTTP transport failure. The exact reason (private/deleted/restricted/other) is not present in the log.
+
+No AVPlayer item was created for that queue item. A subsequent `playback.user_resume` was followed by `AVPlayerWaitingWithNoItemToPlayReason`, consistent with there being no playable item after Resolve failed. At 01:41:19 the next queue item `Автостопом по фазе сна - lv` (`yo2J4B5POfeI`, index 6) loaded successfully, reached readyToPlay, and began playing at 01:41:23. The excerpt has no explicit `playback.advance` or skip-recovery event between the two items, so it does not establish whether the next item was selected automatically or by a user Next action.
+
+**Conclusion:** one YouTube item was unavailable to all three tested player clients; the following item played successfully. This does not establish a player-wide failure, network failure, or automatic skip. During source audit, inspect the intended queue policy after `playback.resolve.failure` (surface an error and wait vs automatically skip). No code changes, builds, downloads, simulator runs, or CI runs were performed. Full details are in journal entry №063.
