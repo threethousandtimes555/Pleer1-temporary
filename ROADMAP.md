@@ -512,3 +512,40 @@ The user confirms this exact track previously played normally on the older Build
 The user also confirms they manually pressed Next at 01:41:19. Thus the transition to `yo2J4B5POfeI` was not automatic, and this log does not test queue auto-recovery after a resolve failure.
 
 Do not infer deletion, regional restriction, or permanent unavailability. No builds, downloads, simulator runs, or CI runs.
+
+
+
+## 27. Consolidated read-only audit before any fixes — 19 November 2026
+
+The user requested a full review of prior tests, hypotheses and proposed decisions before deciding what to change. This is an audit-only phase. Do not download, build, create IPA, run simulator tests, trigger CI/workflows, or modify application source until the user has reviewed the consolidated findings and explicitly agrees.
+
+### Current confirmed findings
+
+- **Resolver regression candidate:** a YouTube video that the user confirms played on Build #14 returned `UNPLAYABLE` from all three tested InnerTube player clients in the latest diagnostic log. All requests returned HTTP 200. This is not evidence that the video is deleted/private or inherently unavailable. Compare the exact Build #14 source/build mapping with the current IPA and inspect raw player-response fields.
+- **Manual Next:** the user pressed Next in that test. The next item starting does not demonstrate automatic recovery after Resolve failure.
+- **Auto-advance:** one earlier test reached the end without advancing after a preceding manual seek; causality is unknown. A separate background test was not a repeat failure because the user pressed Next manually. On the following item, watchdog did execute `advance(auto=true)`. Gapless playback remains unverified.
+- **Duration anomaly:** resolved duration vs AVPlayer item duration was approximately 2x in two separate logs (188.00/376.72 sec and 210.00/419.03 sec). Source and propagation of duration values must be traced before changing watchdog thresholds.
+- **Long startup:** a roughly 24-minute YouTube compilation eventually played after a very long initial wait. Resolve succeeded; exact delay source (resolver, format selection, network, or AVPlayer buffering) is unknown.
+- **Playlist/prefetch:** a playlist with 31 tracks loaded; first track played; the next stream resolved successfully in prefetch. This alone does not prove a seamless or successful automatic transition.
+- **Thumbnails:** square YouTube covers still display black bars or appear rectangular. No fix is confirmed. Audit thumbnail source dimensions, view aspect ratio, scaling mode, clipping and padding separately from playback.
+- **Background/Siri historical checkpoint:** Build #5 checkpoint `6ff25c7b249e01f7ae9867dbffe6ee0f34c6d9e3` had three reported full listens from Favorites with the phone locked and Siri track skipping. Do not assume this proves all later builds or all queue paths are correct.
+
+### Audit sequence (read-only)
+
+1. Establish exact source commit/build metadata for Build #14 and for the currently installed IPA. Do not treat a similarly named branch as proof of build provenance.
+2. Compare Resolver implementation and request context: client versions, visitorData lifecycle, headers/context, response parsing, playabilityStatus and audio format selection.
+3. Trace duration from YouTube response through resolved stream, `knownYouTubeDuration`, AVPlayer item duration, UI clock and watchdog.
+4. Trace completion paths on the exact build source: end notification, observer lifecycle, completion token, watchdog, background execution and interruption handling.
+5. Audit prefetch and startup: resolve latency, selected audio format, initial buffer behavior, prefetch hit/miss, possible short-lived resolved-stream cache (TTL), and AVPlayerItem preparation. Never persist signed media URLs indefinitely.
+6. Audit YouTube thumbnail UI separately: image URL/quality, source pixel dimensions, container constraints, aspect ratio, content mode and clipping.
+7. Produce a decision table separating confirmed defects, unproven hypotheses, already-working paths, proposed fixes, trade-offs and the smallest future validation tests.
+
+### Decisions not yet made
+
+- Whether Resolve failure should stop and display an error or automatically skip to the next queue item with a bounded retry/loop guard.
+- Whether to implement a short-lived stream URL cache, early pre-resolve/prefetch, or AVPlayerItem preparation.
+- Which duration source should be authoritative and how watchdog should behave when metadata disagrees.
+- The exact thumbnail rendering fix.
+- No code changes or new test runs are authorized in this phase.
+
+**Next step:** continue reading existing source/history and await any additional user-provided test material. Only after the evidence review should the user and assistant agree on the changes and targeted tests.
