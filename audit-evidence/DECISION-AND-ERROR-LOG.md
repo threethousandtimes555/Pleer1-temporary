@@ -1430,7 +1430,7 @@ Pleer1 технически может реализовать работающу
 
 База — актуальная рабочая ветка `fix/youtube-standalone-search-device-2026-11-19`, commit `a64ced41faf9fc93ec187c2d071e904bf0d1692b`. Ветка `main` в этом репозитории отстаёт и не содержит актуального YouTube resolver; поэтому не использовать main как integration base.
 
-Текущий source head на момент записи: `c17735edfdce521a29253147823d1b5ef831a5b8`.
+Текущий source head на момент записи: `d4a5c319ad6bbe052a9d5e9de875655664c00f3e`.
 
 ### Что уже добавлено в source branch
 
@@ -1462,3 +1462,12 @@ Pleer1 технически может реализовать работающу
 **Статус:** первая реализация полноценного JS fallback добавлена в отдельную source branch; требуется статический review и затем отдельное согласование сборки/устройственного теста.
 
 Пользователь разрешил source edits в текущем сообщении. Это не разрешение на IPA downloads, builds, simulator, CI или пользовательские тесты. Никакие билды/симуляции/IPA в рамках этой работы не запускались.
+
+
+### Addendum to Journal 075 — static pass
+
+- Source branch advanced to `d4a5c319ad6bbe052a9d5e9de875655664c00f3e`; resolver and prefetch diagnostics now identify resolver source, client, bitrate and expiry without logging signed URLs.
+- JS module initialization is explicitly checked after WKWebView navigation; failures are surfaced instead of silently waiting for the full resolver timeout.
+- Device language/region are used for the JS Innertube session.
+- Shell syntax of `prepare-youtubei.sh` was checked with `bash -n` and passed.
+- Swift/JS source received a read-only manual review. This is not a compiler or runtime verification. No XcodeGen, xcodebuild, simulator, CI, IPA or device tests were run.
