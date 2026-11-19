@@ -578,3 +578,6 @@ Lab implementation on `feature/youtubei-js-ios-fallback-2026-11-19`:
 
 
 **Дополнение — сетевой запрет на уровне URLSession:** каждая офлайн-передача теперь получает `allowsCellularAccess` и `allowsExpensiveNetworkAccess` из текущего согласия пользователя. Без разрешения сессии загрузчик не должен использовать сотовый/дорогой канал даже в коротком промежутке до callback от NWPathMonitor. При сетевых ошибках перед пометкой трека как неудачного загрузчик сверяет `NWPathMonitor.currentPath`, чтобы не потерять трек, если событие смены маршрута пришло позже URLSession error.
+
+
+**Актуализация source head после финального статического просмотра:** Lab branch `feature/youtubei-js-ios-fallback-2026-11-19`, commit `bb32a4e12cc376c4b86b5b7623d6a1a56640d8dd`; 37 commits ahead of `51fb09a1a998056e70707837c48b3bbc3f1300bd`, 0 behind, exactly 6 source files changed. Дополнительно: URLSession получает запрет на cellular/expensive access до пользовательского согласия; при сетевой ошибке сверяется текущий NWPath snapshot; Swift и JS resolver cache invalidation generation-safe; текущие playback consumers не обрываются принудительно. MIME-сигнатура сверяется и с HTTP response, и с форматом, который вернул resolver.
