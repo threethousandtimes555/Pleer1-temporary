@@ -946,3 +946,12 @@ Current source head: `a707ab346626c09c9b8645bdedff24b444747910`. The unpinned Ho
 Поиск: обычный запрос трека/исполнителя — videos → playlists → Mix; запрос playlist — playlists → Mix → videos; запрос Mix — Mix → playlists → videos. В каждой группе учитывать совпадение title/artist и сохранять исходный YouTube order при равном score. Коллекции должны быть включены и для обычных запросов. Jam не отождествлять с playlist/Mix: отдельный Jam result показывать только при наличии реально распознанного entity/renderer. До IPA обновить search intent, result ranking и противоречащие новому контракту tests.
 
 Проверки приложения не требуют VPN, если YouTube доступен напрямую. Если YouTube недоступен из сети, функциональную проверку поиска/потоков проводить после восстановления рабочего маршрута; отдельно тестировать недоступность GitHub config и YouTube.
+
+
+### 19.11.2026 — YouTube search ordering implementation
+
+Source branch: `feature/youtubei-js-ios-fallback-2026-11-19`; latest source commit `54f38389447cfd97af1b9c70c67d77103282430d`.
+
+Implemented in source (static only): always include collection discovery; default videos → playlists → Mix; explicit playlist query playlists → Mix → videos; explicit Mix query Mix → playlists → videos. After InnerTube + HTML merge: deduplicate, then stable rank by requested category, title/artist relevance and original source order. Replaced contradictory tests with expectations for collection inclusion and category/relevance ordering. Jam remains a distinct unimplemented entity type; do not mislabel a playlist as Jam.
+
+No compile, XcodeGen, XCTest, simulator, Codemagic or IPA has run. Before the one controlled IPA build, do a final read-only audit of changed files and workflow. VPN is not required for compilation or local WKWebView bundle startup; real YouTube search/stream tests require YouTube endpoints to be reachable. If YouTube is inaccessible on the current network, defer only network-dependent verification until connectivity is restored, while local app/runtime checks can still proceed.
