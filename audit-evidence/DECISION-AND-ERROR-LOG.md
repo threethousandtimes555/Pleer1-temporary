@@ -1279,3 +1279,14 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Pleer1-Lab feature branch commit: `4edd6da89053a074ea3b1ff82f035022add1bc25`.
 - The updated source was fetched back from GitHub and visually verified. No local Swift compiler was available in this workflow; no compile, XCTest, simulator, IPA, install, or device test has been run after the correction.
 - Next action: user reruns Codemagic workflow `pleer1-unsigned-ipa` on `feature/youtubei-js-ios-fallback-2026-11-19`. Treat any subsequent compiler errors as new evidence; do not assume this was the only blocker.
+
+
+### #066 — Codemagic: Xcode build succeeded and unsigned IPA artifact appeared
+
+- **Дата:** 20.11.2026.
+- **Подтверждение пользователя:** после повторного запуска workflow `pleer1-unsigned-ipa` в Codemagic появился IPA в Artifacts; отображаемый размер — **899.07 KB**.
+- **Предоставленный build log:** Xcode завершил сборку сообщением `** BUILD SUCCEEDED **`; `Validate ... Plei.app` прошёл; далее выведено `Package unsigned IPA at repository root`.
+- **Вывод:** подтверждены успешная Xcode-сборка и появление IPA-артефакта в Codemagic. Это первый подтверждённый unsigned IPA artifact после исправления Swift interpolation error (#065).
+- **Оговорка:** 899.07 KB — необычно малый размер для полного приложения. До проверки содержимого IPA не утверждать, что пакет полноценен или готов к установке. Проверить архив на наличие `Payload/Plei.app`, app executable, ожидаемых ресурсов YouTubeResolver и собранного youtubei runtime; при необходимости проверить размер самого `Plei.app` внутри архива.
+- **Не подтверждено:** установка, запуск, поиск YouTube Music, воспроизведение, background/Siri и другие runtime-сценарии на iPhone. Build #5 `7eabcbc` остаётся последней проверенной на устройстве версией; stable checkpoint не изменён.
+- **Следующий шаг:** проверить состав IPA-архива. После подтверждения состава отметить пакет как полноценный unsigned build; далее отдельно планировать установку и device tests.
