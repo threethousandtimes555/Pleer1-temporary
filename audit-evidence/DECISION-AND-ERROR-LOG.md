@@ -843,3 +843,12 @@
 - **Выявленная ошибка auto-skip:** текущая реализация вызывает skip на любой resolve error, в том числе timeout/network/JS bridge failure. Это чрезмерно широко; требуется классификация permanent unavailable/auth-required vs transient infrastructure failure до следующей сборки.
 - **Открытый вопрос:** пользователь сообщает, что Musike воспроизводит трек. Проверенный код standalone iOS Musike не показывает age-auth support. Нужно уточнить, был ли это Musike iPhone standalone или desktop/server/self-hosted, и подтвердить точный video ID; не делать предположений.
 - **Решение по дальнейшей работе:** продолжить статический аудит и спроектировать opt-in authenticated resolver path с безопасным хранением сессионных данных; не логировать cookies/tokens. Не считать это обходом возраста: требуется подтверждённая Google-сессия самого пользователя. Никакой сборки/симулятора/IPA не запускалось.
+
+
+#### Дополнение к записи №039 — исправлена чрезмерно широкая auto-skip обработка
+
+- В Lab добавлена `isDefinitiveYouTubeAvailabilityFailure`: пропуск разрешён только для явных маркеров `LOGIN_REQUIRED`, `UNPLAYABLE`, age/confirm-age/inappropriate, private/removed/not-available и отсутствия прямого аудиоформата.
+- Общие resolve errors (включая сеть, timeout и JS bridge) теперь фиксируются как `playback.resolve.transient_failure` и не должны автоматически пропускать трек. Аналогично окончательная ошибка AVPlayer без явного маркера фиксируется как `playback.item.transient_failure`, а не auto-skip.
+- Счётчик consecutive skip теперь сбрасывается при успешном `readyToPlay` любого элемента очереди, в том числе локального трека.
+- Коммиты Lab: `0c129bc3adcda7aba23bd2e29a8fdce5476c8739`, `7a689fc2c606f137f63d5643d715f0e51191d437`, `2287b783cf3d93b51e0d2ad4dbd420912d16b217`.
+- Статические проверки прошли: наличие классификатора и transient веток, шестипопыточного лимита, защиты от повторного ID, очистки observer и guard на пустой AVPlayer. Это не компиляция и не runtime тест; текстовая классификация ещё должна быть подтверждена реальными логами.
