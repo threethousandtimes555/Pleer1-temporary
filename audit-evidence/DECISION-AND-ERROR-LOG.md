@@ -1578,3 +1578,40 @@ Native Swift resolver теперь использует `Locale.current` для 
 Поведение visitor identity приведено ближе к Musike: если свежий visitorData не получен, используется последний сохранённый visitorData, когда он существует; свежий ID сохраняется с timestamp, а значение в логах не выводится. Ошибка получения visitorData остаётся диагностируемой, но отсутствие свежего ответа не выбрасывает известный cached ID.
 
 Native Swift client profiles сохранены точь-в-точь как Musike (VISIONOS 1.02/101, ANDROID_VR 1.60.19/28, IOS 20.10.4/5, общий Safari UA и platform DESKTOP). JS fallback остаётся на независимых profiles youtubei.js 18.3.0. AVPlayer User-Agent совпадает с MusikeAudio.
+
+
+### Addendum — повторная сверка Musike перед единственным IPA build (19.11.2026)
+
+**Pleer1 source branch:** `threethousandtimes555/Pleer1-Lab:feature/youtubei-js-ios-fallback-2026-11-19`
+**Pleer1 source head на момент сверки:** `8968e993e7c193f964fcf75a873b852f793e6305`
+**Musike reference:** `Ernani1234/musike@41706772a4c1e774e3bf1731ca28711fa1529cf4`
+
+#### Подтверждённое совпадение архитектуры
+- Musike iOS использует native Swift resolver первым, затем настоящий youtubei.js fallback через JS runtime. Pleer1 сохраняет тот же порядок: Swift primary → bundled youtubei.js fallback.
+- Native Swift client profiles совпадают с оригинальным Musike: VISIONOS 1.02/101, ANDROID_VR 1.60.19/28, IOS 20.10.4/5; общий Safari User-Agent и `platform=DESKTOP`.
+- JS fallback использует `Innertube.create({ retrieve_player:false, lang, location, fetch })`, отдельный iOS client order IOS → VISIONOS, direct audio URL extraction, in-flight/cache/expiry/invalidation.
+- Musike iOS JS transport — `CapacitorHttp`; на iOS CapacitorHttp использует native URLSession transport. Pleer1 отправляет тот же тип запросов через Swift bridge + `URLSession.shared`, не через WKWebView fetch.
+- Оба механизма используют visitorData cache с TTL 24 часа и один общий native network egress устройства. Ни один из них не импортирует автоматически cookies официального YouTube app и не генерирует PO Token.
+
+#### Осознанные отличия Pleer1 от snapshot Musike
+1. Musike lockfile фиксирует `youtubei.js 18.1.0`; Pleer1 фиксирует `18.3.0` с SHA-512 integrity. Это не идентичная версия. Changelog 18.2.0 содержит исправление обработки отсутствующей session config; 18.3.0 в основном добавляет UI/parser возможности. Изменение версии оставлено как отдельное осознанное обновление, а не объявлено доказанным улучшением stream resolution. Runtime/API compatibility должна подтвердиться сборкой и устройством.
+2. Musike iOS JS path по умолчанию использует `IOS → VISIONOS`; Pleer1 использует pinned snapshot config с тем же порядком и ограничивает допустимые значения этими двумя клиентами.
+3. Musike JS fallback принимает direct audio-only formats, отдавая приоритет audio/mp4, но допускает audio/webm. Pleer1 намеренно оставляет только direct audio/mp4 для совместимости с текущим AVPlayer pipeline.
+4. Pleer1 добавляет один bounded refresh сессии при parsed `LOGIN_REQUIRED`; в Musike этот статус обычно ведёт к следующему client без такого refresh. Pleer1 также использует session key language+region, а не только language.
+5. Pleer1 bridge добавляет явные request/resolve timeouts, HTTP status checks, WebKit process recovery и диагностику; это дополнительные safeguards, которые требуют runtime проверки.
+6. Pleer1 использует текущий AVPlayer pipeline приложения вместо переноса всего MusikeAudio/web player stack. Переносится resolver/stream-extraction mechanism; не заявляется перенос всего Musike плеера.
+
+#### Производительность и ограничения
+- При успешном Swift primary JS fallback не запускается: дополнительная задержка от youtubei.js на этом пути отсутствует.
+- JS fallback вызывается только после отказа всех Swift clients. На холодном запуске он дополнительно поднимает скрытый WKWebView, загружает локальный bundle и создаёт Innertube session; последующие запросы могут переиспользовать runtime/session/cache.
+- Существующий Player prefetchNext заранее разрешает следующий YouTube track, поэтому часть fallback latency может скрываться во время проигрывания текущего трека. Это зависит от времени prefetch и успешности сети.
+- Точные задержки не измерены: нет build/device run. Не выдавать оценки в секундах за результаты тестов.
+
+#### Следующий этап при сохранении LOGIN_REQUIRED после baseline integration
+Если после сборки и проверки на iPhone JS fallback по-прежнему получает `LOGIN_REQUIRED`, следующим отдельным исследовательским этапом становится оценка необходимости PO Token / proof-of-origin и корректного authenticated cookie/session context. Не считать их заранее обязательными и не обещать обход bot-check. Cookies официального YouTube app нельзя читать из sandbox другого iOS-приложения; исследовать только допустимый, явно авторизованный механизм сессии, без извлечения приватных данных приложения.
+
+#### Решение по этапам
+- Сейчас: закончить read-only сверку, затем выполнить ровно один согласованный IPA device build и анализировать его логи до установки.
+- После успешной сборки: установить и проверить на реальном iPhone; build success сам по себе не равен успешной интеграции.
+- Если baseline не решит LOGIN_REQUIRED: PO Token/authenticated session — следующий этап исследования, а не повод запускать серию сборок.
+- Ревизия репозиториев и объявление Pleer1 1.0 отложены до полной успешной интеграции и device verification.
