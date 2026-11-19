@@ -642,3 +642,44 @@ Read-only audit of Musike snapshot `41706772a4c1e774e3bf1731ca28711fa1529cf4` co
 - Можно переходить к подготовке интеграционного design Pleer1: точные Swift integration points, runtime choice для youtubei.js (не копировать Capacitor/Vite wiring автоматически), output normalization, fallback/error policy, session lifecycle, cache/URL expiry, retries, diagnostics, compatibility and staged test plan.
 - Сохранить Pleer1 AVPlayer/queue/background/Siri/UI; не переносить MusikeAudio facade целиком. Seek handshake — отдельно.
 - Никаких source edits/builds/downloads/IPA/simulator/CI/user tests до отдельного согласования.
+
+
+## 32. Подготовка интеграционного дизайна fallback resolver Pleer1 — 19 ноября 2026
+
+### Подтверждённая Pleer1 точка подключения
+
+Проверен source snapshot `Pleer1-Lab` commit `ec7bfe8f0fef22eb5fe0c2eb28573309de484db4`:
+- `Player.load()` → `loadYouTube()` → `YouTubeEngine.resolve()` (или готовый prefetch result) → `start()` → существующий `AVURLAsset/AVPlayerItem/AVPlayer`.
+- Сейчас primary resolver пробует VISIONOS → ANDROID_VR → IOS через одну Swift `URLSession` и один общий InnerTube request implementation.
+- При отказе всех клиентов, включая LOGIN_REQUIRED, возвращается одна общая ошибка; структурированный playability status не передаётся в Player и нет второго resolver stage.
+- Результат Stream сейчас содержит URL, MIME и duration; source/client/bitrate/expiry metadata отсутствуют.
+- Проект — обычный Swift iOS target; Musike Vite/Capacitor/WKWebView JS runtime не является частью текущего Pleer1 project configuration.
+
+### Рекомендуемая архитектура (design only; implementation не утверждена)
+
+1. Оставить существующий Swift `YouTubeEngine` primary resolver.
+2. Добавить resolver orchestration boundary: primary → typed failure classification → один isolated fallback attempt → normalized stream result.
+3. Fallback не должен менять AVPlayer. `Player` получает единый результат и продолжает текущий `start(url,...)` path.
+4. Сохранить текущие queue, prefetch ownership, loadToken guards, background audio, Siri, UI и diagnostics export.
+5. Нормализовать resolver source/client, MIME, bitrate, duration, format metadata и URL freshness/expiry; signed URLs и tokens не писать в лог.
+6. Ввести bounded retry policy и раздельные категории playability refusal, transport error, HTTP status, malformed response, no direct audio format и downstream stream-delivery failure.
+7. Отдельно исследовать visitorData/session freshness и cookie configuration; не считать 24-hour cached visitorData автоматически валидным.
+8. PO Token исследовать отдельно; не объявлять решением LOGIN_REQUIRED и не добавлять без надёжного способа получения/проверки.
+
+### Открытый выбор реализации fallback
+
+- **A — реальная youtubei.js:** встроить JS runtime/platform adapter (например, JavaScriptCore + собственный fetch bridge) и использовать библиотеку Musike. Это ближе всего к буквальному переносу, но требует проверки зависимости, node/browser APIs, fetch/stream compatibility, bundle size и поддержки iOS.
+- **B — native Swift adaptation:** реализовать отдельный Swift fallback по подтверждённой логике Musike `directAudio()`: отдельная Innertube session/client iteration, извлечение только audio-only direct URL и нормализация. Это естественнее для текущего SwiftUI/AVPlayer приложения, но это адаптация алгоритма, не использование самой JS-библиотеки `youtubei.js`.
+- Не выбирать A или B только по названию Musike; сначала завершить read-only feasibility comparison. Отдельно помнить, что второй resolver logic не гарантирует независимый сетевой маршрут: оба могут продолжать обращаться к YouTube InnerTube через HTTP.
+
+### Стадии после согласования
+
+1. Runtime feasibility и окончательный выбор A/B.
+2. Точный список source files, typed error/result contract и retry/session policy.
+3. Отдельное разрешение пользователя на application source edits.
+4. Отдельное разрешение на ограниченную сборку и тест с известным LOGIN_REQUIRED видео.
+5. Проверка resolver path, latency, URL expiry, AVPlayer handoff, prefetch и отсутствие регрессий background/Siri.
+
+**Статус:** integration design preparation начата. Источники: журнал №071 и read-only source snapshot выше.
+
+**Ограничения:** до отдельного разрешения запрещены application source changes, IPA/downloads/builds/simulator/CI/user tests. Документационная подготовка не является разрешением на кодирование или тестирование.
