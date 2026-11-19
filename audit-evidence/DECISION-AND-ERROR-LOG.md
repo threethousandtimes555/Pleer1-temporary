@@ -896,3 +896,15 @@
 Исправление в Lab: из списка permanent-маркеров удалён общий LOGIN_REQUIRED; остаются конкретные причины вроде age-restricted, confirm your age, inappropriate for some users, private/removed/unavailable и отсутствие прямого аудиоформата. Поэтому bot-check без явного age/unavailable reason теперь должен попадать в transient path, а не автоматически пропускать трек.
 
 Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка статическая; не компилировалось и не тестировалось на устройстве.
+
+### Запись №041 — исправлен выбор длительности YouTube для шкалы и watchdog
+
+- **Дата:** 19.11.2026.
+- **Причина:** в диагностике ранее обнаруживалось несовпадение resolver duration и фактической длительности AVPlayer item (например, 210 с против примерно 419 с). В Player.swift resolver duration безусловно ограничивала clock.position и использовалась watchdog для определения конца трека. Это могло визуально завершать шкалу раньше реального аудио и запускать watchdog не у фактического конца.
+- **Изменённый файл:** Lab `plei/Sources/Player.swift`, ветка `feature/youtubei-js-ios-fallback-2026-11-19`.
+- **Изменение:** разделены `resolverYouTubeDuration` (резервное значение и диагностика) и `knownYouTubeDuration` (эффективная длительность). При `readyToPlay` и повторно в `tick` принимается валидная конечная `AVPlayerItem.duration`; если AVPlayer пока возвращает indefinite/ноль, остаётся resolver fallback до появления фактической длительности. Шкала, ограничение позиции и watchdog используют одно эффективное значение.
+- **Диагностика:** добавлена запись `playback.duration.authoritative` с источником, resolver duration, asset duration и прежним значением; существующая `playback.duration.compare` теперь показывает resolver, asset и effective отдельно.
+- **Lab commit:** `dab45e3e2dcdae26bc779e4ccf72c6a9d753e44b`.
+- **Дополнение:** в `youtubei-bridge.js` исправлен вводящий в заблуждение комментарий о LOGIN_REQUIRED retry; логика не менялась. Retry выполняется после исключения запроса, а не после разобранного playability refusal. Lab commit `72ba733d21a0156faad7a5bada72998076be313a`.
+- **Статус:** исходники обновлены; выполнена статическая проверка логики. Компиляция, симулятор, Codemagic, xcodebuild, XcodeGen, IPA packaging и установка не запускались. Нельзя утверждать, что исправление подтверждено на устройстве. Следующий тест после отдельно разрешённой сборки: длинная YouTube-дорожка с разницей resolver/asset около 2×; проверить шкалу, elapsed/remaining, seek, lock-screen metadata, watchdog и естественный end event.
+- **Границы:** не менялись MP4/WebM приоритет, YouTube resolver, auto-skip лимит и алгоритм выбора обложек.
