@@ -742,3 +742,24 @@ JavaScriptCore через `youtubei.js/agnostic` остаётся альтерн
 5. Ни один runtime не гарантирует устранение LOGIN_REQUIRED; Musike fallback в проверенной конфигурации не генерирует PO token и использует анонимную сессию.
 
 **Статус:** read-only Musike/runtime audit завершён; WKWebView + native fetch bridge выбран как design candidate для настоящей интеграции, если потребуется этап 2. Source edits/builds/tests не выполнялись и не разрешены без отдельного согласования. Подробности — журнал №073.
+
+
+## 35. Повторный аудит Musike iOS и причина архитектурного пробела Pleer1 — 19.11.2026
+
+**Главный вывод:** Pleer1 может реализовать рабочий iOS playback path; проблема не в невозможности iOS. Pleer1 реализовал близкий к Musike native Swift primary resolver, но не перенёс вторую полноценную ступень Musike — JS fallback через youtubei.js.
+
+### Подтверждённые факты
+- Swift primary Musike и Pleer1 имеют очень близкую реализацию: те же три client profiles/order, visitorData endpoint/cache, похожие player body, headers и direct audio/mp4 selection.
+- Musike iOS при неудаче Swift resolver вызывает `directAudio()` на базе youtubei.js. JS stage имеет собственную Innertube session и отдельный client order IOS → VISIONOS.
+- JS fetch использует CapacitorHttp native transport, не обычный WKWebView fetch.
+- Pleer1 после отказа трёх Swift clients завершает resolve; полноценной второй resolver stage нет.
+- LOGIN_REQUIRED в текущем инциденте — HTTP 200 с отказом в JSON player response, до создания AVPlayerItem. Непустой visitorData не подтверждает его свежесть/валидность.
+- Официальное YouTube app и анонимный third-party InnerTube request не имеют гарантированно одинакового auth/attestation/session context.
+
+### Границы вывода
+Нельзя утверждать, что JS fallback обязательно решит LOGIN_REQUIRED: Musike fallback в проверенном snapshot не передаёт явные cookies и не генерирует PO token; другой resolver/transport не является отдельным IP egress. Native Swift session differences отмечены как предмет проверки, не как установленная причина.
+
+### Очерёдность
+Сохранить ранее согласованный этап B (отдельный native Swift fallback) как первый ограниченный шаг. При его недостаточности перейти к настоящей youtubei.js integration через hidden WKWebView + Swift URLSession bridge, baseline 18.1.0, затем обязательный upgrade 18.3.0. Не менять AVPlayer, queue, background audio, Siri или UI без необходимости.
+
+**Ограничения:** read-only audit/documentation only; никаких application source edits, IPA/downloads/builds/simulator/CI/user tests.
