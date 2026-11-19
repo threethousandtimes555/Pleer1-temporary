@@ -1051,3 +1051,15 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - **Build asset:** отсутствие `youtubei-runtime.js` в Git tree не является само по себе дефектом: Codemagic запускает `Scripts/prepare-youtubei.sh`, скачивает pinned npm tarballs, проверяет SHA-512, собирает bundle и проверяет `window.PleerYouTube` и размер. Этот шаг должен быть виден в build log и подтверждён в следующем билде.
 - **Статус:** audit read-only; никаких изменений Swift/JS и никаких build/test/device actions не выполнялось. Два документа в temporary repo обновлены отдельными commit.
 - **Следующий шаг:** решить WebM vs AAC/MP4 policy; закончить сравнение retry/expiry/error handoff и playback lifecycle; затем оформить полную матрицу parity. До решения о форматах не считать offline загрузку полностью готовой.
+
+
+### Запись №049 — сравнение retry, expiry и AVPlayer lifecycle с Musike
+
+- **Дата:** 19.11.2026.
+- **Musike:** `web/src/player/player.ts` делает одну повторную попытку после media error; `explainStreamError` вызывает `forgetUrl` только после повторной ошибки. Поскольку `resolveAudio` кэширует URL до истечения срока, первая повторная попытка может снова получить тот же URL из cache. Это поведение не следует копировать без отдельной проверки.
+- **Pleer:** при AVPlayer item failure, если активный поток пришёл из youtubei.js, `Player.itemStatus` сначала вызывает `YouTubeJSResolver.shared.forget(url:)`, затем выполняет одну ограниченную повторную попытку. Native Swift resolver не имеет stream cache, поэтому повторный resolve запрашивает новый URL. По исходникам это выглядит более надёжным для истёкшего/отозванного URL, но требует проверки на устройстве с реальным HTTP 403/ошибкой CDN.
+- **Playback lifecycle:** Musike `MusikeAudio.swift` использует AVPlayer, User-Agent header, forward buffer 30 секунд, resolver duration вместо потенциально удвоенной AVPlayer duration, early-end guard и точную seek. Pleer `Player.swift` использует тот же User-Agent для сетевого YouTube asset, forward buffer 30 секунд, resolver duration, end observer, отдельный watchdog и guard от повторного completion; дополнительно сохраняет прямое управление AVPlayer, аудиопрерывания и системные remote commands.
+- **Intentional architecture difference:** Musike держит native AVPlayer за WKWebView message bridge, Pleer использует AVPlayer непосредственно в SwiftUI/Player. Переносить web bridge целиком не требуется для parity по извлечению потока.
+- **Небольшая диагностика:** `FavoritesAudioCache.deleteFiles` пишет `reason=unfavorited` и при явном удалении загрузки пользователем. Это не влияет на аудио, но может исказить диагностику; поправить reason на фактический контекст удаления до финальной проверки журнала.
+- **Итог:** retry/expiry и основная AVPlayer duration/buffering логика Pleer не отстают от Musike по статически просмотренным участкам; в retry у Pleer есть более явная инвалидация JS cache. Это source comparison, не runtime proof.
+- **Остаются открыты:** WebM vs AAC/MP4, общая дедупликация native resolver, удаление активного локального файла, UI мобильного согласия в фирменном стиле, двойной трафик при stream+download.
