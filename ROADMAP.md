@@ -598,3 +598,24 @@ No new downloads, IPA, builds, simulator runs, CI/workflow runs, or application-
 После сравнения подготовить варианты архитектуры и риски, затем согласовать с пользователем. До отдельного разрешения не менять application source и не запускать тесты.
 
 **Ограничения пользователя сохраняются:** никаких скачиваний, IPA, сборок, симуляций, CI/workflow runs и пользовательских тестов. Разрешены только чтение исходников и документационные обновления.
+
+
+## 29. Musike iOS fallback: подтверждённая архитектура и направление интеграции — 19.11.2026
+
+Read-only audit of Musike snapshot `41706772a4c1e774e3bf1731ca28711fa1529cf4` corrected the earlier assumption that iOS fallback is a remote server/yt-dlp path.
+
+- The normal iOS IPA build runs `web build:native` and bundles the native backend into the app (unless `MUSIKE_SERVER_URL` is set).
+- In native mode, `web/src/native/streams.ts` first asks the Swift `MusikeYouTube` resolver. If it returns an error/no URL, the app falls back to `directAudio()`.
+- `directAudio()` uses a cached `youtubei.js` 18.1.0 `Innertube` session and tries the iOS client list `IOS`, `VISIONOS` from `mobile/streaming.json`. This code is bundled in the app; it is not yt-dlp running on iOS and is not inherently a remote server call.
+- The fallback uses the default fetch path in the reviewed config; exact WebView transport/session behavior and its response to the current LOGIN_REQUIRED error remain unverified.
+- Musike's native AVPlayer adapter is a WebView compatibility layer. Pleer1 already uses AVPlayer directly, so a wholesale replacement of Pleer1 playback is not indicated. Both implementations currently request a 30-second forward buffer.
+- Musike has an explicit seek-completion event and suppresses stale position updates during a seek. This is a candidate design improvement for Pleer1, not yet a proven fix for the reported auto-advance issue.
+
+**Proposed direction (not yet implementation approval):**
+1. Finish read-only review of Innertube session creation, default fetch, visitorData, retry behavior and exact error propagation.
+2. Design a small fallback resolver boundary in Pleer1: retain Swift resolver as primary; call a separately isolated Innertube fallback only after appropriate native failure; normalize output/error/expiry.
+3. Keep Pleer1's existing AVPlayer, queue, background audio, Siri and UI. Do not port Musike's WebView audio facade wholesale.
+4. Assess seek handshake separately from resolver work.
+5. Present exact files, dependency impact, risks and a staged test plan before any source edit or test/build.
+
+**Not proven:** Musike's fallback has not been run against the user's LOGIN_REQUIRED video. Do not promise that it bypasses YouTube bot verification. No application source changes, downloads, builds, IPA, simulator runs, CI, or user tests are authorized during this audit.
