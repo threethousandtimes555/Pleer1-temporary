@@ -428,9 +428,20 @@ HTTP 400 на `/youtubei/v1/config` не остановил загрузку: п
 - [x] Add unobtrusive per-track states: downloaded, downloading, queued, failed, not downloaded.
 - [x] Add «Только скачанные» mode: filter new queues to complete local files and skip missing files without invoking YouTube.
 - [x] Stop automatic LRU deletion of completed offline tracks; the 1 GiB value is now a soft budget with diagnostics only.
-- [ ] Persist failure/retry state and expose a deliberate retry action.
-- [ ] Handle low-storage conditions before starting a download; never silently remove completed files.
-- [ ] Review duplicate traffic: playback streaming and full-file download can currently transfer the same track simultaneously.
+- [x] Persist failure/retry state and expose a deliberate retry action (explicit «Повторить загрузку» action for failed favorite tracks).
+- [x] Check free storage before and after download; preserve completed files on low storage. Device verification remains pending.
+- [x] Reuse the playback resolver result for the download job when its URL is still valid (avoids a second resolve in the common case). [ ] Measure/solve duplicate audio-data transfer: AVPlayer streaming and full-file download can still run simultaneously.
 - [ ] Decide whether to implement a real background URLSession and resume support after the basic device test.
-- [ ] Test 300 favorites, queue seriality, Wi-Fi↔cellular transitions, partial/cancelled downloads, local-first playback, Telegram imports, un-favorite behavior, offline mode, and storage pressure on an iPhone.
+- [ ] Test 300 favorites, queue seriality, Wi-Fi↔cellular transitions, partial/cancelled downloads, local-first playback from Search and Downloads, Telegram imports, un-favorite behavior, offline mode, and storage pressure on an iPhone.
 - [ ] Build and install only after the remaining static audit is complete and the user explicitly asks to proceed.
+
+### Next focused audit — Musike parity (19 Nov 2026)
+
+- [ ] Compare current Pleer1 implementation against Musike source file by file; do not infer parity from earlier partial reviews.
+- [ ] Verify native client order and client-specific request bodies/headers/visitor data.
+- [ ] Verify stream extraction, format ranking, expiry handling, refresh/retry and fallback behavior.
+- [ ] Verify JS fallback and native resolver handoff/in-flight deduplication.
+- [ ] Verify cookie/session boundaries and explicitly list unsupported account-dependent cases.
+- [ ] Verify duration, end-of-track handling, AVPlayer configuration, buffering and playback lifecycle.
+- [ ] Produce a matrix: implemented and source-confirmed / intentional differences / incomplete / requires device test.
+- [ ] Keep the audit read-only until findings are presented; no speculative resolver changes.
