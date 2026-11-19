@@ -763,3 +763,34 @@ JavaScriptCore через `youtubei.js/agnostic` остаётся альтерн
 Сохранить ранее согласованный этап B (отдельный native Swift fallback) как первый ограниченный шаг. При его недостаточности перейти к настоящей youtubei.js integration через hidden WKWebView + Swift URLSession bridge, baseline 18.1.0, затем обязательный upgrade 18.3.0. Не менять AVPlayer, queue, background audio, Siri или UI без необходимости.
 
 **Ограничения:** read-only audit/documentation only; никаких application source edits, IPA/downloads/builds/simulator/CI/user tests.
+
+
+## 36. Интеграция полного Musike-style iOS youtubei.js fallback — 19.11.2026
+
+**Source branch:** `threethousandtimes555/Pleer1-Lab:feature/youtubei-js-ios-fallback-2026-11-19`
+
+**Base:** актуальная ветка `fix/youtube-standalone-search-device-2026-11-19`, commit `a64ced41faf9fc93ec187c2d071e904bf0d1692b`. Default `main` отстаёт и не содержит актуального YouTube resolver.
+
+**Source head на момент записи:** `c17735edfdce521a29253147823d1b5ef831a5b8`.
+
+### Реализация первой ступени интеграции
+- Native Swift resolver сохранён primary.
+- Добавлен отдельный hidden WKWebView host для локально bundled `youtubei.js/web.bundle`.
+- Добавлен Swift URLSession.shared fetch bridge, повторяющий Musike CapacitorHttp native transport и request normalization.
+- JS fallback реализует Innertube session lifecycle, `retrieve_player:false`, client order IOS → VISIONOS, retry session при thrown exception, playability status handling, direct audio-only format selection, cache/in-flight/expiry/invalidation и remote client config.
+- Player/AVPlayer/queue/background audio/Siri/UI не переписывались; prefetch использует существующий YouTubeEngine entry point.
+- Browser bundle 18.1.0 подготавливается в Xcode pre-build phase из npm tarball с SHA-512 integrity verification; runtime CDN не используется.
+- Third-party MIT attribution добавлен.
+
+### Следующие действия
+1. Read-only static review всех новых Swift/JS/XcodeGen/build-script изменений.
+2. Проверить resource copying и build phase ordering без запуска билда (по конфигурации).
+3. Подготовить checklist контролируемой проверки: известный LOGIN_REQUIRED video, JS session initialization, IOS → VISIONOS response, HTTP 200 + playabilityStatus, format extraction, AVPlayer URL handoff, cache expiry/invalidation.
+4. Отдельно проверить background lock-screen resolver/prefetch, WebKit process termination/recovery и auto-advance.
+5. Только после статического review и отдельного согласования пользователя выполнить ограниченный device build/test.
+6. После baseline 18.1.0 выполнить обязательный отдельный upgrade до 18.3.0 и regression check перед release.
+
+### Ограничения / неопределённость
+Source code implementation пока не собрана и не запускалась. Не заявлять compile success, device success или устранение LOGIN_REQUIRED. JS fallback не имеет собственного PO-token generation и не импортирует account cookies из официального YouTube app; он не создаёт независимый IP egress. WKWebView local ESM load и background lifecycle — ключевые runtime risks.
+
+**Запреты сохраняются:** никаких IPA downloads, builds, simulator, CI или user tests без отдельного разрешения.
