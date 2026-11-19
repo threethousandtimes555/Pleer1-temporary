@@ -1419,3 +1419,46 @@ Pleer1 технически может реализовать работающу
 Сохранить согласованную очередность: сначала спроектировать и закончить native Swift fallback B, но при оценке результата не выдавать его за полную Musike integration. При недостаточном результате — реализовать настоящий youtubei.js fallback по ранее выбранному кандидату hidden WKWebView + Swift URLSession bridge, baseline 18.1.0, затем обязательный upgrade до 18.3.0.
 
 **Ограничения:** это read-only аудит и документальная запись. Application source не менялся. IPA/downloads/builds/simulator/CI/user tests не запускались. Отдельного разрешения на эти действия нет.
+
+
+## 075. Начата интеграция полноценного Musike-style iOS youtubei.js fallback — 19 ноября 2026
+
+### Source branch и база
+
+Создана отдельная ветка в `threethousandtimes555/Pleer1-Lab`:
+`feature/youtubei-js-ios-fallback-2026-11-19`
+
+База — актуальная рабочая ветка `fix/youtube-standalone-search-device-2026-11-19`, commit `a64ced41faf9fc93ec187c2d071e904bf0d1692b`. Ветка `main` в этом репозитории отстаёт и не содержит актуального YouTube resolver; поэтому не использовать main как integration base.
+
+Текущий source head на момент записи: `c17735edfdce521a29253147823d1b5ef831a5b8`.
+
+### Что уже добавлено в source branch
+
+1. `YouTubeJSResolver.swift`: изолированный скрытый WKWebView runtime, typed async bridge для resolve results, native request bridge, timeout, web process termination handling.
+2. `YouTubeResolver.html` и `youtubei-bridge.js`: локальный ESM host и JS адаптер на основе Musike `directAudio()` / `withClient()`.
+3. JS session map per language; `Innertube.create({ retrieve_player:false, lang, location, fetch })`; thrown-exception session refresh один раз; parsed playability status обрабатывается перебором clients.
+4. iOS client order `IOS → VISIONOS`; локальный localStorage config и refresh remote `mobile/streaming.json` как у Musike.
+5. Format selection объединяет `adaptive_formats` и `formats`, оставляет audio-only direct URLs, AAC/audio-mp4 выше WebM, затем bitrate; cipher-only без direct URL не выбираются.
+6. Stream cache по video ID, in-flight deduplication, expiry с 60-секундным запасом, invalidation по отказу AVPlayer.
+7. Native fetch bridge повторяет Musike `makeFetch()`: method/headers/body, UA из `context.client.userAgent` (desktop fallback), Origin для InnerTube endpoint, Response reconstruction.
+8. Native transport использует `URLSession.shared`, намеренно не отключая shared cookie storage: это соответствует iOS CapacitorHttp transport, в отличие от текущего Pleer1 primary session, у которой cookie storage отключён.
+9. Native fetch host allowlist: YouTube domains, Google APIs domains и raw.githubusercontent.com для remote client config. Signed stream URLs, cookies, visitorData и PO tokens не пишутся в diagnostics.
+10. `YouTubeEngine.resolve()` оставлен primary; после исчерпания Swift clients вызывает JS fallback. Поэтому и обычная загрузка, и существующий prefetch проходят через один resolve entry point.
+11. `Player.swift` сохраняет resolver/client/bitrate/expiry metadata для диагностики и инвалидирует JS URL cache при downstream AVPlayer failure.
+12. XcodeGen config подключает локальные resolver resources. Xcode pre-build script скачивает npm tarball `youtubei.js@18.1.0`, проверяет SHA-512 integrity `4Goo3ZeO6/kE8Mq67eC8Z9K1rijeqRwyKxf/YM4lqf8bB4r/s8JC0V3YFx7+l/AJR3LnAsulTsiIj+AFe0cduA==` (из Musike pnpm lock snapshot), извлекает browser bundle и MIT license. JS bundle не грузится с CDN во время работы приложения.
+13. Добавлено third-party MIT attribution для youtubei.js.
+
+### Что пока не доказано / обязательные проверки
+
+- Код создан, но не собран и не запускался. Не утверждать, что он уже компилируется или что LOGIN_REQUIRED устранён.
+- Не проверены на устройстве: XcodeGen resource/pre-build ordering; npm tarball extraction в реальном CI; WKWebView file:// ES module import; JS/native message bridge; URLSession.shared request behavior в реальном приложении; iOS background/WebKit process lifecycle; реальная playability и AVPlayer handoff.
+- Hidden WKWebView process может быть ограничен/приостановлен в background; особенно важно проверить prefetch/auto-advance при заблокированном экране.
+- Musike JS fallback сам не получает PO token и не передаёт явные YouTube account cookies. Shared URLSession не имеет доступа к cookies официального YouTube app. Поэтому решение не гарантирует обход LOGIN_REQUIRED и не является независимым IP egress.
+- Remote client list остаётся внешним config dependency; offline default — IOS → VISIONOS.
+- Baseline закреплён на 18.1.0. Обязательный отдельный upgrade до 18.3.0 остаётся перед выпуском.
+
+### Статус и ограничения
+
+**Статус:** первая реализация полноценного JS fallback добавлена в отдельную source branch; требуется статический review и затем отдельное согласование сборки/устройственного теста.
+
+Пользователь разрешил source edits в текущем сообщении. Это не разрешение на IPA downloads, builds, simulator, CI или пользовательские тесты. Никакие билды/симуляции/IPA в рамках этой работы не запускались.
