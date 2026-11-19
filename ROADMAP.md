@@ -564,3 +564,37 @@ Codemagic commit `33697a5904646e7fc3f442d8580afaff7f9da364` has parent `ec7bfe8f
 ### User restrictions
 
 No new downloads, IPA, builds, simulator runs, CI/workflow runs, or application-source changes until the user has reviewed the consolidated findings and explicitly agreed on the next actions. Documentation-only audit updates are allowed.
+
+
+## 28. Архитектурная коррекция после сравнения Musike iOS и Pleer1 — 19 ноября 2026
+
+### Исправление прежнего вывода
+
+Ранее в обсуждении был сделан слишком категоричный вывод, что Musike использует yt-dlp + Deno для iOS, а Pleer1 вообще не перенёс его механизм и поэтому собственный Resolver является главной причиной текущих YouTube-ошибок. Это заключение было сделано до сравнения реальных iOS исходников и теперь официально исправлено записью №067 журнала.
+
+**Факты по Musike snapshot `41706772a4c1e774e3bf1731ca28711fa1529cf4`:**
+- yt-dlp + Deno относятся к desktop/server playback pipeline; нельзя автоматически переносить это утверждение на iOS.
+- iOS Musike сначала вызывает native Swift resolver `mobile/ios/App/App/MusikeYouTube.swift` через JS bridge.
+- При неудаче native resolver Musike имеет fallback через `server/src/directAudio.ts` (InnerTube clients).
+- Native iOS resolver Musike и текущий Pleer1 Resolver используют практически одинаковые client IDs/versions, visitor_id/player endpoints, 24-часовой visitorData cache, User-Agent и структуру player request. В просмотренном коде обеих реализаций PO token явно не передаётся.
+- Musike не является готовым iOS yt-dlp модулем, который можно просто подключить к Pleer1.
+
+### Что действительно может отличаться
+
+1. **Сетевая сессия:** Musike использует ephemeral URLSession без явного отключения cookie storage; Pleer1 явно отключает cookie storage и cookie acceptance. Потенциально значимое отличие, но причинная связь с LOGIN_REQUIRED не доказана.
+2. **Fallback:** Musike после неудачи native resolver может попробовать `directAudio`; в текущем Pleer1 Resolve path эквивалентный fallback не подтверждён. Это конкретный пробел, который нужно исследовать.
+3. **Доставка аудио:** нужно сравнить native bridge, загрузку байтов, blob/player pipeline, Range/seek и поведение при истечении URL. Это ещё не завершённая часть аудита.
+
+### Обновлённое направление работ
+
+Цель остаётся прежней: изучить и при необходимости адаптировать проверенные решения Musike, не ломая собственные UI, очередь, избранное, фоновое воспроизведение и Siri в Pleer1. Но решение «перенести yt-dlp в iOS» или «заменить весь Resolver» **не принято** и не должно считаться утверждённым планом реализации.
+
+Следующий шаг — только read-only сравнительный аудит:
+- точные различия native resolver и конфигурации URLSession;
+- поведение Musike iOS fallback после LOGIN_REQUIRED / отказа клиентов;
+- полный путь получения и передачи аудиобайтов до плеера, включая Range/seek;
+- какие части можно адаптировать в Pleer1 минимально и с какими ограничениями iOS.
+
+После сравнения подготовить варианты архитектуры и риски, затем согласовать с пользователем. До отдельного разрешения не менять application source и не запускать тесты.
+
+**Ограничения пользователя сохраняются:** никаких скачиваний, IPA, сборок, симуляций, CI/workflow runs и пользовательских тестов. Разрешены только чтение исходников и документационные обновления.
