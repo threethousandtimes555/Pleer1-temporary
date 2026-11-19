@@ -865,3 +865,19 @@ PO Token и собственный auth/cookie flow — отдельный эт�
 - GitHub Actions build workflow — manual-only; simulator workflow ограничен двумя другими branches. Не запускались ни один workflow и Codemagic.
 
 **Оставшаяся статическая проверка перед единственным IPA build:** ещё раз проверить актуальные SHA/version/path, JS bridge call flow, Swift concurrency/lifecycle, resource path и отсутствие signed URL/cookie leakage в diagnostics. Затем можно запускать ровно один разрешённый device IPA build. Runtime поведение скрытого WKWebView при background audio и auto-advance подтвердить можно только после установки и device test.
+
+
+### Addendum — статическая сверка перед единственным IPA build (19.11.2026)
+
+**Source head:** `bf2ceb2c0cef14a72d53b73302dff9ed14b4a29f`.
+
+Финальная подготовка базового переноса:
+- Native HTTP bridge повторяет CapacitorHttp locale header.
+- WebKit process termination обрабатывается отдельной ошибкой и одной bounded retry после восстановления скрытого WKWebView.
+- WKWebView прикреплён к приложению невидимым 1×1 view; при неудачной инициализации очищается.
+- Client config pinned к Musike audit snapshot; package pinned к youtubei.js 18.3.0.
+- Swift profile ID 101/28/5 сохранены, а client names, versions и UA выровнены с библиотекой.
+- JS отдаёт AVPlayer только direct audio/mp4.
+- Bundle resource folder, script output path, Bundle lookup и ignore paths согласованы.
+
+**Перед IPA:** сделать последнюю сверку GitHub source head и workflow, затем запустить ровно один разрешённый iOS device IPA build. Никаких simulator runs и параллельных CI jobs. Установку и device tests проводить после анализа build log и артефакта; особенно проверить WebKit process behavior в background audio/auto-advance. До этого не заявлять, что компиляция или runtime уже подтверждены.
