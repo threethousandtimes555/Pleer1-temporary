@@ -888,3 +888,11 @@
 **Статус:** два source commits внесены в Lab. Выполнены только статические проверки; код не компилировался и на устройстве не запускался. Сборка, Codemagic, xcodebuild, XcodeGen, симулятор, IPA packaging и установка не выполнялись.
 
 **Открытая граница:** настоящий YouTube age gate в анонимном Musike iOS пути остаётся недоступным по изученному исходному коду. Текущая реализация может исправлять несовпадения resolver-поведения, bot-check и GVS stream resolution, но не может гарантировать воспроизведение age-restricted роликов без подтверждённой YouTube-сессии.
+
+#### Дополнение к записи №040 — LOGIN_REQUIRED не является самостоятельным признаком age gate
+
+При повторном аудите Player.swift обнаружено, что isDefinitiveYouTubeAvailabilityFailure включала общий маркер LOGIN_REQUIRED. Это некорректно: YouTube может возвращать LOGIN_REQUIRED и для антибот-проверки («Sign in to confirm you're not a bot»), и для age gate. Статус сам по себе не доказывает постоянную недоступность трека.
+
+Исправление в Lab: из списка permanent-маркеров удалён общий LOGIN_REQUIRED; остаются конкретные причины вроде age-restricted, confirm your age, inappropriate for some users, private/removed/unavailable и отсутствие прямого аудиоформата. Поэтому bot-check без явного age/unavailable reason теперь должен попадать в transient path, а не автоматически пропускать трек.
+
+Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка статическая; не компилировалось и не тестировалось на устройстве.
