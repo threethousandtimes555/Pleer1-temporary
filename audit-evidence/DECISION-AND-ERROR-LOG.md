@@ -1430,7 +1430,7 @@ Pleer1 технически может реализовать работающу
 
 База — актуальная рабочая ветка `fix/youtube-standalone-search-device-2026-11-19`, commit `a64ced41faf9fc93ec187c2d071e904bf0d1692b`. Ветка `main` в этом репозитории отстаёт и не содержит актуального YouTube resolver; поэтому не использовать main как integration base.
 
-Текущий source head на момент записи: `d4a5c319ad6bbe052a9d5e9de875655664c00f3e`.
+Текущий source head на момент записи: `e1359e7d212e81a8a0935599807a0d417d00ccdd`.
 
 ### Что уже добавлено в source branch
 
@@ -1466,8 +1466,14 @@ Pleer1 технически может реализовать работающу
 
 ### Addendum to Journal 075 — static pass
 
-- Source branch advanced to `d4a5c319ad6bbe052a9d5e9de875655664c00f3e`; resolver and prefetch diagnostics now identify resolver source, client, bitrate and expiry without logging signed URLs.
+- Source branch advanced to `e1359e7d212e81a8a0935599807a0d417d00ccdd`; resolver and prefetch diagnostics now identify resolver source, client, bitrate and expiry without logging signed URLs.
 - JS module initialization is explicitly checked after WKWebView navigation; failures are surfaced instead of silently waiting for the full resolver timeout.
 - Device language/region are used for the JS Innertube session.
 - Shell syntax of `prepare-youtubei.sh` was checked with `bash -n` and passed.
 - Swift/JS source received a read-only manual review. This is not a compiler or runtime verification. No XcodeGen, xcodebuild, simulator, CI, IPA or device tests were run.
+
+### Addendum — resource packaging refinement
+
+The local HTML host, JS bridge, generated browser bundle and generated license are now grouped under `plei/Sources/YouTubeResolver` and declared as one XcodeGen folder resource. The source scan excludes that folder from Swift compilation. The generated bundle/license are gitignored and created by the pre-build phase before the folder resource is copied. This avoids committing a placeholder bundle or loading a CDN at runtime.
+
+Current source branch head: `e1359e7d212e81a8a0935599807a0d417d00ccdd`.
