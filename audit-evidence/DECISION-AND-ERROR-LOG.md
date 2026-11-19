@@ -1020,3 +1020,20 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 
 
 **Дополнение к записи №046:** failure reason теперь сохраняется отдельно от набора failed IDs; в статусе различается «Мало места» и общая «Ошибка загрузки», а повторная постановка очищает прежнюю причину. Для состояния «Мало места» действие «Повторить загрузку» также остаётся доступным. Lab commits: `44af2d6b2926d476555ca650c5c2c86ff3022c16`, `81e21a2090cd2f8ec3f4c6ca4c683bd4c1115dbe`, `51fb09a1a998056e70707837c48b3bbc3f1300bd`. Это по-прежнему статическая проверка, не runtime validation.
+
+
+### Запись №047 — статическая проверка офлайн-потока и чек-лист до установки
+
+- **Дата:** 19.11.2026.
+- **Режим:** read-only аудит исходников. Сборка, симулятор, тесты и установка не запускались; код в этой записи не менялся.
+- **Подтверждено по Lab source:** offline lookup для YouTube использует videoID независимо от Favorites; Player.load() сначала проверяет полную локальную копию и только при её отсутствии идёт в resolver; offlineOnly фильтрует очередь и пропускает отсутствующие локальные файлы без сетевого resolve; Store объединяет YouTube downloads и local imports; Player.start применяет YouTube User-Agent только для сетевого потока, а локальные файлы открывает как file URL.
+- **Статические риски для проверки до сборки:**
+  1. Downloader принимает только audio/mp4, audio/x-m4a и audio/aac. Native Swift resolver Musike/Pleer действительно выбирает AAC audio/mp4, но выходной MIME JS fallback нужно сверить отдельно, чтобы не получить ситуацию «resolver играет, а offline download падает как unsupported format».
+  2. Download request явно задаёт User-Agent, но набор заголовков отличается от AVPlayer asset request; проверить на устройстве, не нужны ли дополнительные заголовки/обработка HTTP/MIME.
+  3. Явное удаление скачанного файла не проверяет, не играет ли этот файл сейчас; безопасное поведение при удалении текущего item требует проверки/решения.
+  4. AVPlayer streaming и URLSession full download могут передавать один и тот же аудиоконтент параллельно; повторное использование stream URL убирает лишний resolver round-trip, но не двойной трафик.
+  5. В UI мобильное согласие сейчас оформлено через SwiftUI .alert. После уточнения пользователя о собственной визуальной системе Pleer1 нужно оформить диалог в её стиле, сохранив согласованные тексты и поведение.
+- **Сопоставление с Musike native resolver:** в mobile/ios/App/App/MusikeYouTube.swift подтверждены клиенты и порядок VISIONOS → ANDROID_VR → IOS; visitor ID с TTL 24 часа; player body с racyCheckOk, contentCheckOk, originalUrl, HTML5_PREF_WANTS; client headers; выбор audio/mp4 adaptive format с наибольшим bitrate. Lab YouTubeEngine.swift содержит те же основные элементы и порядок. Это подтверждает сходство native resolver по прочитанному коду, но не полную parity и не runtime-успех.
+- **Отличия, которые ещё исследуются:** Musike iOS fallback в web/src/native/streams.ts при отказе native resolver использует directAudio/youtubei.js с отдельным списком iOS clients; Pleer использует собственный bundled youtubei.js runtime через YouTubeJSResolver. Нужно сверить версию runtime, клиентские профили, транспорт и кэширование. В Musike resolveAudio имеет cache и in-flight map по videoID; в видимом Pleer-коде есть координация player prefetch и передача stream в offline queue, но это не эквивалент общей resolver deduplication.
+- **Решение:** перед установкой вести единый checklist в ROADMAP, разделив блокирующие до сборки статические задачи, обязательные device checks и build/install safety. Background URLSession/resume оставить отдельным этапом, если текущие проверки не выявят блокирующую проблему.
+- **Документы:** ROADMAP.md, раздел 12; эта запись №047.
