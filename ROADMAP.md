@@ -768,3 +768,18 @@ Source HEAD после повторного аудита Musike: 6f53515f8974a60
 6. Только после успешных тестов решать вопрос о следующем этапе — YTM suggestions/spelling fallback и дополнительном разборе современных collection shelves.
 
 Следующий build — только после отдельного явного разрешения пользователя. Stable checkpoint не изменялся.
+
+
+## 20. Search catalog latency and suggestion fallback hardening, 20 November 2026
+
+- Повторная проверка выявила две реальные логические недоработки после интеграции YTM:
+  1. `YouTubeEngine.search` запускал три транспорта параллельно, но ожидал catalog task первым, поэтому быстрые legacy InnerTube/HTML ответы не обрабатывались до завершения YTM.
+  2. spelling suggestion fallback проверял общий merged `tracks.length`; если обычный YouTube возвращал хоть один ролик, подсказки YouTube Music не запрашивались даже при пустых YTM song/video shelves.
+- Исправлено в source branch `feature/youtubei-js-ios-fallback-2026-11-19`:
+  - Swift сначала получает/обрабатывает InnerTube и HTML ответы; YTM запрос уже выполняется параллельно, затем его результат добавляется с более высоким merge priority.
+  - JS catalog получил 12-секундный deadline после готовности WKWebView runtime; при истечении срока он возвращает пустой catalog и пишет `search.catalog.deadline`. Существующие legacy результаты не удаляются. Начальная загрузка runtime имеет отдельный timeout 30 секунд.
+  - Подсказки запрашиваются, если исходные YTM song и music-video полки пусты, независимо от наличия обычных YouTube видео. После retry исходные ordinary YouTube results остаются в merge.
+- Musike v1.5.1 source comparison remains pinned to commit `41706772a4c1e774e3bf1731ca28711fa1529cf4`; latest GitHub release/main still resolves to v1.5.1 at this commit. Pleer1 parser still follows `result.contents[].contents`, as Musike production `tracksFrom()` does.
+- Проверка source-level: повторно прочитаны изменённые Swift/JS участки и resource packaging (`plei/project.yml` includes `YouTubeResolver` as a folder resource; `prepare-youtubei.sh` generates the pinned 18.3.0 runtime before XcodeGen). No Swift compile, JS bundle generation, XCTest, Codemagic build, IPA or device test has been run.
+- Required device tests: `прыгай киска` with YTM song/video/ordinary-video counts; case where YTM shelves are empty but ordinary YouTube returns results (suggestions should still run); delayed/stalled YTM endpoint (deadline event and fallback results); playlist/Mix preservation; playback of a YTM song.
+- Source branch HEAD at time of this entry is recorded in the decision log. Build #5 remains installed; no new build was launched.
