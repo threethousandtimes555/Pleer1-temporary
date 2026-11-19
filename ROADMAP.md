@@ -932,3 +932,8 @@ PO Token и собственный auth/cookie flow — отдельный эт�
 **Статус:** статическая проверка и изменения завершены; ни XcodeGen, ни esbuild, ни xcodebuild, ни Codemagic, ни simulator/IPA/device tests не запускались. Runtime и compilation не объявлять подтверждёнными до единственного согласованного IPA build и проверки на iPhone.
 
 Порядок остаётся прежним: одна контролируемая IPA build → анализ build logs/resources → установка → device tests. Только после полной успешной интеграции разрешены repo revision и переход к Pleer1 1.0. PO Token/authorized session остаются последующим этапом, если baseline не устранит LOGIN_REQUIRED.
+
+
+### 19.11.2026 — pin build bundler
+
+Current source head: `a707ab346626c09c9b8645bdedff24b444747910`. The unpinned Homebrew esbuild install was removed. Codemagic's pre-XcodeGen preparation step now downloads and SHA-512-verifies `@esbuild/darwin-arm64@0.28.0`, checks the binary version, and bundles the already integrity-verified `youtubei.js@18.3.0` with the Pleer1 adapter into a single classic IIFE. This avoids an unpinned bundler version and removes ESM/file-origin imports from the WKWebView runtime. No build or tests have been run.
