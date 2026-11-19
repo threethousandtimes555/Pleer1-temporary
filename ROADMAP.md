@@ -729,7 +729,7 @@ Lab branch: `feature/youtubei-js-ios-fallback-2026-11-19`.
 ### Что внесено в source branch
 
 Lab branch: feature/youtubei-js-ios-fallback-2026-11-19.
-Source HEAD после интеграции: e6a0dd2691c876c4b0fca9eb07003f8df4b0b14b.
+Source HEAD после интеграции: 7223e30b24ca10acc1e93954a7ac9795732ad486.
 
 - youtubei-bridge.js: добавлен catalog search поверх существующего Innertube session и nativeFetch bridge. Запрашиваются YTM Songs, YTM Music Videos и ordinary YouTube Videos. Результаты нормализуются в компактные сериализуемые записи с ID, названием, исполнителем, обложкой, длительностью и типом. Учитывается iterable ObservedArray, а ошибки отдельных полок не блокируют остальные источники.
 - YouTubeJSResolver.swift: добавлен асинхронный request/reply мост для catalog search через тот же скрытый WKWebView и нативный URLSession; есть timeout, cancellation и очистка незавершённых запросов при завершении WebKit process.
@@ -744,7 +744,7 @@ Source HEAD после интеграции: e6a0dd2691c876c4b0fca9eb07003f8df4b
 - Исходный диагностический случай «прыгай киска» всё ещё не подтверждён реальным поиском: предыдущий лог показал HTTP 200 JSON и ноль распознанных старых renderer shapes, но не содержал тела ответа и не доказывал, что искомая песня действительно была в JSON. Нельзя задним числом объявлять точную причину доказанной.
 - **Swift compilation, JS bundle generation и runtime tests не запускались.** Проверены исходники и конфигурация подготовки runtime; compile success не заявляется.
 - **Codemagic, IPA и установка не запускались.** Build #5 (7eabcbc) остаётся установленной версией.
-- Compare source branch с Build #5: branch ahead на 51 commit, behind на 0; среди изменённых файлов присутствуют Models.swift, YouTubeEngine.swift, YouTubeJSResolver.swift, YouTubeSearchIntent.swift и youtubei-bridge.js.
+- Compare source branch с Build #5: branch ahead на 52 commits, behind на 0; среди изменённых файлов присутствуют Models.swift, YouTubeEngine.swift, YouTubeJSResolver.swift, YouTubeSearchIntent.swift и youtubei-bridge.js.
 
 ### Следующая проверка после отдельного разрешения на сборку
 
