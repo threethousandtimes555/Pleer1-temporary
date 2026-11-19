@@ -517,35 +517,44 @@ Do not infer deletion, regional restriction, or permanent unavailability. No bui
 
 ## 27. Consolidated read-only audit before any fixes — 19 November 2026
 
-The user requested a full review of prior tests, hypotheses and proposed decisions before deciding what to change. This is an audit-only phase. Do not download, build, create IPA, run simulator tests, trigger CI/workflows, or modify application source until the user has reviewed the consolidated findings and explicitly agrees.
+The primary audit target is the **currently installed, newer development IPA**. Build #14 is a historical comparison point, not the object of the investigation. The user-provided Codemagic build overview identifies the installed IPA candidate as branch `fix/youtube-standalone-search-device-2026-11-19`, commit `ec7bfe8f0fef22eb5fe0c2eb28573309de484db4`. The branch later advanced to `a64ced41faf9fc93ec187c2d071e904bf0d1692b`; that later search-intent change is not part of the installed IPA.
 
-### Current confirmed findings
+### Confirmed source comparison
 
-- **Resolver regression candidate:** a YouTube video that the user confirms played on Build #14 returned `UNPLAYABLE` from all three tested InnerTube player clients in the latest diagnostic log. All requests returned HTTP 200. This is not evidence that the video is deleted/private or inherently unavailable. Compare the exact Build #14 source/build mapping with the current IPA and inspect raw player-response fields.
-- **Manual Next:** the user pressed Next in that test. The next item starting does not demonstrate automatic recovery after Resolve failure.
-- **Auto-advance:** one earlier test reached the end without advancing after a preceding manual seek; causality is unknown. A separate background test was not a repeat failure because the user pressed Next manually. On the following item, watchdog did execute `advance(auto=true)`. Gapless playback remains unverified.
-- **Duration anomaly:** resolved duration vs AVPlayer item duration was approximately 2x in two separate logs (188.00/376.72 sec and 210.00/419.03 sec). Source and propagation of duration values must be traced before changing watchdog thresholds.
-- **Long startup:** a roughly 24-minute YouTube compilation eventually played after a very long initial wait. Resolve succeeded; exact delay source (resolver, format selection, network, or AVPlayer buffering) is unknown.
-- **Playlist/prefetch:** a playlist with 31 tracks loaded; first track played; the next stream resolved successfully in prefetch. This alone does not prove a seamless or successful automatic transition.
-- **Thumbnails:** square YouTube covers still display black bars or appear rectangular. No fix is confirmed. Audit thumbnail source dimensions, view aspect ratio, scaling mode, clipping and padding separately from playback.
-- **Background/Siri historical checkpoint:** Build #5 checkpoint `6ff25c7b249e01f7ae9867dbffe6ee0f34c6d9e3` had three reported full listens from Favorites with the phone locked and Siri track skipping. Do not assume this proves all later builds or all queue paths are correct.
+- Build #14 source: `Pleer1` commit `14956c5fbe07d39af97f73d4b462efc3fb42e66f`.
+- Current IPA candidate source: `Pleer1-Lab` commit `ec7bfe8f0fef22eb5fe0c2eb28573309de484db4`.
+- The Lab source descends from the original working source snapshot `Pleer1/work/restore-youtube-module-2026-11-17` at `dc7b177617625e96eb233802ae647d3e5b3ac680`, 48 commits ahead of Build #14. Compare the actual files under `plei/Sources`; do not claim the entire Git trees are identical.
+- `YouTubeEngine.resolve(videoID:)`, `makeClientContext`, and the HTTP POST construction are identical between Build #14 and the IPA candidate. Client IDs/versions are also identical (VISIONOS 1.02 / 101, ANDROID_VR 1.60.19 / 28, IOS 20.10.4 / 5). Current diff does not support the earlier hypothesis that a changed Resolver client context caused the UNPLAYABLE result.
+- The YouTubeEngine differences are in search: standalone-video filtering, intent-based playlist/Mix inclusion, parser diagnostics, and deduplication. The parser correction keeps video results while deduplicating collection results.
+- In Player.swift, `load()`, `loadYouTube()`, `finishCurrentItem()`, `tick()`/watchdog, `planNext()`, `reconcileYouTubePrefetch()`, `prefetchNext()`, and `advance()` are identical. Changes are limited to AVAudioSession reactivation/resume on YouTube start/readyToPlay and extra seek diagnostics. The actual seek call remains; seek does not remove the end observer or change loadToken.
+- `Media.swift` is byte-for-byte identical. Its existing DJB2 hash is only a local AudioCache filename key, not a YouTube stream cache. ArtView still uses `.scaledToFill()` and clipping; no thumbnail-layout fix was introduced.
 
-### Audit sequence (read-only)
+### Reassessment of test findings
 
-1. Establish exact source commit/build metadata for Build #14 and for the currently installed IPA. Do not treat a similarly named branch as proof of build provenance.
-2. Compare Resolver implementation and request context: client versions, visitorData lifecycle, headers/context, response parsing, playabilityStatus and audio format selection.
-3. Trace duration from YouTube response through resolved stream, `knownYouTubeDuration`, AVPlayer item duration, UI clock and watchdog.
-4. Trace completion paths on the exact build source: end notification, observer lifecycle, completion token, watchdog, background execution and interruption handling.
-5. Audit prefetch and startup: resolve latency, selected audio format, initial buffer behavior, prefetch hit/miss, possible short-lived resolved-stream cache (TTL), and AVPlayerItem preparation. Never persist signed media URLs indefinitely.
-6. Audit YouTube thumbnail UI separately: image URL/quality, source pixel dimensions, container constraints, aspect ratio, content mode and clipping.
-7. Produce a decision table separating confirmed defects, unproven hypotheses, already-working paths, proposed fixes, trade-offs and the smallest future validation tests.
+- **UNPLAYABLE:** all three clients returned HTTP 200 + UNPLAYABLE for a track the user confirms played on Build #14. Since Resolver code is identical, the root cause is not established as an application-code regression. Existing logs do not expose the full playability payload or the actual visitorData value; dynamic YouTube response/request context remains to be examined. Do not label the video deleted/private.
+- **Duration:** 188.00 vs 376.72 sec and 210.00 vs 419.03 sec are repeat anomalies. The UI clock clamps position and duration to knownYouTubeDuration while watchdog reads raw AVPlayer time. If item duration is roughly twice the resolver duration, the UI can show 100% around halfway through the AVPlayer item, and watchdog treats the remaining half as near-end but only advances after a 5-second stall. This is a confirmed interaction risk, not a proven cause of the missing transition.
+- **Auto-advance:** the seek test remains unexplained; the provided excerpt lacks the complete finish_event/advance sequence. Seek causality is not supported by source diff. In the separate background test, the user pressed Next manually on the first track; watchdog auto-advance was confirmed on the following track.
+- **Prefetch:** successful prefetch proves that the next stream resolved; it does not prepare an AVPlayerItem or buffer audio and does not prove gapless playback.
+- **Long startup:** the 24-minute compilation resolved successfully but AVPlayer initially waited with loaded range 0. The roughly 3-second HTML fallback wait applies to search results, not playback startup. Hashing does not solve network buffering.
+- **Thumbnails:** the image view code is unchanged from Build #14. `scaledToFill`/clipping can crop wide thumbnails; embedded black bars may be part of the source image. Inspect source dimensions before choosing a rendering fix.
+- **Search:** the installed candidate includes intent-based collection search and parser deduplication. Later commit `a64ced4` changes collection inclusion to always-on and was committed after the IPA candidate; do not attribute it to the installed build or its test results.
 
-### Decisions not yet made
+### Corrected assessment of previous hypotheses and proposals
 
-- Whether Resolve failure should stop and display an error or automatically skip to the next queue item with a bounded retry/loop guard.
-- Whether to implement a short-lived stream URL cache, early pre-resolve/prefetch, or AVPlayerItem preparation.
-- Which duration source should be authoritative and how watchdog should behave when metadata disagrees.
-- The exact thumbnail rendering fix.
-- No code changes or new test runs are authorized in this phase.
+1. A changed Resolver client context as the cause of UNPLAYABLE is not supported by the source diff.
+2. Seek removing the end observer/token is contradicted by the source: seek does not do either.
+3. Optimizing the HTML fallback may shorten search-result latency but does not address the long wait after playback has already been selected.
+4. Hashing Track IDs does not accelerate YouTube Resolve or AVPlayer buffering; the local cache already has a non-cryptographic hash key.
+5. YouTube stream prefetch is Resolve-only, not gapless audio buffering.
 
-**Next step:** continue reading existing source/history and await any additional user-provided test material. Only after the evidence review should the user and assistant agree on the changes and targeted tests.
+### Next read-only audit
+
+1. Finish reviewing the remaining source-file diffs between Build #14 and the current IPA candidate.
+2. Inspect selected audio format metadata (`mimeType`, `approxDurationMs`, `contentLength`, bitrate) alongside `videoDetails.lengthSeconds` and AVPlayer item duration.
+3. Determine which raw playability-response fields and visitorData details are available from existing logs/code; do not invent missing response values.
+4. Inspect thumbnail source dimensions and the exact image/container constraints.
+5. Produce a decision table separating confirmed defects, remaining hypotheses, trade-offs and minimal future tests.
+
+### User restrictions
+
+No new downloads, IPA, builds, simulator runs, CI/workflow runs, or application-source changes until the user has reviewed the consolidated findings and explicitly agreed on the next actions. Documentation-only audit updates are allowed.
