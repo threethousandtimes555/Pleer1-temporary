@@ -785,3 +785,6 @@
 - Новая сборка, Codemagic, xcodebuild, XcodeGen, симулятор и IPA packaging не запускались.
 - Mix recognition по просьбе пользователя отложен.
 - Не переносить Lab-изменения в основной Pleer1 до проверки и отдельного согласования.
+
+
+- **Коррекция ведения истории:** каноническими документами проекта остаются только `Pleer1-temporary/ROADMAP.md` и `Pleer1-temporary/audit-evidence/DECISION-AND-ERROR-LOG.md`. Ошибочно созданный в Lab дублирующий `docs/PROJECT-LOG.md` удалён commit [4072584](https://github.com/threethousandtimes555/Pleer1-Lab/commit/407258453c93bce2c74b3d0d4ec67f57d7d2f730). Новые события фиксировать в существующих ROADMAP и Decision-and-Error-Log; не создавать заменяющие журналы в Lab.
