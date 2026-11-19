@@ -631,3 +631,14 @@ Read-only audit of Musike snapshot `41706772a4c1e774e3bf1731ca28711fa1529cf4` co
 - **Вердикт:** fallback заслуживает минимальной адаптации в Pleer1 как второй resolver path, но его успех против текущего LOGIN_REQUIRED не доказан. Оставить Swift resolver primary, сохранить Pleer1 AVPlayer/очередь/background/Siri; не переносить MusikeAudio facade. Отдельно изучить error routing, session refresh, PO-token feasibility и runtime compatibility.
 - **Перед реализацией:** проверить WKWebView/Vite/Capacitor совместимость youtubei.js и fetch shim, прямые URL/expiry, классификацию ошибок и техническую реализуемость token acquisition. Затем согласовать точные файлы и staged test plan.
 - **Ограничения:** аудит только чтением; никаких source edits, downloads, IPA, builds, simulator, CI или user tests до отдельного разрешения.
+
+
+## 31. Разделение HTTP, resolver fallback и PO Token; завершение аудита Musike iOS — 19.11.2026
+
+- HTTP — транспортный протокол, не resolver. Pleer1 Swift Resolver и Musike Swift Resolver уже используют HTTP. Второй независимый путь Musike — отдельная реализация InnerTube через youtubei.js/session/fetch, возвращающая direct audio URL.
+- Подтверждён полный Musike iOS path: native Swift resolver → JS fallback directAudio() на youtubei.js при неудаче → direct URL → streamSource() → JS NativeAudio facade → WKScriptMessageHandler → MusikeAudio.swift → AVPlayer. Обычный WKWebView audio element на iOS не используется.
+- PO Token связан с proof-of-origin и некоторыми ограничениями stream delivery/client formats; Musike source comments отмечают, что IOS stream может обрываться после первых мегабайт без токена, а VISIONOS URLs обходятся без него. Это не доказывает, что PO Token устраняет LOGIN_REQUIRED bot verification.
+- Ключевой iOS resolver/fallback/session/audio handoff аудит Musike snapshot 41706772a4c1e774e3bf1731ca28711fa1529cf4 и youtubei.js 18.1.0 завершён на уровне исходников. Runtime проверка на проблемном ролике отсутствует; аудит всего Musike repository не заявляется.
+- Можно переходить к подготовке интеграционного design Pleer1: точные Swift integration points, runtime choice для youtubei.js (не копировать Capacitor/Vite wiring автоматически), output normalization, fallback/error policy, session lifecycle, cache/URL expiry, retries, diagnostics, compatibility and staged test plan.
+- Сохранить Pleer1 AVPlayer/queue/background/Siri/UI; не переносить MusikeAudio facade целиком. Seek handshake — отдельно.
+- Никаких source edits/builds/downloads/IPA/simulator/CI/user tests до отдельного согласования.
