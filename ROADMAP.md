@@ -394,3 +394,12 @@ Diff относительно Lab base проверен: ровно 6 файло
 4. Исправление логики выдачи — отдельная задача в Lab; новая сборка только после явного согласия пользователя.
 
 **Ограничения:** никаких повторных iOS Simulator запусков; не запускать GitHub Actions до восстановления лимита 30 ноября; не запускать новые сборки без согласия; старую рабочую версию Pleer1 не удалять. Канонические документы — этот ROADMAP и `audit-evidence/DECISION-AND-ERROR-LOG.md`, не создавать параллельные журналы.
+
+
+## 20. YouTube ordinary search — live iPhone finding and correction (19 November 2026)
+
+- **Live result:** the iPhone search for `Crystal Castles` again returned 20 standalone videos and no ordinary playlists or Mixes. Diagnostics explicitly show `includeCollections=false` and `videoFilter=true`; the InnerTube response contained 20 `videoRenderer` objects and zero recognized playlist/radio renderers. This is an expected consequence of the current request mode, not evidence that the collection parser failed on a response containing collections.
+- **Root cause confirmed in Lab source:** `YouTubeSearchIntent.includesCollections(for:)` only returned true when the query contained explicit terms such as playlist/плейлист/mix/микс. This contradicted the required YouTube-like ordinary search behavior.
+- **Correction committed to isolated Lab branch:** commit `a64ced41faf9fc93ec187c2d071e904bf0d1692b` changes ordinary search intent so collections are always included. Existing parser merge order remains videos first, then playlists and radio Mixes; the existing deduplication remains in place.
+- **Not yet verified:** no new IPA has been built or installed, and no live post-fix iPhone search has been run. Do not claim ordinary playlists or Mixes are fixed until that test passes. HTML fallback remains blocked by the YouTube consent response observed in both live searches.
+- **Next step:** after the user explicitly approves a new device build, build the current Lab branch without running an iOS Simulator, install only after preserving the current working IPA, then repeat the `Crystal Castles` search and inspect video/playlist/Mix counts and ordering. Ranking quality remains a separate issue.
