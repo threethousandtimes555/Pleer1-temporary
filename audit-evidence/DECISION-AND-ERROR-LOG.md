@@ -1567,3 +1567,14 @@ Read-only повторная проверка GitHub tree и файлов вет
 Pleer1 исправлен на точное разделение этих профилей. Числовые Client IDs не менялись. Native Swift resolver восстановлен к версиям и контексту Musike; JS fallback использует profiles из 18.3.0. AVPlayer CDN User-Agent также приведён к строке из MusikeAudio: `com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X;)`.
 
 Это исправляет ошибочное предположение предыдущей статической итерации; именно это разделение соответствует аудированному оригиналу Musike.
+
+
+### Addendum — locale и visitor identity native Swift (19.11.2026)
+
+**Source head:** `8968e993e7c193f964fcf75a873b852f793e6305`.
+
+Native Swift resolver теперь использует `Locale.current` для `hl/gl` и передаёт одни и те же language/region в visitor_id и player requests; JS fallback использует тот же системный locale. Это устраняет прежнюю жёсткую привязку Swift primary к `ru/RU`.
+
+Поведение visitor identity приведено ближе к Musike: если свежий visitorData не получен, используется последний сохранённый visitorData, когда он существует; свежий ID сохраняется с timestamp, а значение в логах не выводится. Ошибка получения visitorData остаётся диагностируемой, но отсутствие свежего ответа не выбрасывает известный cached ID.
+
+Native Swift client profiles сохранены точь-в-точь как Musike (VISIONOS 1.02/101, ANDROID_VR 1.60.19/28, IOS 20.10.4/5, общий Safari UA и platform DESKTOP). JS fallback остаётся на независимых profiles youtubei.js 18.3.0. AVPlayer User-Agent совпадает с MusikeAudio.
