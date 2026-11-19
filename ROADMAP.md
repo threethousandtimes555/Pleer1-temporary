@@ -689,3 +689,27 @@ Lab branch: `feature/youtubei-js-ios-fallback-2026-11-19`.
 - **Runtime tests не запускались.** Все изменения ожидают сборки и тестов на iPhone.
 - Следующий build только по отдельному явному разрешению пользователя. До этого — продолжать source audit, при необходимости корректировать код и документы, не затрагивая stable checkpoint.
 
+
+
+## 18. Поиск YouTube — повторная проверка, 19 ноября 2026
+
+- Пользователь сообщил, что запрос `прыгай киска` не находит ожидаемый трек. Поиск нельзя считать исправленным.
+- Сравнение `YouTubeEngine.swift`, `YouTubeHTMLSearch.swift`, `YouTubeSearchIntent.swift`, `Providers.swift` и `SearchSmokeTests.swift` между установленным Build #5 (`7eabcbc`) и Lab HEAD (`1c47717`) показало: все эти файлы идентичны. Между Build #5 и текущим HEAD изменений поискового pipeline нет.
+- В обеих версиях работают два параллельных транспорта (InnerTube JSON и HTML/ytInitialData), затем deduplication и `YouTubeSearchIntent.ranked`. Ранжирование меняет только порядок уже полученных треков, не расширяет запрос и не добывает пропущенные результаты.
+- `YouTubeSearchIntent.includesCollections(for:)` возвращает `true` для всех запросов, поэтому обычный поиск не ограничивается video-only фильтром. Сам query передаётся обоим источникам без семантического расширения/исправления вариантов написания.
+- Следовательно, запрос `прыгай киска` — открытый search defect / непроверенная регрессия, а не исправленная сортировкой проблема. Не менять ranking, пока не установлено, на каком этапе теряется результат.
+- Следующая диагностика на устройстве: экспортировать записи конкретного поиска с `search.begin`, `search.innertube.request/response.structure/parsed/success/failure`, `search.html.begin/response/parsed/success/failure`, `search.parse.candidates/summary`, `search.complete`. Это покажет: оба источника не вернули нужное; получили ответ, но parser пропустил renderer; или трек есть в результатах, но оказался ниже/не отображён.
+- Добавить тестовые запросы на кириллице и реальные fixture-ответы YouTube после получения диагностического примера. Не объявлять поиск исправленным до подтверждения на реальных запросах.
+
+### План полноценной проверки следующей сборки
+
+1. Search: `прыгай киска`, известные точные названия кириллицей и латиницей, исполнитель + название, опечатка/вариант написания, Mix, Playlist; отдельно проверять выдачу и правильность первого результата.
+2. Playback/queue: запуск из Search, Playlist, Favorites, Recent; проверка сохранения исходного порядка при local cache hit и отсутствие повторного YouTube resolve.
+3. Seek: in-app seek, смена трека во время drag, lock-screen seek, быстрый Next/Previous; проверять source, track ID, loadToken и отсутствие stale seek/двойного advance.
+4. Artwork: квадратный Telegram artwork, YouTube 16:9 canvas с центральной квадратной обложкой (`18:45:54`), настоящий 16:9 thumbnail, высокое разрешение.
+5. Library: import Telegram, Favorites toggle, downloaded-only без сердечка, dedupe, Recent, плейлисты.
+6. Cellular prompt: Wi-Fi, мобильная сеть, обе кнопки, повторные запросы в рамках сессии, геометрия и доступность.
+7. Background/Siri/lock screen: фоновое воспроизведение, переходы, управление с экрана блокировки, Siri.
+8. Regression: resolver duration vs AVPlayer padded duration, разные форматы, удалённый/недоступный трек, поведение при сетевой ошибке.
+
+Статус: это план; текущий source HEAD не компилировался и не устанавливался. Полный device test возможен только после создания IPA и установки на iPhone.
