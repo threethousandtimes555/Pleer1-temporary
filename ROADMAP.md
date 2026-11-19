@@ -771,7 +771,7 @@ JavaScriptCore через `youtubei.js/agnostic` остаётся альтерн
 
 **Base:** актуальная ветка `fix/youtube-standalone-search-device-2026-11-19`, commit `a64ced41faf9fc93ec187c2d071e904bf0d1692b`. Default `main` отстаёт и не содержит актуального YouTube resolver.
 
-**Source head на момент записи:** `c17735edfdce521a29253147823d1b5ef831a5b8`.
+**Source head на момент записи:** `d4a5c319ad6bbe052a9d5e9de875655664c00f3e`.
 
 ### Реализация первой ступени интеграции
 - Native Swift resolver сохранён primary.
@@ -794,3 +794,8 @@ JavaScriptCore через `youtubei.js/agnostic` остаётся альтерн
 Source code implementation пока не собрана и не запускалась. Не заявлять compile success, device success или устранение LOGIN_REQUIRED. JS fallback не имеет собственного PO-token generation и не импортирует account cookies из официального YouTube app; он не создаёт независимый IP egress. WKWebView local ESM load и background lifecycle — ключевые runtime risks.
 
 **Запреты сохраняются:** никаких IPA downloads, builds, simulator, CI или user tests без отдельного разрешения.
+
+
+### Addendum to Section 36 — static review status
+
+Source branch head: `d4a5c319ad6bbe052a9d5e9de875655664c00f3e`. The Xcode pre-build shell script passed `bash -n`; Swift/JS changes received manual read-only review. No XcodeGen or application build, simulator, CI, IPA or device test has been run. The implementation remains unverified until the separately authorized build/device stage. WKWebView local module loading and background process lifecycle remain top runtime risks.
