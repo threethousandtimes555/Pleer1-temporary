@@ -881,3 +881,12 @@ PO Token и собственный auth/cookie flow — отдельный эт�
 - Bundle resource folder, script output path, Bundle lookup и ignore paths согласованы.
 
 **Перед IPA:** сделать последнюю сверку GitHub source head и workflow, затем запустить ровно один разрешённый iOS device IPA build. Никаких simulator runs и параллельных CI jobs. Установку и device tests проводить после анализа build log и артефакта; особенно проверить WebKit process behavior в background audio/auto-advance. До этого не заявлять, что компиляция или runtime уже подтверждены.
+
+
+### Correction — не смешивать native Swift и youtubei.js client profiles (19.11.2026)
+
+**Source head:** `6fec95c8f5859171c5c918e6942373de8e1d035b`.
+
+Уточнение к предыдущим пунктам о client versions: native Swift и JS fallback у Musike используют разные client profiles. Swift возвращён к оригинальным Musike значениям (VISIONOS 1.02/101, ANDROID_VR 1.60.19/28, IOS 20.10.4/5; общий Safari UA + platform DESKTOP). JS fallback оставлен на профилях youtubei.js 18.3.0. Client IDs не изменялись. AVPlayer CDN UA выровнен с MusikeAudio.
+
+Предыдущую формулировку о том, что Swift profiles выровнены с youtubei.js 18.3.0, считать отменённой.
