@@ -1521,3 +1521,19 @@ Read-only повторная проверка GitHub tree и файлов вет
 Проверены исходники и конфигурация чтением GitHub; XcodeGen не запускался. Shell syntax ранее проверялся до последнего изменения только пути ресурса; изменение пути не меняло shell-конструкции. JavaScript/Swift compile, фактическое копирование folder resource, локальный ESM import в WKWebView, native bridge и runtime playback не подтверждены.
 
 **Не запускались:** XcodeGen, xcodebuild, Codemagic/GitHub Actions, симулятор, IPA build/download и пользовательские тесты. Следующий build остаётся единственным разрешённым контролируемым запуском после полного статического review.
+
+
+### Addendum — native bridge parity и WKWebView lifecycle (19.11.2026)
+
+**Обновлённый source head:** `a7ebcb39b2313bebc9330b63ba967b15a93edc91`.
+
+Дополнительный аудит официального Capacitor 8.5.3 iOS implementation уточнил transport Musike:
+- CapacitorHttp по умолчанию использует `URLSession.shared` (если disableRedirects не включён), автоматически следует redirects, устанавливает timeout и добавляет `Accept-Language` из `Locale.autoupdatingCurrent`.
+- Capacitor вручную обрабатывает Set-Cookie и синхронизирует cookie jar с WKWebView; в Pleer1 custom JS fetch использует непосредственно native `URLSession.shared`, где включено стандартное cookie handling, но WKWebView data store намеренно non-persistent и не является источником YouTube account cookies.
+- В Pleer1 native bridge добавлен такой же `Accept-Language` header. User-Agent и Origin извлекаются/устанавливаются на JS стороне по той же логике Musike.
+
+Обнаружен и закрыт важный lifecycle-риск: первоначальный WKWebView был скрытым, но не прикреплялся к view hierarchy. Документация Apple описывает WKWebView как view, которую следует embed в иерархию; известные наблюдения показывают приостановку async timers/loaders у detached WKWebView. Теперь резолвер добавляет скрытый 1×1 WKWebView в root view существующего application window, без отображения UI; если окно недоступно, resolver fail-fast вместо работы в потенциально замороженном runtime. При ошибке инициализации view удаляется из hierarchy.
+
+Также GitHub workflow конфигурация проверена read-only: `.github/workflows/build.yml` имеет только `workflow_dispatch`; simulator workflow push-триггер ограничен другими ветками (`work/restore-youtube-module-2026-11-17`, `integration/pleer1-work-2026-11-18)). Вручную workflow не запускался. Codemagic не запускался.
+
+Никакой build, XcodeGen, simulator, IPA download или device test не выполнялся.
