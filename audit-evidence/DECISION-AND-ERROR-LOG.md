@@ -1063,3 +1063,25 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - **Небольшая диагностика:** `FavoritesAudioCache.deleteFiles` пишет `reason=unfavorited` и при явном удалении загрузки пользователем. Это не влияет на аудио, но может исказить диагностику; поправить reason на фактический контекст удаления до финальной проверки журнала.
 - **Итог:** retry/expiry и основная AVPlayer duration/buffering логика Pleer не отстают от Musike по статически просмотренным участкам; в retry у Pleer есть более явная инвалидация JS cache. Это source comparison, не runtime proof.
 - **Остаются открыты:** WebM vs AAC/MP4, общая дедупликация native resolver, удаление активного локального файла, UI мобильного согласия в фирменном стиле, двойной трафик при stream+download.
+
+
+### Запись №050 — полный аудит репозитория Musike и исправления подтверждённых расхождений
+
+- **Дата:** 19.11.2026.
+- **Объём:** просканировано полное дерево Ernani1234/musike (main, release 1.5.1): 222 tracked files, 151 source/config/resource files. Детально прослежены все модули, участвующие в iOS resolver/playback: native Swift files, WKWebView bridge, web/native stream resolver, native HTTP transport, shared player/audio abstraction, server directAudio/yt-dlp/proxy, iOS build configuration. Android service и desktop entrypoint inspected to separate unrelated platform paths.
+- **Исправление предыдущей неполной картины:** Musike's iOS JS fallback in web/src/native/streams.ts does not use ordinary WebView fetch. web/src/native/shims/config.ts injects nativeFetch from web/src/native/http.ts, backed by CapacitorHttp. Musike iOS tries native Swift resolver first, then youtubei.js directAudio over native transport. Pleer's bundled WKWebView bridge + URLSession is a different native-transport implementation.
+- **Native resolver parity:** client order VISIONOS → ANDROID_VR → IOS; visitorData TTL 24h; request body includes racyCheckOk, contentCheckOk, originalUrl, HTML5_PREF_WANTS; matching client headers; audio/mp4 adaptive format highest bitrate. Pleer native implementation matches these core request/extraction semantics. Pleer shares an ephemeral session across attempts for connection reuse; Musike creates ephemeral URLSession per POST. No Safari/WKWebView cookie import or account Cookie header is added.
+- **JS fallback parity:** Musike package pins youtubei.js 18.1.0; Pleer bundles 18.3.0 via integrity-pinned build script. Both use iOS clients IOS → VISIONOS, one session refresh on thrown request, remote client list, native transport and in-flight/cache by videoID. Pleer deliberately disallows WebM because its iOS AVPlayer/offline file path is AAC/MP4 only.
+- **Playback lifecycle parity:** Musike MusikeAudio.swift and web/src/lib/audio.ts bridge to native AVPlayer, set YouTube User-Agent, 30-second forward buffer, use resolver duration and guard padded stream end. MusikePlayback.swift implements lock-screen/Control Center commands. Pleer has corresponding direct Swift AVPlayer, duration override/end guard, buffer, remote commands, audio interruption handling and diagnostics. Its architecture does not need Musike's web media shim.
+- **Server/desktop distinction:** Musike desktop/browser server path uses yt-dlp and a Range proxy because googlevideo stream URLs are IP-bound. Standalone iOS/Android path resolves and plays directly from the phone. The server/desktop proxy was not transplanted into Pleer1.
+- **Confirmed issues fixed in Lab:**
+  1. JS fallback no longer returns WebM for iOS; only audio/mp4 is selected.
+  2. YouTubeJSResolver independently validates returned MIME.
+  3. Shared actor coordinator now deduplicates native Swift + JS fallback requests by videoID and caches up to 64 resolved streams with 60s expiry margin; unknown expiry falls back to 3h.
+  4. Both cache layers are invalidated before bounded playback retry, preventing immediate reuse of a stale URL.
+  5. Offline downloader validates HTTP status/Content-Type, retries once with a fresh stream on HTTP 403/410, and cleans temporary files on cancellation.
+  6. Explicit offline removal cancels matching queued/active download state, clears failure metadata and logs user_requested.
+  7. Cellular consent is now a custom Pleer1 overlay with unchanged wording/actions.
+- **Lab source:** current head d4891d73bc4e68ddd2525af6ec8238284e1e885b; compare from previous offline checkpoint 51fb09a1a998056e70707837c48b3bbc3f1300bd is ahead 10 / behind 0, exactly 6 source files changed: FavoritesAudioCache.swift, Player.swift, Views.swift, YouTubeEngine.swift, YouTubeJSResolver.swift, youtubei-bridge.js.
+- **Still open:** active local file deletion behavior needs device test; streaming + full download still duplicates audio bytes; actual 403/410/CDN response and MIME need iPhone verification; build script's runtime generation must be confirmed in actual Codemagic log.
+- **Validation status:** source-level review only. No XcodeGen, xcodebuild, simulator, Codemagic build, IPA packaging, installation or runtime test was run. User's existing app/data remain untouched.
