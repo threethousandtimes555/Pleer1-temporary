@@ -811,3 +811,22 @@ Current source branch head: `5dce04c6e09a40de20e3487a9851ba459c3f76c7`.
 The youtubei.js 18.1.0 browser platform cache uses IndexedDB. To avoid depending on IndexedDB availability for a local-file WKWebView origin, the bridge now passes a small in-memory cache implementation to `Innertube.create()`. Session metadata can be cached for the runtime lifetime without requiring browser storage APIs.
 
 Current source branch head: `5dce04c6e09a40de20e3487a9851ba459c3f76c7`.
+
+
+### Addendum к разделу 36 — согласованный порядок интеграции (19.11.2026)
+
+Пользователь подтвердил, что сейчас приоритет — не ревизия репозиториев, а завершение базового Musike переносимого механизма. Сохранить следующую последовательность:
+
+1. Довести связку Swift primary resolver + полноценный youtubei.js JS fallback до build-ready состояния.
+2. Проверить и согласовать Client ID / Client Version / User-Agent / locale / session behavior, не подменяя значения наугад.
+3. Обновить закреплённую зависимость 18.1.0 до 18.3.0 только после проверки официальной npm integrity, API совместимости и используемых browser bundle exports.
+4. Закрыть статические риски WKWebView initialization, local ESM resource loading, native URLSession bridge, timeout/cancellation, WebKit process recovery, response parsing и resource packaging.
+5. Выполнить статическую проверку без промежуточных CI/build/simulator запусков.
+6. После завершения проверок выполнить один контролируемый IPA build (пользователь разрешил один запуск после готовности). Установку и реальные device tests согласовывать отдельно по конкретным шагам; целевые проверки — известный LOGIN_REQUIRED ролик, JS session, playability response, direct audio URL, AVPlayer handoff, cache invalidation, lock-screen/background prefetch и auto-advance.
+7. Только после успешной интеграции и проверки на iPhone вернуться к ревизии и упорядочиванию репозиториев.
+
+PO Token и собственный auth/cookie flow — отдельный этап усиления после базовой интеграции. Cookies официального YouTube app не считать доступными через shared URLSession; не пытаться извлекать приватные данные приложения. Ни PO Token, ни изменение client profile не дают гарантии устранения LOGIN_REQUIRED.
+
+**Текущий source head при записи addendum:** `5dce04c6e09a40de20e3487a9851ba459c3f76c7`. Source branch: `feature/youtubei-js-ios-fallback-2026-11-19`.
+
+**Ограничения:** source edits разрешены. Один IPA build разрешён только после завершения работ и статической проверки. До этого не запускать builds, CI, simulator, IPA downloads или user tests. Репозиторную ревизию отложить до успешной интеграции.
