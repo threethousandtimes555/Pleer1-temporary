@@ -619,3 +619,15 @@ Read-only audit of Musike snapshot `41706772a4c1e774e3bf1731ca28711fa1529cf4` co
 5. Present exact files, dependency impact, risks and a staged test plan before any source edit or test/build.
 
 **Not proven:** Musike's fallback has not been run against the user's LOGIN_REQUIRED video. Do not promise that it bypasses YouTube bot verification. No application source changes, downloads, builds, IPA, simulator runs, CI, or user tests are authorized during this audit.
+
+
+## 30. Точный аудит youtubei.js 18.1.0 и fallback Musike — 19.11.2026
+
+- Musike iOS реально включает JS fallback: Swift resolver → `resolveOnIos()` → `directAudio()` при отсутствии URL/ошибке → текущий native audio player.
+- Fallback использует `youtubei.js@18.1.0`, одну in-memory Innertube session на язык, `retrieve_player: false`, стандартный Platform fetch и iOS clients `IOS`, затем `VISIONOS`.
+- `withClient()` пересоздаёт сессию только при thrown exception. Обычный `playability_status=LOGIN_REQUIRED` не запускает session refresh; `directAudio()` просто пробует следующий client.
+- `directAudio()` выбирает только audio-only formats с готовым прямым `url`; при `retrieve_player:false` deciphering signatureCipher форматов недоступен.
+- youtubei.js 18.1.0 умеет принимать content-bound `po_token` в `getBasicInfo()` и session-bound token в SessionOptions, но Musike их не передаёт и не генерирует. Не считать библиотеку автоматическим BotGuard bypass.
+- **Вердикт:** fallback заслуживает минимальной адаптации в Pleer1 как второй resolver path, но его успех против текущего LOGIN_REQUIRED не доказан. Оставить Swift resolver primary, сохранить Pleer1 AVPlayer/очередь/background/Siri; не переносить MusikeAudio facade. Отдельно изучить error routing, session refresh, PO-token feasibility и runtime compatibility.
+- **Перед реализацией:** проверить WKWebView/Vite/Capacitor совместимость youtubei.js и fetch shim, прямые URL/expiry, классификацию ошибок и техническую реализуемость token acquisition. Затем согласовать точные файлы и staged test plan.
+- **Ограничения:** аудит только чтением; никаких source edits, downloads, IPA, builds, simulator, CI или user tests до отдельного разрешения.
