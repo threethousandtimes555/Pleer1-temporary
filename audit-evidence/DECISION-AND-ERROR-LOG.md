@@ -1615,3 +1615,34 @@ Native Swift client profiles сохранены точь-в-точь как Musi
 - После успешной сборки: установить и проверить на реальном iPhone; build success сам по себе не равен успешной интеграции.
 - Если baseline не решит LOGIN_REQUIRED: PO Token/authenticated session — следующий этап исследования, а не повод запускать серию сборок.
 - Ревизия репозиториев и объявление Pleer1 1.0 отложены до полной успешной интеграции и device verification.
+
+
+### Addendum — повторный предсборочный аудит: WKWebView, live client config и Codemagic (19.11.2026)
+
+**Pleer1 source branch:** `feature/youtubei-js-ios-fallback-2026-11-19`
+**Pleer1 source head:** `0c174079aa7edaf640ab3b803f0c83b546eb6f1b`
+**Musike audited source snapshot:** `41706772a4c1e774e3bf1731ca28711fa1529cf4`
+
+#### Найденные расхождения/риски и изменения
+1. **ES modules через file://.** HTML ранее загружал `youtubei-bridge.js` как `type=module`, а тот импортировал локальный `youtubei.js`. У WKWebView file-origin/module CORS остаётся неподтверждённым и рискованным; одного `loadFileURL(...allowingReadAccessTo:)` недостаточно, чтобы доказать работоспособность module graph. Не используем неподтверждённый custom scheme workaround. Вместо этого build step запускает esbuild и объединяет browser bundle + bridge в один classic IIFE `youtubei-runtime.js`; HTML подключает его обычным `<script src>`. Это убирает локальные ESM imports и сохраняет `window.PleerYouTube` bridge contract.
+2. **Xcode script sandbox/network.** Ранее npm download/esbuild выполнялись из Xcode `preBuildScripts`. Xcode user-script sandbox ограничивает незаявленные file dependencies и сетевые операции. Подготовка зависимости перенесена в отдельный Codemagic step до XcodeGen. В Xcode project остаётся folder resource reference; Xcode только компилирует и копирует уже готовые ресурсы. Network download больше не выполняется внутри Xcode build phase.
+3. **Live client configuration.** Ранее Pleer1 использовал pinned Musike snapshot URL и принимал только IOS/VISIONOS, теряя способность Musike менять iOS client list без выпуска новой версии. Восстановлен runtime URL Musike `main/mobile/streaming.json` и его uppercase client-list validation contract. Текущий remote config проверен: `ios: ["IOS", "VISIONOS"]`. Native Swift profiles остаются фиксированными Musike profiles; live config относится к JS fallback.
+4. **Remote config timeout.** Native bridge timeout для `raw.githubusercontent.com` ограничен 6 секундами, для YouTube/Google API — 30 секундами; это соответствует Musike remote-config fetch timeout.
+5. **Accept-Language clarification.** youtubei.js HTTPClient явно отправляет `Accept-Language: *`; CapacitorHttp iOS задаёт locale default, но затем применяет переданные headers. Pleer1 сохраняет явный `*` и добавляет locale только если заголовок отсутствует. Предыдущая запись о безусловном locale header была неточной; исправлен комментарий.
+
+#### Повторная проверка Codemagic
+- `codemagic.yaml` расположен в корне репозитория; workflow `pleer1-unsigned-ipa` использует `working_directory: plei`.
+- Workflow: install XcodeGen + esbuild → integrity-verify/download/build standalone JS runtime → XcodeGen → `xcodebuild` с `-sdk iphoneos` и `-destination 'generic/platform=iOS'` → упаковка unsigned IPA.
+- `triggering.events` отсутствует: Codemagic workflow доступен для ручного запуска, автоматический push-trigger не задан.
+- IPA копируется в `$CM_BUILD_DIR/Plei-unsigned.ipa`; artifact paths соответствуют repository root: IPA, `plei/build.log`, `plei/build/Build/Products/Release-iphoneos/Plei.app`.
+- XcodeGen `project.yml` больше не содержит network-dependent preBuildScripts. Resolver folder resource присутствует до `xcodegen generate`.
+- XcodeGen scheme build action `PleiUITests: [test]` валиден: XcodeGen допускает alias `test` для `testing`; обычный Codemagic command `xcodebuild build` не запускает test action и не выбирает simulator destination.
+- npm SHA-512 для youtubei.js 18.3.0 совпадает с опубликованным lockfile integrity value. Build script проверяет SHA-512, наличие browser bundle, наличие сгенерированного runtime и marker `window.PleerYouTube`.
+
+#### Статус проверки и ограничения
+- Выполнена повторная read-only сверка Musike source, Pleer1 resolver/bridge/player, build script, XcodeGen project spec и Codemagic YAML.
+- Внесены source/build-pipeline corrections в Pleer1-Lab; текущий source head указан выше.
+- **Не запускались** XcodeGen, esbuild, shell build script, xcodebuild, Codemagic, GitHub Actions, simulator, IPA download или device test. Поэтому Swift compilation, standalone bundle execution, resource copy и runtime остаются неподтверждёнными.
+- Одна согласованная IPA build по-прежнему разрешена только после завершения статической проверки. Следующий шаг — ещё один read-only check текущих commit/file paths и затем ручной запуск одного Codemagic build пользователем.
+- PO Token и authorized session/cookie research остаются отдельным следующим этапом только если baseline на iPhone не устраняет LOGIN_REQUIRED. Не извлекать cookies из sandbox официального YouTube app.
+- Ревизия репозиториев и Pleer1 1.0 остаются заблокированы до полной успешной интеграции и device verification.
