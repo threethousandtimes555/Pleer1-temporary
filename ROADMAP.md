@@ -834,3 +834,10 @@ Source HEAD после повторного аудита Musike: 6f53515f8974a60
 - Corrected by calculating song/musicVideo/video counts in separate local constants, then interpolating those values in the diagnostic string.
 - Fix commit on feature branch: `4edd6da89053a074ea3b1ff82f035022add1bc25`.
 - The correction is source-verified from GitHub, but has NOT yet been compiled. User must rerun Codemagic on the same feature branch. Do not mark build successful until a new run completes.
+
+
+## 12. Контрольная сборка Codemagic — 20 ноября 2026 года
+
+Пользователь подтвердил, что workflow `pleer1-unsigned-ipa` завершился появлением IPA в Artifacts; отображаемый размер — **899.07 KB**. В предоставленном Xcode log присутствовали `BUILD SUCCEEDED`, успешная валидация `Plei.app` и сообщение `Package unsigned IPA at repository root`.
+
+Это подтверждает прохождение Xcode build и появление IPA-артефакта в Codemagic. Однако размер 899.07 KB выглядит необычно небольшим для полного iOS-приложения с включённым YouTube runtime. До проверки содержимого IPA не считать пакет окончательно проверенным или готовым к установке. Следующий шаг — проверить наличие `Payload/Plei.app`, исполняемого файла приложения и ожидаемых ресурсов, включая YouTubeResolver/runtime. Установка и runtime-тесты на iPhone пока не подтверждены; Build #5 остаётся последней версией, проверенной на устройстве.
