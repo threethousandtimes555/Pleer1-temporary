@@ -719,7 +719,7 @@ Lab branch: `feature/youtubei-js-ios-fallback-2026-11-19`.
 
 ### Зафиксированное решение по источникам
 
-- **YouTube Music — приоритетный музыкальный каталог Pleer1.** Сначала запрашиваем song, затем video через yt.music.search.
+- **YouTube Music — приоритетный музыкальный каталог Pleer1.** Запросы song и video выполняются параллельно через yt.music.search; песни имеют более высокий приоритет в выдаче.
 - После музыкальных полок используем yt.search(query, { type: "video" }) из того же youtubei.js, чтобы получать обычные видео через актуальный parser библиотеки, включая новые renderer/View-модели.
 - Сохраняем существующие Swift InnerTube JSON и HTML/ytInitialData пути как дополнительные источники: они по-прежнему нужны для обычных роликов, плейлистов, Mix и радио. Не заменяем ими YouTube Music и не удаляем их.
 - Результаты объединяются по YouTube Video ID. При совпадении сохраняется первый результат из более приоритетного каталога YouTube Music.
@@ -729,23 +729,35 @@ Lab branch: `feature/youtubei-js-ios-fallback-2026-11-19`.
 ### Что внесено в source branch
 
 Lab branch: feature/youtubei-js-ios-fallback-2026-11-19.
-Source HEAD после интеграции: 7223e30b24ca10acc1e93954a7ac9795732ad486.
+Source HEAD после повторного аудита Musike: 261fe7a5d7feb32ddb5efbf51342e1640adbf84c.
 
 - youtubei-bridge.js: добавлен catalog search поверх существующего Innertube session и nativeFetch bridge. Запрашиваются YTM Songs, YTM Music Videos и ordinary YouTube Videos. Результаты нормализуются в компактные сериализуемые записи с ID, названием, исполнителем, обложкой, длительностью и типом. Учитывается iterable ObservedArray, а ошибки отдельных полок не блокируют остальные источники.
-- YouTubeJSResolver.swift: добавлен асинхронный request/reply мост для catalog search через тот же скрытый WKWebView и нативный URLSession; timeout/cancellation безопасно освобождают Swift continuation, поздний JS-ответ игнорируется, а незавершённые ожидания очищаются при завершении WebKit process. Сама уже отправленная JS-сетевая операция отдельным abort пока не прерывается.
-- YouTubeEngine.swift: YouTube Music / youtubei catalog вызывается первым; затем результаты дополняются существующими Swift InnerTube и HTML источниками. Логи раздельно показывают количество песен YTM, музыкальных видео YTM и обычных YouTube-видео из youtubei catalog.
+- YouTubeJSResolver.swift: добавлен асинхронный request/reply мост для catalog search через тот же скрытый WKWebView и нативный URLSession; timeout/cancellation безопасно освобождают Swift continuation, поздний JS-ответ игнорируется, а незавершённые ожидания очищаются при завершении WebKit process. Таймаут каталога — 75 секунд, чтобы вместить один retry сессии.
+- YouTubeEngine.swift: YouTube Music / youtubei catalog, Swift InnerTube и HTML источники запускаются параллельно; YouTube Music получает приоритет при merge и ranking, но медленный YTM endpoint не блокирует обычные результаты. Логи раздельно показывают количество песен YTM, музыкальных видео YTM и обычных YouTube-видео из youtubei catalog.
 - Models.swift: добавлено optional поле youtubeResultKind (song, musicVideo, video). Optional-поле сохраняет совместимость старых сохранённых Track при декодировании.
 - YouTubeSearchIntent.swift: обычный музыкальный запрос ранжирует YTM songs выше YTM music videos, затем ordinary videos, playlists и Mix. Явные запросы playlist/Mix поднимают соответствующий тип, не удаляя другие типы.
 - plei/Scripts/prepare-youtubei.sh проверен: сборочный сценарий скачивает integrity-pinned youtubei.js 18.3.0, объединяет его browser bundle с youtubei-bridge.js через esbuild и генерирует youtubei-runtime.js. Отдельно добавлять runtime-файл в репозиторий не требуется: он создаётся на этапе подготовки сборки.
 
 ### Что это пока доказывает — и чего не доказывает
 
-- По исходникам подключены правильные API YouTube Music и youtubei.js parser для актуальной ordinary YouTube video выдачи. Это устраняет зависимость от одних только старых вручную перечисленных renderer-ключей для обычных видео.
+- По исходникам подключены API YouTube Music и актуальный youtubei.js parser для ordinary YouTube video выдачи. Повторная сверка с Musike v1.5.1 выявила важную деталь структуры: yt.music.search() выдаёт секции в result.contents, а строки лежат в section.contents (именно так работает production tracksFrom() в Musike). Первоначальный Pleer1 вариант, который полагался на result.songs / result.videos, мог вернуть ноль. Парсер исправлен: читает обе формы, поддерживает iterable ObservedArray, artists/authors, и пишет структуру ответа в diagnostics. Это source-level исправление; runtime ещё не проверен.
 - Исходный диагностический случай «прыгай киска» всё ещё не подтверждён реальным поиском: предыдущий лог показал HTTP 200 JSON и ноль распознанных старых renderer shapes, но не содержал тела ответа и не доказывал, что искомая песня действительно была в JSON. Нельзя задним числом объявлять точную причину доказанной.
 - **Swift compilation, JS bundle generation и runtime tests не запускались.** Проверены исходники и конфигурация подготовки runtime; compile success не заявляется.
 - **Codemagic, IPA и установка не запускались.** Build #5 (7eabcbc) остаётся установленной версией.
-- Compare source branch с Build #5: branch ahead на 52 commits, behind на 0; среди изменённых файлов присутствуют Models.swift, YouTubeEngine.swift, YouTubeJSResolver.swift, YouTubeSearchIntent.swift и youtubei-bridge.js.
+- Compare source branch с Build #5: branch ahead на 58 commits, behind на 0; среди изменённых файлов присутствуют Media.swift, Models.swift, Player.swift, PleiApp.swift, Store.swift, Views.swift, YouTubeEngine.swift, YouTubeJSResolver.swift, YouTubeSearchIntent.swift и youtubei-bridge.js.
 
+### Повторный аудит Musike v1.5.1 и дополнительные решения
+
+- Проверен актуальный server/src/search.ts, server/src/browse.ts, server/src/directAudio.ts, server/src/ytdlp.ts, web/src/native/streams.ts, web/src/native/ytplayer.ts, mobile/streaming.json и iOS native resolver.
+- Musike v1.5.1 использует youtubei.js 18.1.0; Pleer1 runtime намеренно закреплён на 18.3.0 с SHA-512 проверкой архива. Нельзя механически переносить версии/форматы между проектами.
+- Production parser Musike проходит по result.contents и вложенным section.contents; Pleer1 parser теперь делает то же самое, дополнительно принимает convenience shelves, если они есть. Для обычного YouTube использует yt.search(query, { type: video }).videos, как Musike.
+- Добавлен безопасный fallback по yt.music.getSearchSuggestions(query): только если исходные YTM song/video и обычный youtubei video результаты все пусты; берётся отличающаяся подсказка и повторяется только YTM song/video. Исходный запрос не переписывается, существующие результаты не заменяются догадкой. Слабая, но непустая выдача пока не расширяется автоматически.
+- Три youtubei каталожных запроса и три Swift search транспорта стартуют параллельно. Приоритет YTM задаётся merge/ranking, а не ожиданием завершения всех запросов по очереди.
+- Важные возможности Musike, которые не входят в текущий поиск Pleer1: отдельный UI autocomplete suggestions, albums search, genres/artists/albums browse, Music radio через getUpNext, поиск официального клипа для аудиотрека, batch Search a list. Это самостоятельные продуктовые функции; не переносить их в текущий поиск без отдельного этапа/UX-решения.
+- Musike iOS native MusikeYouTube.swift занимается разрешением аудиопотока, а не поиском. В Pleer1 этот слой не копируется: у нас уже есть свой Swift resolver и JS fallback. Переносится именно каталог YTM, а не Musike yt-dlp или его потоковый pipeline.
+- Musike iOS resolver использует visitorData и цепочку VISIONOS / ANDROID_VR / IOS для playback; это не аргумент менять текущие Pleer1 playback clients в рамках поиска. Playback интеграцию проверяем отдельно.
+- search.ts Musike последовательно делает YTM → ordinary YouTube → yt-dlp только если предыдущий источник пуст. Pleer1 намеренно объединяет YTM и ordinary YouTube, потому что пользователь согласовал сохранение видео/плейлистов/Mix/radio; YTM песни получают приоритет, но не подавляют остальные источники.
+- Никакой compile/build/runtime проверки после изменений не проводилось. Версия 18.3.0 bundle и JS parser должны быть проверены сборкой и реальным поиском на устройстве прежде, чем считать интеграцию рабочей.
 ### Следующая проверка после отдельного разрешения на сборку
 
 1. На запросе «прыгай киска» отдельно проверить YTM song count, YTM music-video count, youtubei ordinary-video count, Swift InnerTube count и HTML count.
