@@ -1553,3 +1553,17 @@ Read-only повторная проверка GitHub tree и файлов вет
 Финальная read-only сверка путей подтвердила: локальные ресурсы находятся в `plei/YouTubeResolver`; build script, XcodeGen folder source, Bundle lookup и .gitignore используют этот же root path. Числовые Client IDs 101/28/5 соответствуют constants youtubei.js 18.3.0; версии и User-Agent согласованы. Диагностика не выводит signed stream URL, cookies или visitorData.
 
 Остаются только build/runtime подтверждения: Swift compile, XcodeGen generation, реальная упаковка папки в app bundle, browser ESM import, bridge exchange, LOGIN_REQUIRED behavior, AVPlayer handoff, background audio/auto-advance. Эти проверки намеренно отложены до одного согласованного IPA build и последующих device tests.
+
+
+### Correction — Swift и JS client profiles Musike разделены (19.11.2026)
+
+**Source head after correction:** `6fec95c8f5859171c5c918e6942373de8e1d035b`.
+
+Предыдущая запись о синхронизации Swift client versions с constants youtubei.js 18.3.0 была ошибочной. Полное чтение оригинального `MusikeYouTube.swift` подтвердило, что у Musike действительно два разных набора профилей:
+
+- Native Swift: VISIONOS 1.02 / ID 101; ANDROID_VR 1.60.19 / ID 28; IOS 20.10.4 / ID 5. Для всех используется общий Safari User-Agent и `platform=DESKTOP` в client context.
+- JS fallback: client profiles библиотеки youtubei.js 18.3.0 (в том числе IOS 20.11.6 и ANDROID_VR 1.65.10), с собственными User-Agent.
+
+Pleer1 исправлен на точное разделение этих профилей. Числовые Client IDs не менялись. Native Swift resolver восстановлен к версиям и контексту Musike; JS fallback использует profiles из 18.3.0. AVPlayer CDN User-Agent также приведён к строке из MusikeAudio: `com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X;)`.
+
+Это исправляет ошибочное предположение предыдущей статической итерации; именно это разделение соответствует аудированному оригиналу Musike.
