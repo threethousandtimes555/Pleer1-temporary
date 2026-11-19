@@ -463,3 +463,8 @@ A diagnostic inconsistency also needs source-level review: initial resolved dura
 **Constraints remain:** no downloads, IPA builds, simulator runs, CI runs, or source changes until the consolidated audit is reviewed and the user separately approves the next step.
 
 See decision/error log entry №061 for the full evidence and timestamps.
+
+
+### Correction to section 24 — playlist did not auto-advance (19 November 2026)
+
+The user clarified that the actual failure was at the end of the audio track: playback reached the end, but the next playlist item did not start automatically. Manual seek occurred earlier, but source inspection of `Player.swift` shows that `seek(_:)` does not remove the end notification observer or invalidate the playback token. Therefore seek is not established as the cause. Auto-advance depends on `.AVPlayerItemDidPlayToEndTime` -> `finishCurrentItem` -> `advance(auto: true)`, with a YouTube watchdog fallback near the known duration. The live diagnostics contain a significant duration mismatch: resolved duration 188.00 seconds vs AVPlayer item duration 376.72 seconds and loaded range 376.77 seconds. This is a leading investigation target, not yet a proven root cause. The supplied log excerpt lacks `playback.finish_event`, `playback.advance`, and the next `playback.load`; its last visible position is 209.73 seconds, so it does not itself capture the end event. See entry №061 for details. No source edits, builds, downloads, simulator or CI runs were performed.
