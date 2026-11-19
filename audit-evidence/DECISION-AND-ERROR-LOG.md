@@ -1646,3 +1646,18 @@ Native Swift client profiles сохранены точь-в-точь как Musi
 - Одна согласованная IPA build по-прежнему разрешена только после завершения статической проверки. Следующий шаг — ещё один read-only check текущих commit/file paths и затем ручной запуск одного Codemagic build пользователем.
 - PO Token и authorized session/cookie research остаются отдельным следующим этапом только если baseline на iPhone не устраняет LOGIN_REQUIRED. Не извлекать cookies из sandbox официального YouTube app.
 - Ревизия репозиториев и Pleer1 1.0 остаются заблокированы до полной успешной интеграции и device verification.
+
+
+### Addendum — pinning esbuild build tool (19.11.2026)
+
+**Supersedes the unpinned Homebrew esbuild installation described in the immediately preceding prebuild audit.**
+
+**Current Pleer1 source head:** `a707ab346626c09c9b8645bdedff24b444747910`.
+
+- Removed the unpinned `brew install esbuild` dependency.
+- `prepare-youtubei.sh` now downloads the native `@esbuild/darwin-arm64@0.28.0` npm package, verifies its SHA-512 integrity, checks the executable version, and uses that exact binary to bundle the integrity-verified `youtubei.js@18.3.0` plus Pleer1 adapter into one IIFE runtime.
+- The esbuild Darwin ARM64 integrity value was cross-checked against multiple independent package lockfiles. Codemagic is pinned to `mac_mini_m2`, so the binary architecture matches the selected runner.
+- Generated runtime checks include non-empty output, expected `window.PleerYouTube` bridge marker, minimum bundle size, and absence of top-level ESM import/export declarations.
+- Codemagic now installs only XcodeGen via Homebrew; esbuild itself is fetched and integrity-verified by the preparation script before XcodeGen.
+
+No XcodeGen, esbuild, shell build script, xcodebuild, Codemagic, simulator, IPA, or device test was executed. This remains static preparation only.
