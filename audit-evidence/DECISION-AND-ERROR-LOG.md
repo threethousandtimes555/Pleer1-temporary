@@ -1500,3 +1500,24 @@ Current source branch head: `5dce04c6e09a40de20e3487a9851ba459c3f76c7`.
 Read-only повторная проверка GitHub tree и файлов ветки Pleer1-Lab подтвердила source head `5dce04c6e09a40de20e3487a9851ba459c3f76c7`. Ветка содержит Swift JS resolver, локальный HTML/JS bridge, XcodeGen folder resource и pre-build script. При этом `plei/Scripts/prepare-youtubei.sh` и комментарий в `plei/project.yml` всё ещё закрепляют `youtubei.js 18.1.0`; запланированный upgrade до 18.3.0 ещё НЕ выполнен. Это обязательная задача перед build-ready состоянием, но checksum/tarball integrity должны быть подтверждены по официальному npm metadata/tarball, а не угаданы.
 
 Повторно подтверждено: никаких XcodeGen/xcodebuild, GitHub Actions/Codemagic runs, simulator, IPA downloads или device tests в рамках этого read-only прохода не запускалось. Разрешение пользователя относится к одному контролируемому IPA build после завершения source review, а не к промежуточным сборкам.
+
+
+### Addendum — завершение очередного статического прохода интеграции (19.11.2026)
+
+**Актуальная source branch:** `threethousandtimes555/Pleer1-Lab:feature/youtubei-js-ios-fallback-2026-11-19`  
+**Текущий source head:** `bb9e88099bc73ece741feee134084bcebba02507`
+
+Внесены следующие изменения:
+
+1. Зависимость обновлена до `youtubei.js 18.3.0`. Build script скачивает npm tarball и проверяет SHA-512 до распаковки. Контрольная сумма подтверждена совпадающими npm integrity значениями в независимых package-lock источниках; сам tarball ещё не скачивался в рамках сборки, поэтому реальная проверка build script остаётся частью будущего единственного build.
+2. Swift client profiles синхронизированы с constants youtubei.js 18.3.0: ID остаются 101 (VISIONOS), 28 (ANDROID_VR), 5 (iOS); версии — 1.02, 1.65.10, 20.11.6. Для каждого профиля выставлен соответствующий User-Agent; context name iOS теперь `iOS`, а не `IOS`. Убрано ошибочное общее `platform=DESKTOP` из контекста мобильных/visionOS профилей.
+3. JS session map теперь учитывает язык и регион, а cache создаётся отдельно на session. Добавлен один ограниченный refresh Innertube session при распознанном `LOGIN_REQUIRED`, после чего повторяется запрос того же client profile; бесконечного retry нет.
+4. JS format selection ограничен прямыми audio-only `audio/mp4` URL, чтобы не передавать WebM в существующий AVPlayer pipeline Pleer1.
+5. WKWebView использует non-persistent website data store; session cache остаётся in-memory.
+6. Resolver resources перенесены из вложенной `Sources/YouTubeResolver` в корневую `plei/YouTubeResolver`. XcodeGen описывает папку как `sources: - path: YouTubeResolver / type: folder`, без top-level `resources:`. Это устраняет известный риск вложенного folder path и недавнюю проблему XcodeGen, при которой resource entries могут теряться при directory sources.
+
+### Важное ограничение проверки
+
+Проверены исходники и конфигурация чтением GitHub; XcodeGen не запускался. Shell syntax ранее проверялся до последнего изменения только пути ресурса; изменение пути не меняло shell-конструкции. JavaScript/Swift compile, фактическое копирование folder resource, локальный ESM import в WKWebView, native bridge и runtime playback не подтверждены.
+
+**Не запускались:** XcodeGen, xcodebuild, Codemagic/GitHub Actions, симулятор, IPA build/download и пользовательские тесты. Следующий build остаётся единственным разрешённым контролируемым запуском после полного статического review.
