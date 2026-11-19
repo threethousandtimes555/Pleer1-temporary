@@ -479,3 +479,16 @@ The user clarified that the actual failure was at the end of the audio track: pl
 **Ограничение фоновой диагностики:** присланный лог не содержит явных app lifecycle/background/lock маркеров; поэтому точное состояние приложения в каждый момент не выводится из телеметрии. Сценарий был заявлен пользователем как фоновый тест.
 
 **Следующий этап:** аудит исходников (без изменений) — как извлекается duration, какой duration передаётся в AVPlayer, как рассчитывается `knownYouTubeDuration`, как срабатывают end observer и watchdog, а также как связан plannedNext с advance. Без скачиваний, новых IPA, сборок, симуляций и CI до общего разбора и отдельного решения пользователя. Полные детали — в записи №062 журнала ошибок и решений.
+
+
+### Correction to section 25 — background playback transition evidence (19 November 2026)
+
+The user clarified that they did **not** manually scrub the seek bar; they tested playback in the background and pressed the Next Track button. The log nevertheless contains `playback.seek.request` entries at 153.10 and 190.97 seconds. Their origin is unknown and must not be described as confirmed manual scrubbing. Explicit Next Track actions appear as `playback.advance auto=false` and must remain separate from automatic transitions.
+
+A positive automatic transition is present later in the same diagnostic excerpt: for YouTube track `yN9ZjkSrsZRA` (resolved duration 116 seconds), at 01:34:24 the watchdog logged `playback.watchdog_advance` at position 113.00, followed by `playback.finish_event` and `playback.advance auto=true`. This confirms the watchdog-driven automatic advancement path executed. The excerpt does not provide enough subsequent lines to confirm the exact start time of the following track or gapless playback.
+
+Read-only source review of `Player.swift` on Lab branch `fix/youtube-standalone-search-device-2026-11-19` found: `load()` calls `planNext()`; repeat-off mode plans `index + 1`; `start()` removes the prior end observer and registers a new item-specific observer; `load()` resets `completionHandledToken`; and `advance(auto: true)` chooses `plannedNext` before loading it. No obvious observer-lifecycle or next-index defect was found in these inspected sections. Exact installed IPA commit has not been independently tied to this branch in this review.
+
+The first track still shows the repeated duration mismatch (resolve 210.00 vs AVPlayer 419.03). The watchdog uses the resolve duration but only advances after the playback clock stops progressing within the final three seconds for five seconds. Since the clock continued beyond 210 seconds, that condition was not met at that point. On the next track (116 seconds), the watchdog did meet its condition and advanced automatically. Root cause of the earlier reported missed transition remains open.
+
+No code changes, builds, downloads, simulator runs, or CI runs were performed. Continue source/log audit only until the consolidated review is complete and the user separately approves further action.
