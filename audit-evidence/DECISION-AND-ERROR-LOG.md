@@ -1088,3 +1088,6 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 
 
 **Дополнение к записи №050 — оценка размера офлайн-файла до загрузки:** FavoritesAudioCache now estimates expected bytes from resolver bitrate × duration with 15% overhead, then checks expected size + 64 MiB reserve against free capacity before starting the transfer. It retains the post-download reserve check and the 500 MiB per-track cap. This avoids starting a known-large download when the phone lacks enough room; actual free-space behavior still requires device testing. Lab commit: `4ab7a7ec0fff38bcff30e3dfc98683cf4d285ba7`.
+
+
+**Дополнение к записи №050 — актуальный checkpoint:** при удалении или снятии лайка теперь также пересчитывается состояние запроса мобильной сети, чтобы диалог не оставался открытым после удаления последней ожидающей загрузки. Current Lab head: `325b7e19ccf3b273812f0b2e0ef39f58061c92d9`; compare from `51fb09a1a998056e70707837c48b3bbc3f1300bd`: ahead 12 / behind 0, 6 source files changed.
