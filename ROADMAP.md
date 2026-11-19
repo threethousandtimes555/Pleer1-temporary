@@ -529,7 +529,7 @@ HTTP 400 на `/youtubei/v1/config` не остановил загрузку: п
 - YouTubeJSResolver.swift: second validation boundary rejects a non-MP4 result even if the JS bridge regresses.
 - YouTubeEngine.swift: one process-wide in-flight resolver task per video ID now wraps native Swift + JS fallback; a 64-entry expiry-aware stream cache uses a 60-second refresh margin; unknown URL expiry gets a conservative 3-hour fallback; explicit URL invalidation is available.
 - Player.swift: before the one bounded AVPlayer retry, the shared resolver cache is invalidated so the same stale URL is not immediately reused.
-- FavoritesAudioCache.swift: downloader checks actual HTTP status and response MIME; retries once with a fresh resolve on HTTP 403/410; removes cancelled temporary downloads; explicit removal clears pending/failed state, cancels an active download for that ID and logs the correct reason.
+- FavoritesAudioCache.swift: downloader checks actual HTTP status and response MIME; retries once with a fresh resolve on HTTP 403/410; removes cancelled temporary downloads; estimates expected file size from resolver bitrate × duration (+15%) and checks it against available capacity plus a 64 MiB reserve before downloading; retains the post-download reserve check and 500 MiB per-track cap. Explicit removal clears pending/failed state, cancels an active download for that ID and logs the correct reason.
 - Views.swift: cellular consent now uses a Pleer1-styled overlay rather than a stock system alert, preserving the approved text and actions.
 
 ### Остающиеся отличия и проверки
@@ -540,5 +540,5 @@ HTTP 400 на `/youtubei/v1/config` не остановил загрузку: п
 - Confirm the runtime-generation script succeeds in the actual Codemagic build log; static YAML/script inspection is not a build result.
 - Full device test suite and install-over-existing-data remain mandatory before declaring the build ready.
 
-**Current Lab source head after these fixes:** d4891d73bc4e68ddd2525af6ec8238284e1e885b (10 commits ahead of 51fb09a1a998056e70707837c48b3bbc3f1300bd; 6 source files changed). No build, simulator, compilation or install has been run.
+**Current Lab source head after these fixes:** 4ab7a7ec0fff38bcff30e3dfc98683cf4d285ba7 (11 commits ahead of 51fb09a1a998056e70707837c48b3bbc3f1300bd; 6 source files changed). No build, simulator, compilation or install has been run.
 
