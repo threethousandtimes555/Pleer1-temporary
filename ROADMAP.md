@@ -437,14 +437,13 @@ HTTP 400 на `/youtubei/v1/config` не остановил загрузку: п
 
 ### Next focused audit — Musike parity (19 Nov 2026)
 
-- [ ] Compare current Pleer1 implementation against Musike source file by file; do not infer parity from earlier partial reviews.
-- [ ] Verify native client order and client-specific request bodies/headers/visitor data.
-- [ ] Verify stream extraction, format ranking, expiry handling, refresh/retry and fallback behavior.
-- [ ] Verify JS fallback and native resolver handoff/in-flight deduplication.
-- [ ] Verify cookie/session boundaries and explicitly list unsupported account-dependent cases.
-- [ ] Verify duration, end-of-track handling, AVPlayer configuration, buffering and playback lifecycle.
-- [ ] Produce a matrix: implemented and source-confirmed / intentional differences / incomplete / requires device test.
-- [ ] Keep the audit read-only until findings are presented; no speculative resolver changes.
+- [x] Map the complete Musike repository (222 tracked files; 151 source/config/resource files) and trace all modules connected to iOS playback and stream resolution, rather than relying on README.
+- [x] Verify native client order and client-specific request bodies/headers/visitor data against MusikeYouTube.swift.
+- [x] Trace the actual iOS fallback through streams.ts → directAudio.ts → config.fetch → Capacitor native HTTP transport; verify format ranking, expiry, retry and client refresh.
+- [x] Compare audio bridge, AVPlayer lifecycle, duration/end handling, buffering, lock-screen commands and playback state.
+- [x] Verify cookie/session boundaries and explicitly list unsupported account-dependent cases; no Safari/WKWebView cookie import or login path is added.
+- [x] Produce the source-confirmed parity matrix in section 13 below.
+- [x] Implement only confirmed iOS gaps: AAC/MP4-only fallback, global native in-flight/cache coordination, expiry invalidation/retry and response MIME checks. No speculative port of Musike's unrelated server/desktop architecture.
 
 
 ### UI direction and Search/offline interaction (19 Nov 2026)
@@ -461,15 +460,15 @@ HTTP 400 на `/youtubei/v1/config` не остановил загрузку: п
 
 ### A. Закрыть до запуска сборки
 
-- [ ] Завершить read-only Musike parity audit по актуальному исходному коду: native resolver, JS fallback, request transport, stream selection, expiry/retry, audio lifecycle. Зафиксировать точные версии и отличия, не переносить код наугад.
-- [ ] Проверить и устранить/обосновать отсутствие общей in-flight дедупликации native Swift resolver по videoID. JS fallback уже имеет cache и in-flight map; Player prefetch coordination покрывает только player flow, но не все вызовы.
-- [ ] Согласовать формат JS fallback и offline downloader: youtubei-bridge.js может выбрать audio/webm, тогда как FavoritesAudioCache принимает только AAC/MP4. Решить, ограничивать ли fallback audio/mp4 для AVPlayer/offline или добавлять реальную поддержку другого формата; не сохранять WebM под расширением m4a/aac.
-- [ ] Сверить HTTP-заголовки загрузки с заголовками успешного AVPlayer playback. Проверить User-Agent, возможную необходимость дополнительных заголовков, MIME и HTTP status.
-- [ ] Проверить жизненный цикл файла при ручном удалении из «Скачанных», если этот файл прямо сейчас воспроизводится; определить безопасное поведение UI/плеера.
-- [ ] Исправить диагностическую причину в deleteFiles: сейчас явное удаление из библиотеки логируется как reason=unfavorited, что вводит в заблуждение при разборе журнала.
-- [ ] Привести подтверждение мобильной загрузки к согласованной визуальной системе Pleer1. Сохранить тексты и семантику «Продолжить» / «Только Wi-Fi», но не считать стандартный SwiftUI .alert окончательным оформлением после уточнения пользователя о собственном дизайне.
+- [x] Завершить полный source-level Musike audit по native iOS, web/native bridge, server fallback, player/audio lifecycle, transport и build configuration; подробности и точные отличия — в разделе 13.
+- [x] Добавить общую in-flight дедупликацию native Swift + JS resolver по videoID и общий expiry-aware cache (64 записи, обновление за 60 секунд до истечения); все call sites используют один coordinator.
+- [x] Согласовать форматы: JS fallback для iOS теперь возвращает только audio/mp4; Swift boundary и downloader дополнительно отвергают неподдерживаемые MIME. WebM не переименовывается в M4A/AAC.
+- [x] Статически сверить HTTP: downloader и AVPlayer используют один YouTube User-Agent; downloader проверяет HTTP status и совместимый Content-Type. Реальное поведение CDN/headers всё ещё подтвердить на iPhone.
+- [ ] На iPhone проверить удаление файла, который в этот момент воспроизводится локально; определить, продолжает ли AVPlayer безопасно читать открытый файл и не ломается ли Now Playing.
+- [x] Исправить диагностическую причину явного удаления: теперь reason=user_requested; удаление также снимает pending/failed state и отменяет активную загрузку этого ID.
+- [x] Оформить согласие на мобильную загрузку как собственный Pleer1 overlay с сохранением текстов и действий «Продолжить» / «Только Wi-Fi».
 - [ ] Зафиксировать решение по двойному трафику: сейчас AVPlayer может потоково получать трек одновременно с полной офлайн-загрузкой. Либо уменьшить дублирование, либо явно оставить как известное ограничение с оценкой расхода трафика/энергии.
-- [ ] Проверить, что Codemagic шаг prepare-youtubei.sh действительно собирает runtime из integrity-pinned youtubei.js 18.3.0 + esbuild 0.28.0 и включает license; workflow уже содержит SHA-512 и file-size checks.
+- [x] Статически проверить build pipeline: prepare-youtubei.sh собирает runtime из integrity-pinned youtubei.js 18.3.0 + esbuild 0.28.0, проверяет SHA-512, bridge и license. В следующем build log ещё нужно подтвердить успешное выполнение шага.
 - [ ] Провести финальную статическую сверку diff и убедиться, что не затронуты проверенные фон/Siri, поиск, независимость очередей и стабильная ветка checkpoint.
 
 ### B. Проверить на реальном iPhone после сборки, до признания установки успешной
@@ -497,3 +496,49 @@ HTTP 400 на `/youtubei/v1/config` не остановил загрузку: п
 - [ ] После установки пройти сценарии раздела B и только по результатам отметить билд проверенным.
 
 **Не является обязательным условием именно этого билда:** полноценный background URLSession с возобновлением незавершённых загрузок. Это отдельное улучшение после проверки текущей serial-download реализации, если не обнаружится блокирующая проблема при тестах.
+
+## 13. Полный аудит Musike и исправления Pleer1 — 19 ноября 2026
+
+### Объём аудита
+
+- Репозиторий Ernani1234/musike, ветка main, версия проекта 1.5.1; дерево GitHub: 222 файла, из них 151 исходный/конфигурационный/ресурсный файл.
+- Глубоко просмотрены все звенья iOS playback/resolver pipeline и связанные web/native/server modules: mobile/ios/App/App/{MusikeYouTube,MusikeAudio,MusikePlayback,MusikeWebViewController,AppDelegate,SceneDelegate}.swift, Info.plist, Xcode project/SPM/build scripts; web/src/native/{streams,ytplayer,http,api,media}.ts, web/src/native/shims/config.ts, web/src/lib/audio.ts, web/src/player/player.ts; server/src/{directAudio,search,ytdlp,stream,app,browse,library}.ts; mobile/streaming.json, package/workspace configs and release workflow. Android playback service and desktop entrypoint/server startup were also inspected to distinguish platform-specific paths.
+- **Ключевое уточнение:** Musike iOS fallback не использует обычный browser fetch. web/src/native/shims/config.ts supplies nativeFetch through CapacitorHttp; streams.ts tries native Swift first, then directAudio/youtubei.js through that native transport. Pleer's WKWebView bridge + URLSession is a different implementation of the same native-transport principle, not a README-only imitation.
+- Desktop/server route (yt-dlp + range proxy) is not the iOS stream path and should not be copied into Pleer1.
+
+### Матрица parity
+
+| Узел | Musike source behavior | Pleer1 result |
+|---|---|---|
+| Native clients | VISIONOS → ANDROID_VR → IOS | Совпадает |
+| Visitor identity | visitorData, 24-hour TTL | Совпадает; stale value reused if refresh fails |
+| Player request | racy/content checks, originalUrl, HTML5_PREF_WANTS, client headers | Совпадает по ключевым полям |
+| Native format | audio/mp4 adaptive format, highest bitrate | Совпадает |
+| JS fallback | youtubei.js 18.1.0, iOS clients IOS → VISIONOS, native CapacitorHttp | Собственный bundled youtubei.js 18.3.0 + native URLSession bridge; намеренное отличие |
+| JS retry/session | refresh session once on thrown request; parsed playability refusal moves to next client | Совпадает по смыслу |
+| Stream cache | cache + in-flight by videoID around native + JS resolver | Теперь есть общий Swift coordinator: in-flight + expiry-aware cache (64 записи, 60 s refresh margin) |
+| Format fallback | Musike permits WebM if MP4 is absent | Pleer iOS intentionally MP4-only; WebM не передаётся AVPlayer/offline downloader |
+| Expiry/error retry | stream cache invalidation and one playback retry | Pleer invalidates both resolver caches before bounded retry; offline downloader also retries once on HTTP 403/410 |
+| Audio engine | native AVPlayer, YouTube UA, 30 s forward buffer, resolver duration, early-end guard | Совпадает по ключевой логике; Pleer additionally owns direct Swift player lifecycle/watchdog/interruption handling |
+| Lock screen | MPRemoteCommandCenter, Now Playing metadata/artwork, play/pause/next/previous/seek | Реализовано в Pleer; ранее подтверждено пользовательскими background/Siri tests |
+| Cookie/session | native HTTP stack, no explicit Safari cookie import | Pleer does not import Safari/WKWebView cookies or add account Cookie headers; no login/cookie import added |
+
+### Подтверждённые изменения в Lab
+
+- youtubei-bridge.js: iOS JS fallback now filters to audio/mp4 only; logs unsupported MIME candidates instead of silently returning WebM.
+- YouTubeJSResolver.swift: second validation boundary rejects a non-MP4 result even if the JS bridge regresses.
+- YouTubeEngine.swift: one process-wide in-flight resolver task per video ID now wraps native Swift + JS fallback; a 64-entry expiry-aware stream cache uses a 60-second refresh margin; unknown URL expiry gets a conservative 3-hour fallback; explicit URL invalidation is available.
+- Player.swift: before the one bounded AVPlayer retry, the shared resolver cache is invalidated so the same stale URL is not immediately reused.
+- FavoritesAudioCache.swift: downloader checks actual HTTP status and response MIME; retries once with a fresh resolve on HTTP 403/410; removes cancelled temporary downloads; explicit removal clears pending/failed state, cancels an active download for that ID and logs the correct reason.
+- Views.swift: cellular consent now uses a Pleer1-styled overlay rather than a stock system alert, preserving the approved text and actions.
+
+### Остающиеся отличия и проверки
+
+- AVPlayer local-file deletion while the same item is actively playing still needs a real-device decision/test; don't assume file unlink behavior without observing it.
+- Streaming and full-file download still transfer the same audio bytes separately. Reusing the resolved URL avoids duplicate resolver work, not duplicate media traffic. Keep this explicit as a known limitation until a safe architecture is chosen.
+- Verify actual HTTP/CDN headers, 403/410 retry, expiry, WebM rejection and MIME response on the iPhone.
+- Confirm the runtime-generation script succeeds in the actual Codemagic build log; static YAML/script inspection is not a build result.
+- Full device test suite and install-over-existing-data remain mandatory before declaring the build ready.
+
+**Current Lab source head after these fixes:** d4891d73bc4e68ddd2525af6ec8238284e1e885b (10 commits ahead of 51fb09a1a998056e70707837c48b3bbc3f1300bd; 6 source files changed). No build, simulator, compilation or install has been run.
+
