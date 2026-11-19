@@ -325,3 +325,25 @@ HTTP 400 на `/youtubei/v1/config` не остановил загрузку: п
 - В `youtubei-bridge.js` исправлен только устаревший комментарий о LOGIN_REQUIRED: retry с пересозданием сессии относится к thrown exceptions, а разобранный playability refusal переводит resolver к следующему клиенту, как в Musike.
 
 **Lab commits:** `dab45e3e2dcdae26bc779e4ccf72c6a9d753e44b` (Player duration) и `72ba733d21a0156faad7a5bada72998076be313a` (JS comment). Изменения проверены статически по исходникам; компиляция и runtime не выполнялись. Не запускались сборка, симулятор, Codemagic, xcodebuild, XcodeGen, IPA packaging или установка.
+
+
+### Дополнение к аудиту и оптимизации от 19 ноября 2026 — cookies, скорость resolver и пропорции обложек
+
+**Проверка cookies и авторизации Musike:**
+- `mobile/streaming.json` содержит только списки YouTube-клиентов (`clients` и `ios`). Cookies, account tokens или авторизационная сессия в нём не передаются.
+- Native iOS `MusikeYouTube.swift` получает visitorData и делает анонимные InnerTube-запросы через ephemeral URLSession. В коде нет импорта Google cookies или входа в аккаунт.
+- `web/src/native/streams.ts` на iOS сначала использует native resolver, а при его неудаче вызывает `directAudio`. Серверный `yt-dlp` может быть настроен через `YTDLP_EXTRA_ARGS` (например, `--cookies-from-browser firefox`), но это отдельная настройка пользователя на компьютере/сервере, не встроенные cookies Musike и не анонимный iOS-обход.
+- Pleer1 JS bridge использует `URLSession.shared` с cookie handling, но WKWebView создан с `.nonPersistent()`; cookies WKWebView не копируются в URLSession. В приложении нет потока входа Google и явного импорта account cookies. Следовательно, удалённый JS-конфиг Musike сам по себе не даёт Pleer1 авторизованные cookies. Без подтверждённой сессии настоящий age gate остаётся неразрешённым.
+- Native request profile Pleer1 и Musike совпадает по VISIONOS → ANDROID_VR → IOS, visitorData, originalUrl, racyCheckOk/contentCheckOk, HTML5_PREF_WANTS и основным заголовкам. Поэтому следующий шаг — не менять наугад client ID, а получить расширенные безопасные поля playability/errorScreen из реального ответа и сопоставить их с диагностикой JS fallback.
+
+**Изменения в Lab:**
+- `plei/Sources/Media.swift`: Cover теперь рассчитывает высоту по реальным пропорциям загруженного изображения. Квадратная обложка остаётся квадратной, горизонтальная — горизонтальной; прежнее принудительное 16:9 для всех обложек убрано. Commit `1f6d207a4c8aa7f7feba1496940b9f030f0167be`.
+- `plei/Sources/YouTubeEngine.swift`: вместо создания отдельной ephemeral URLSession на каждый POST используется одна переиспользуемая ephemeral session. Это сохраняет анонимный характер native resolver и временное cookie storage в пределах процесса, но позволяет повторно использовать соединения между visitor/player и последовательными client attempts. Это статическая оптимизация; фактическое ускорение ещё нужно измерить на устройстве. Commit `13e130af886f0fa173ad9fbdab1f5f90cde9494e`.
+- `plei/Sources/YouTubeEngine.swift`: диагностическая запись playability дополнена `errorReason`, `errorSubreason`, ключами `playabilityStatus`/`errorScreen` и наличием `videoDetails`/`streamingData`, чтобы отличать age/content refusal от bot-check и иных отказов без сохранения полного ответа или секретов. Commit `172fd12f62321b3bfef8870f60e7a400e6869813`.
+
+**Кэш избранного — текущее состояние и решение перед реализацией:**
+- Сейчас Player хранит только один `prefetchedYouTube` stream URL и готовит следующий элемент очереди. Это не кэш аудиоданных избранного и не гарантирует повторное воспроизведение без повторной загрузки аудио.
+- Нужны два разных уровня: короткоживущий кэш stream URL (с expiry/in-flight dedup) и постоянный файловый кэш полного аудио избранных треков (с лимитом места, LRU/eviction, очисткой временных файлов и обновлением просроченного URL при скачивании). Второй уровень действительно позволяет запускать уже сохранённый трек локально без повторной сетевой загрузки, но требует определить допустимый объём хранения и поведение загрузки в фоне.
+- Реализация полного аудиокэша пока не начата; не подменять её одним только кэшированием URL.
+
+**Ограничения проверки:** все изменения проверены только статически по исходникам. Сборка, симулятор, Codemagic, XcodeGen, xcodebuild, упаковка IPA и установка не запускались.
