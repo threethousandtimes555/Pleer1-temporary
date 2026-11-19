@@ -542,3 +542,24 @@ HTTP 400 на `/youtubei/v1/config` не остановил загрузку: п
 
 **Current Lab source head after these fixes:** 325b7e19ccf3b273812f0b2e0ef39f58061c92d9 (12 commits ahead of 51fb09a1a998056e70707837c48b3bbc3f1300bd; 6 source files changed). No build, simulator, compilation or install has been run.
 
+
+
+## 14. Offline downloads: network handoff, file validation and safe removal — 19 November 2026
+
+Lab implementation on `feature/youtubei-js-ios-fallback-2026-11-19`:
+
+- Network path changes (satisfied/unsatisfied, Wi-Fi/cellular) cancel the active transfer and put its track back at the head of the serial queue. The worker unwinds before it can start again.
+- A previously granted cellular-download permission remains valid for the current app session after Wi-Fi/cellular handoffs. If cellular was not approved, the queue waits and the Pleer1-styled consent prompt is shown. Choosing Wi-Fi-only waits until Wi-Fi returns.
+- The transfer now uses a capped URLSession download delegate. It cancels when the reported expected size exceeds 500 MiB or when bytes written cross the cap; it does not buffer the whole file in memory.
+- Offline responses must have a compatible MIME (or an absent/generic MIME) and a matching file signature: ISO-BMFF `ftyp` for MP4/M4A or ADTS sync for AAC. HTML/error bodies and unknown signatures are rejected. WebM remains unsupported.
+- If the currently selected YouTube download is removed while it is the active player item, its catalog entry is removed immediately but the file deletion is deferred until playback moves to another item. A pending deletion is persisted and completed on next launch if necessary.
+- Added a subtle Favorites helper caption: downloads start after the first playback of a favorite.
+
+### Limits and validation still required
+
+- `NWPathMonitor` detects network-route changes, not the private state of a third-party OpenVPN tunnel. OpenVPN Connect's Seamless Tunnel is the external fail-closed protection during VPN reconnect; Pleer1 does not claim to verify VPN status or guarantee anonymity.
+- A VPN reconnect that does not produce a visible NWPath change may not trigger an immediate automatic retry after a transport error. Use the row's retry action if the request ends in an error; evaluate this behavior on-device with OpenVPN Connect.
+- The size cap, cancellation race, signature validation, HTTP/CDN behavior, file deletion while AVPlayer holds an item, and network handoff must be validated on the iPhone.
+- No compile, build, simulator, IPA packaging, install, or runtime test was run as part of these source edits. User data and the stable checkpoint branch were not touched.
+
+**Lab source commits:** `90a85a5` (network/download hardening), `c60abf4` (persist deferred deletion), `0045b72` (finish deletion on track switch), `e40a0e5` (native hint and UI action), `6a60eba` (retain refreshed stream), `5d5aa21` (cancellation race).
