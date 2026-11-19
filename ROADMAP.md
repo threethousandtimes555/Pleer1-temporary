@@ -587,3 +587,11 @@ Lab implementation on `feature/youtubei-js-ios-fallback-2026-11-19`:
 ## Исправление записи от 19 ноября 2026 года
 
 Предыдущая вставка о трёх изменениях перед сборкой была ошибочной: эти изменения не соответствовали подтверждённым проблемам текущего диагностического прохода. Она отозвана. Кодовые изменения из трёх коммитов были полностью отменены; Player.swift, Views.swift и Store.swift сверены с состоянием до этих коммитов и совпадают побайтно. Сборку не запускали. Не использовать отозванную запись как основание для следующего билда.
+
+
+## 15. YouTube playback watchdog after manual seek — 19 November 2026
+
+- A seek close to the end could leave the watchdog's last-progress timestamp anchored to playback before the seek. The watchdog could then advance almost immediately after the user moved the playhead.
+- Player.seek now resets the YouTube progress baseline when a seek is requested and again after a successful seek completes on the same track.
+- YouTube resolver metadata remains the authoritative duration; AVPlayer duration is fallback only.
+- Static source review only. No build, simulator, Codemagic, IPA, installation or runtime test was run.
