@@ -1661,3 +1661,40 @@ Native Swift client profiles сохранены точь-в-точь как Musi
 - Codemagic now installs only XcodeGen via Homebrew; esbuild itself is fetched and integrity-verified by the preparation script before XcodeGen.
 
 No XcodeGen, esbuild, shell build script, xcodebuild, Codemagic, simulator, IPA, or device test was executed. This remains static preparation only.
+
+
+### Addendum — инфраструктурная независимость от Musike (19.11.2026)
+
+**Pleer1 source branch:** `threethousandtimes555/Pleer1-Lab:feature/youtubei-js-ios-fallback-2026-11-19`
+**Source head при фиксации:** `a707ab346626c09c9b8645bdedff24b444747910`
+**Musike reference snapshot:** `Ernani1234/musike@41706772a4c1e774e3bf1731ca28711fa1529cf4`
+
+#### Зафиксированное архитектурное решение
+- Pleer1 не обращается к backend/API-серверам Musike для поиска, извлечения аудио, проксирования или доставки потока. YouTube search, InnerTube player/visitor requests и получение прямого audio URL выполняются самим приложением с устройства.
+- Native Swift resolver использует URLSession; JS fallback исполняет локально упакованный youtubei.js в WKWebView, но сетевые запросы выполняет через нативный bridge/URLSession. AVPlayer получает прямой URL YouTube CDN.
+- Единственная текущая runtime-зависимость на репозиторий Musike — загрузка публичного файла `mobile/streaming.json` с GitHub raw для обновления списка JS fallback clients. Это конфигурационный файл, не streaming server и не Musike API.
+- Если GitHub недоступен, обновление динамической конфигурации может не состояться. Приложение должно сохранить встроенный default client order (IOS → VISIONOS); при следующем запросе/сессии remote config можно повторить. Это поведение необходимо подтвердить device/network test; не считать его runtime-проверенным.
+- Недоступность YouTube/Google endpoints — отдельная проблема. При сетевой блокировке YouTube само приложение не сможет выполнить поиск или получить stream, независимо от того, доступен ли GitHub. VPN не является частью алгоритма resolver, но может быть необходим конкретной сети для доступа к YouTube.
+
+#### План локализации конфигурации
+1. Сохранить в приложении проверенный встроенный список клиентов как источник истины и безопасный fallback.
+2. Убрать Musike raw URL как обязательную runtime-зависимость: после baseline device verification можно закрепить конфигурацию в Pleer1 либо разместить её на собственной контролируемой инфраструктуре/в подписанном обновляемом manifest.
+3. Не добавлять собственный proxy/backend только ради resolver: это создало бы новую инфраструктурную зависимость и противоречило цели direct device resolution.
+4. Отдельно проверить поведение при недоступном GitHub и при недоступном YouTube; не смешивать эти сетевые сценарии.
+
+**Решение:** Musike остаётся reference implementation/source of verified logic, но не обязательным runtime backend. Полное удаление даже конфигурационной зависимости — отдельная задача после подтверждения baseline на устройстве, чтобы не менять одновременно несколько неизвестных.
+
+
+### Addendum — политика порядка YouTube search results (19.11.2026)
+
+Пользователь подтвердил следующий ожидаемый порядок выдачи:
+- Обычный запрос конкретного трека или исполнителя: отдельные видео/треки первыми, затем обычные плейлисты, затем YouTube Mix.
+- Явный запрос плейлистов (например, слово «плейлист» / «playlist»): плейлисты первыми, затем Mix, затем отдельные видео.
+- Явный запрос Mix/миксов: Mix первыми, затем плейлисты, затем отдельные видео.
+- Для всех обычных поисковых запросов коллекции остаются включены; нельзя требовать от пользователя добавлять слово «плейлист» или «микс», чтобы коллекции вообще появились.
+- Внутри каждой категории сортировка должна учитывать совпадение запроса с названием и исполнителем/автором, не теряя исходный порядок YouTube при равном score. Дедупликация между InnerTube и HTML transport обязательна.
+- «Jam» не считать автоматически синонимом playlist или Mix. Отдельный тип Jam показывать только если YouTube response действительно содержит распознаваемый Jam entity/renderer; иначе запрос «jam/джем» остаётся обычным поиском видео + доступных коллекций. Не подменять Jam обычным плейлистом.
+
+**Статус на момент записи:** исходники показывают включение коллекций для любого запроса и parser для video/playlist/RD Mix, но не показывают полноценный relevance reranking; существующий UI выводит единый список. Старые UI tests противоречат новому контракту и ожидают выключение коллекций для обычного трека. Требуется исправить intent/ranking/tests перед IPA. Это не runtime-verified.
+
+**Device test policy:** VPN не является условием запуска приложения как таковым. Реальный тест можно проводить без VPN, если YouTube endpoints доступны из текущей сети. Если YouTube заблокирован/нестабилен, baseline playback/search verification нужно перенести до восстановления стабильного маршрута (VPN или иной законный доступ). Отдельно проверить GitHub config failure, не приравнивая его к YouTube outage.
