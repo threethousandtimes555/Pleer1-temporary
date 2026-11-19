@@ -1117,3 +1117,6 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 
 
 **Дополнение к записи №051 — generation-safe resolver handoff:** добавлена инвалидация по videoID для Swift coordinator и JS bridge. Generation token не позволяет старому in-flight resolve вернуть старый URL в кеш после смены маршрута; новая загрузка ждёт завершения очистки обеих кеширующих прослоек. Уже ожидающий playback consumer не отменяется принудительно, чтобы сетевой handoff загрузки не ломал текущее воспроизведение. Добавлена отмена/очистка JS resolver continuation при реальной отмене его вызывающей задачи. Коммиты Lab: `94468be`, `220a361`, `b646fcf`, `e00b1ae`, `3a74010`, `be3bfb2`, `da9bd55`, `0f3ee45`, `4195aae`, `f5344f0`, `3b651b4`.
+
+
+**Дополнение к записи №051 — fail-closed для мобильного канала и гонка path callback:** конфигурация ephemeral URLSession теперь получает `allowsCellularAccess` и `allowsExpensiveNetworkAccess` из согласия текущей сессии; без согласия сотовый/дорогой канал запрещён самим URLSession. При transient URLSession network error сверяется `pathMonitor.currentPath` до фиксации ошибки, чтобы поздний callback NWPathMonitor не приводил к потере элемента очереди. Коммиты Lab: `6a5fd56`, `08b07cf`.
