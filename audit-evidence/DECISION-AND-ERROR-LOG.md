@@ -1698,3 +1698,23 @@ No XcodeGen, esbuild, shell build script, xcodebuild, Codemagic, simulator, IPA,
 **Статус на момент записи:** исходники показывают включение коллекций для любого запроса и parser для video/playlist/RD Mix, но не показывают полноценный relevance reranking; существующий UI выводит единый список. Старые UI tests противоречат новому контракту и ожидают выключение коллекций для обычного трека. Требуется исправить intent/ranking/tests перед IPA. Это не runtime-verified.
 
 **Device test policy:** VPN не является условием запуска приложения как таковым. Реальный тест можно проводить без VPN, если YouTube endpoints доступны из текущей сети. Если YouTube заблокирован/нестабилен, baseline playback/search verification нужно перенести до восстановления стабильного маршрута (VPN или иной законный доступ). Отдельно проверить GitHub config failure, не приравнивая его к YouTube outage.
+
+
+### Addendum — поиск: адаптивный порядок и relevance scoring (19.11.2026)
+
+**Pleer1 source branch:** `threethousandtimes555/Pleer1-Lab:feature/youtubei-js-ios-fallback-2026-11-19`
+**Latest source commit:** `54f38389447cfd97af1b9c70c67d77103282430d`
+
+Внесены изменения:
+- Обычные запросы всегда допускают video + playlist + Mix results; коллекции больше не выключаются только потому, что пользователь ввёл название трека/исполнителя.
+- Default order: standalone videos → ordinary playlists → YouTube Mix.
+- Query с явным playlist/плейлист/сборник intent: playlists → Mix → videos.
+- Query с явным mix/микс/radio intent: Mix → playlists → videos.
+- После объединения InnerTube и HTML результатов выполняется deduplication, затем stable ranking: category priority → title/artist relevance score → исходный порядок (InnerTube раньше HTML при равном score).
+- Relevance scorer нормализует регистр/диакритику/пунктуацию, отдаёт приоритет exact title, title prefix/phrase и полному совпадению токенов в title/artist. Это локальная эвристика поверх YouTube ranking, не обещание идентичности алгоритму YouTube.
+- Search diagnostics теперь фиксируют количество deduplicated/ranked результатов и краткий top-5 preview по категориям/названиям.
+- Старые UI tests, которые ожидали отсутствие collections при обычном запросе, заменены тестами на постоянное включение collections, адаптивный category order и promotion exact title match.
+
+**Jam clarification:** текущая модель Pleer1 различает video, ordinary playlist и RD YouTube Mix. Jam не является отдельным распознанным result type в текущем parser/model. Запросы со словом jam/джем остаются обычным поиском video + доступных playlist/Mix; нельзя маркировать обычный playlist как Jam. Поддержку отдельного Jam entity добавлять только после обнаружения и тестирования реального renderer/response shape.
+
+**Static-only status:** файлы прочитаны повторно после правок; изменения проверены по содержимому и тестовым ожиданиям. Swift compiler, XcodeGen, XCTest, simulator, Codemagic и IPA не запускались. Новая ranking logic пока не объявляется скомпилированной или runtime-проверенной.
