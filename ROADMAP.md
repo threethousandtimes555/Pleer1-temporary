@@ -403,3 +403,15 @@ Diff относительно Lab base проверен: ровно 6 файло
 - **Correction committed to isolated Lab branch:** commit `a64ced41faf9fc93ec187c2d071e904bf0d1692b` changes ordinary search intent so collections are always included. Existing parser merge order remains videos first, then playlists and radio Mixes; the existing deduplication remains in place.
 - **Not yet verified:** no new IPA has been built or installed, and no live post-fix iPhone search has been run. Do not claim ordinary playlists or Mixes are fixed until that test passes. HTML fallback remains blocked by the YouTube consent response observed in both live searches.
 - **Next step:** after the user explicitly approves a new device build, build the current Lab branch without running an iOS Simulator, install only after preserving the current working IPA, then repeat the `Crystal Castles` search and inspect video/playlist/Mix counts and ordering. Ranking quality remains a separate issue.
+
+
+
+## 21. YouTube playlist search — live iPhone confirmation (19 November 2026)
+
+В установленной unsigned IPA `plei-unsigned` (423 КБ) пользователь проверил запрос `crystal castles playlist`. InnerTube вернул HTTP 200; диагностика: `includeCollections=true`, `videoFilter=false`; parser распознал 23 отдельных видео и 6 обычных плейлистов (`returned=29`, `radios=0`). Пользователь прокрутил выдачу до конца и подтвердил, что плейлисты там присутствуют. Они не являются длинными отдельными видео (20–60 минут): это самостоятельные playlist-результаты. При открытии плейлиста формируется отдельная очередь, не совпадающая с очередью результатов поиска.
+
+**Результат:** поиск и отображение обычных плейлистов в конце выдачи, а также отдельная очередь плейлиста подтверждены на устройстве для запроса со словом `playlist`. Первоначальное предположение об отсутствии плейлистов было ошибкой проверки, не багом приложения. Код менять из-за этого теста не требуется.
+
+**Что не подтверждено:** Mix не найден в этом ответе (`radios=0`); обычный поиск без слова playlist/mix после source fix `a64ced41faf9fc93ec187c2d071e904bf0d1692b` ещё не проверен в новой IPA. HTML fallback по-прежнему не извлёк `ytInitialData` из consent-страницы. Не переносить подтверждение этого теста на эти отдельные сценарии.
+
+**Процесс:** текущую IPA не переустанавливать; новые IPA, сборки, симуляции и изменения кода не запускать до завершения общего аудита и отдельного решения пользователя. Следующий этап — продолжить сбор и сверку уже выполненных тестов, особенно по Mix/Jam и воспроизведению.
