@@ -890,3 +890,15 @@ PO Token и собственный auth/cookie flow — отдельный эт�
 Уточнение к предыдущим пунктам о client versions: native Swift и JS fallback у Musike используют разные client profiles. Swift возвращён к оригинальным Musike значениям (VISIONOS 1.02/101, ANDROID_VR 1.60.19/28, IOS 20.10.4/5; общий Safari UA + platform DESKTOP). JS fallback оставлен на профилях youtubei.js 18.3.0. Client IDs не изменялись. AVPlayer CDN UA выровнен с MusikeAudio.
 
 Предыдущую формулировку о том, что Swift profiles выровнены с youtubei.js 18.3.0, считать отменённой.
+
+
+### Addendum — locale и visitorData parity (19.11.2026)
+
+**Source head:** `8968e993e7c193f964fcf75a873b852f793e6305`.
+
+- Swift primary и JS fallback используют один системный locale для языка/региона.
+- Swift visitorData refresh при отсутствии свежего значения сохраняет последний известный ID как fallback, как в Musike.
+- Native Swift client profiles остаются исходными Musike; JS profiles берутся из youtubei.js 18.3.0. Не унифицировать эти два разных набора.
+- AVPlayer YouTube UA приведён к MusikeAudio.
+
+Следующий этап — только финальная read-only сверка и один IPA build после неё; сборок/симуляций до этого не запускать.
