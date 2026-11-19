@@ -830,3 +830,26 @@ PO Token и собственный auth/cookie flow — отдельный эт�
 **Текущий source head при записи addendum:** `5dce04c6e09a40de20e3487a9851ba459c3f76c7`. Source branch: `feature/youtubei-js-ios-fallback-2026-11-19`.
 
 **Ограничения:** source edits разрешены. Один IPA build разрешён только после завершения работ и статической проверки. До этого не запускать builds, CI, simulator, IPA downloads или user tests. Репозиторную ревизию отложить до успешной интеграции.
+
+
+### Addendum — результат статического прохода и текущая точка (19.11.2026)
+
+**Source branch head:** `bb9e88099bc73ece741feee134084bcebba02507`.
+
+Уже внесено в source branch:
+- youtubei.js закреплён на 18.3.0 с SHA-512 проверкой npm tarball;
+- Swift primary client IDs сохранены (101/28/5), версии и User-Agent синхронизированы с профилями 18.3.0;
+- JS session теперь keyed по language+region; отдельный memory cache на session;
+- один bounded session refresh при parsed LOGIN_REQUIRED;
+- только прямые audio/mp4 formats передаются в AVPlayer;
+- WKWebView data store переведён в non-persistent;
+- resolver folder вынесен в корень `plei/YouTubeResolver` и подключён как folder source, чтобы избежать известных проблем XcodeGen с вложенными folder paths и top-level resources.
+
+**Остаётся до build-ready:**
+1. Повторно прочитать все изменённые файлы на согласованность путей, version/hash, client profiles и call flow.
+2. Проверить bridge error/timeout handling и что diagnostics не выводят signed URLs/cookies.
+3. Подтвердить, что XcodeGen preBuildScripts и folder resource declaration логически согласованы. Не запускать XcodeGen или xcodebuild до финального разрешённого build.
+4. Подготовить единый контрольный build workflow. Не запускать промежуточные builds/simulations/CI.
+5. После успешной сборки — установка и отдельная проверка на iPhone, включая WebKit lifecycle/background auto-advance.
+
+Ни одна из этих статических проверок не доказывает, что LOGIN_REQUIRED будет устранён. PO Token и account auth остаются последующим этапом, а не блокером базового переноса.
