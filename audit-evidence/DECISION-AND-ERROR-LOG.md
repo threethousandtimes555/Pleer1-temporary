@@ -1188,14 +1188,14 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 
 - **Дата:** 19.11.2026.
 - **Lab branch:** `feature/youtubei-js-ios-fallback-2026-11-19`.
-- **Source HEAD:** `86f02970a9b17fb52b04cfd5c73e9277a0bb6289`, 34 commits ahead of installed Build #5.
+- **Source HEAD:** `1c47717c3f264cb5fab63ec1dc40389f0eb24d9b`, 35 commits ahead of installed Build #5.
 - **Изменения:**
   1. `Media.swift`: детектор центральной квадратной обложки внутри 16:9 YouTube thumbnail с консервативной проверкой боковых областей; настоящие wide thumbnails сохраняют ratio. Источник изображения и high-resolution selection не переписывались.
   2. `Store.swift`: дедупликация `Store.library` по Track.id.
   3. `Views.swift`: «Любимое» inline DisclosureGroup внутри «Моё», Favorites только из `store.favorites`; «Скачанные»/«Недавние» отдельными экранами; названия «Любимое» унифицированы.
   4. `Views.swift`: cellular prompt центрирован, кнопки вертикальные и в утверждённом порядке, существующие действия сохранены.
   5. `Views.swift`/ `Player.swift`: in-app seek связывается с ID/token на старте drag; remote seek снимает snapshot; Player.seek отклоняет устаревшие ID/token и пишет source diagnostics.
-- **Проверка:** изменённые GitHub файлы перечитаны, diff проверен; статические признаки ожидаемых изменений присутствуют.
+- **Проверка:** изменённые GitHub файлы перечитаны, diff проверен; статические признаки ожидаемых изменений присутствуют. Дополнительно на присланном скриншоте YouTube artwork area (643×364, ratio 1.766) downsampled 72×40 анализ дал левую/правую боковые std 12.87/12.76, центральную std 48.87 и разницу средних боковых цветов 0.09 — текущие пороги детектора распознают этот пример. Квадратный Telegram screenshot (ratio 1.002) не проходит 16:9 gate; синтетическая текстурная широкая картинка не распознаётся как pillarbox. Это не заменяет runtime test исходного thumbnail.
 - **Не проверено:** Swift compile/build, Codemagic, IPA, iPhone runtime, изображение `18:45:54`, реальные Search/Playlist cache hits, обе ветки seek, отображение cellular prompt, Favorites/import/dedupe runtime.
 - **Ограничение:** Build #5 `7eabcbc` остаётся единственной установленной версией. Никакой новый билд не запускался; следующий build только после отдельного разрешения пользователя.
 
