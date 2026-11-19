@@ -771,7 +771,7 @@ JavaScriptCore через `youtubei.js/agnostic` остаётся альтерн
 
 **Base:** актуальная ветка `fix/youtube-standalone-search-device-2026-11-19`, commit `a64ced41faf9fc93ec187c2d071e904bf0d1692b`. Default `main` отстаёт и не содержит актуального YouTube resolver.
 
-**Source head на момент записи:** `055cf5878a5fbf6962e88f57785a606f29f3d2a5`.
+**Source head на момент записи:** `5dce04c6e09a40de20e3487a9851ba459c3f76c7`.
 
 ### Реализация первой ступени интеграции
 - Native Swift resolver сохранён primary.
@@ -798,10 +798,16 @@ Source code implementation пока не собрана и не запускал
 
 ### Addendum to Section 36 — static review status
 
-Source branch head: `055cf5878a5fbf6962e88f57785a606f29f3d2a5`. The Xcode pre-build shell script passed `bash -n`; Swift/JS changes received manual read-only review. No XcodeGen or application build, simulator, CI, IPA or device test has been run. The implementation remains unverified until the separately authorized build/device stage. WKWebView local module loading and background process lifecycle remain top runtime risks.
+Source branch head: `5dce04c6e09a40de20e3487a9851ba459c3f76c7`. The Xcode pre-build shell script passed `bash -n`; Swift/JS changes received manual read-only review. No XcodeGen or application build, simulator, CI, IPA or device test has been run. The implementation remains unverified until the separately authorized build/device stage. WKWebView local module loading and background process lifecycle remain top runtime risks.
 
 ### Addendum — resource packaging refinement
 
 Resolver HTML, JS bridge, generated browser bundle and license are packaged as one XcodeGen folder resource under `plei/Sources/YouTubeResolver`; the folder is excluded from Swift source compilation. Generated bundle/license are gitignored and created before the folder resource copy phase. This avoids committing a placeholder browser bundle or requiring a runtime CDN.
 
-Current source branch head: `055cf5878a5fbf6962e88f57785a606f29f3d2a5`.
+Current source branch head: `5dce04c6e09a40de20e3487a9851ba459c3f76c7`.
+
+### Addendum — WKWebView storage isolation
+
+The youtubei.js 18.1.0 browser platform cache uses IndexedDB. To avoid depending on IndexedDB availability for a local-file WKWebView origin, the bridge now passes a small in-memory cache implementation to `Innertube.create()`. Session metadata can be cached for the runtime lifetime without requiring browser storage APIs.
+
+Current source branch head: `5dce04c6e09a40de20e3487a9851ba459c3f76c7`.
