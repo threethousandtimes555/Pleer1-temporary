@@ -825,3 +825,12 @@ Source HEAD после повторного аудита Musike: 6f53515f8974a60
 
 - Это контрольная source/doc audit запись. В этой записи исходники Pleer1 не изменялись; Swift compile, JS bundle build, XCTest, Codemagic, IPA и runtime tests не запускались.
 - Текущий Lab HEAD: 29cc97997a243cda5796605e64a290987eecaf3a; Build #5 7eabcbcbb83fe1aa402dc2831dbac29f8f507989 остаётся установленным; stable checkpoint не затронут.
+
+
+### Codemagic build #1 — compile blocker and correction (20 Nov 2026)
+
+- User-launched workflow reached Xcode's Release compilation for the iOS device target; preparation/XcodeGen had progressed far enough to start compiling the app.
+- Build failed in `plei/Sources/YouTubeEngine.swift:107`: escaped quotes inside Swift string interpolation caused an unterminated string / unmatched parenthesis.
+- Corrected by calculating song/musicVideo/video counts in separate local constants, then interpolating those values in the diagnostic string.
+- Fix commit on feature branch: `4edd6da89053a074ea3b1ff82f035022add1bc25`.
+- The correction is source-verified from GitHub, but has NOT yet been compiled. User must rerun Codemagic on the same feature branch. Do not mark build successful until a new run completes.
