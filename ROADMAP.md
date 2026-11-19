@@ -937,3 +937,12 @@ PO Token и собственный auth/cookie flow — отдельный эт�
 ### 19.11.2026 — pin build bundler
 
 Current source head: `a707ab346626c09c9b8645bdedff24b444747910`. The unpinned Homebrew esbuild install was removed. Codemagic's pre-XcodeGen preparation step now downloads and SHA-512-verifies `@esbuild/darwin-arm64@0.28.0`, checks the binary version, and bundles the already integrity-verified `youtubei.js@18.3.0` with the Pleer1 adapter into a single classic IIFE. This avoids an unpinned bundler version and removes ESM/file-origin imports from the WKWebView runtime. No build or tests have been run.
+
+
+### Addendum — Musike runtime independence и YouTube search relevance (19.11.2026)
+
+Зафиксировано: Pleer1 не использует Musike backend для YouTube search, stream extraction или media proxy. Все YouTube requests выполняются напрямую с устройства через URLSession/native bridge, а AVPlayer получает прямой CDN URL. Единственная текущая ссылка на Musike в runtime — публичный GitHub raw `mobile/streaming.json` для динамического списка JS clients. Встроенный client order должен оставаться рабочим при недоступности GitHub; этот fallback ещё нужно проверить на устройстве. После baseline verification убрать Musike raw config dependency, сохранив локальный список клиентов или перейдя на собственный контролируемый manifest. Не создавать Musike-dependent backend/proxy.
+
+Поиск: обычный запрос трека/исполнителя — videos → playlists → Mix; запрос playlist — playlists → Mix → videos; запрос Mix — Mix → playlists → videos. В каждой группе учитывать совпадение title/artist и сохранять исходный YouTube order при равном score. Коллекции должны быть включены и для обычных запросов. Jam не отождествлять с playlist/Mix: отдельный Jam result показывать только при наличии реально распознанного entity/renderer. До IPA обновить search intent, result ranking и противоречащие новому контракту tests.
+
+Проверки приложения не требуют VPN, если YouTube доступен напрямую. Если YouTube недоступен из сети, функциональную проверку поиска/потоков проводить после восстановления рабочего маршрута; отдельно тестировать недоступность GitHub config и YouTube.
