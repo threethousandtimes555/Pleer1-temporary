@@ -853,3 +853,15 @@ PO Token и собственный auth/cookie flow — отдельный эт�
 5. После успешной сборки — установка и отдельная проверка на iPhone, включая WebKit lifecycle/background auto-advance.
 
 Ни одна из этих статических проверок не доказывает, что LOGIN_REQUIRED будет устранён. PO Token и account auth остаются последующим этапом, а не блокером базового переноса.
+
+
+### Addendum — завершающие замечания по bridge и runtime host (19.11.2026)
+
+**Source head:** `a7ebcb39b2313bebc9330b63ba967b15a93edc91`.
+
+- Native fetch bridge приведён ближе к CapacitorHttp iOS 8.5.3: `URLSession.shared`, default redirect behavior, cookies через shared cookie handling, locale `Accept-Language`, user-agent из client context, Origin для InnerTube endpoint.
+- Hidden WKWebView теперь прикрепляется как невидимый 1×1 child к root view существующего application window. Detached runtime больше не используется; при отсутствии host window initialization прекращается с диагностической ошибкой.
+- WKWebView использует non-persistent data store; никакие cookies официального YouTube app не импортируются.
+- GitHub Actions build workflow — manual-only; simulator workflow ограничен двумя другими branches. Не запускались ни один workflow и Codemagic.
+
+**Оставшаяся статическая проверка перед единственным IPA build:** ещё раз проверить актуальные SHA/version/path, JS bridge call flow, Swift concurrency/lifecycle, resource path и отсутствие signed URL/cookie leakage в diagnostics. Затем можно запускать ровно один разрешённый device IPA build. Runtime поведение скрытого WKWebView при background audio и auto-advance подтвердить можно только после установки и device test.
