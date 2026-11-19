@@ -1537,3 +1537,19 @@ Read-only повторная проверка GitHub tree и файлов вет
 Также GitHub workflow конфигурация проверена read-only: `.github/workflows/build.yml` имеет только `workflow_dispatch`; simulator workflow push-триггер ограничен другими ветками (`work/restore-youtube-module-2026-11-17`, `integration/pleer1-work-2026-11-18)). Вручную workflow не запускался. Codemagic не запускался.
 
 Никакой build, XcodeGen, simulator, IPA download или device test не выполнялся.
+
+
+### Addendum — ограниченное восстановление WKWebView и финальная статическая сверка (19.11.2026)
+
+**Source head:** `bf2ceb2c0cef14a72d53b73302dff9ed14b4a29f`.
+
+Добавлено:
+- Native URLSession bridge выставляет `Accept-Language` по `Locale.autoupdatingCurrent`, как CapacitorHttp iOS 8.5.3.
+- При WebKit content process termination все текущие pending resolver continuations получают отдельную ошибку-код; вызывающий resolve ждёт восстановления WKWebView и делает ровно одну повторную попытку. Повтор не бесконечный; ошибка reload/init передаётся наверх.
+- Resolver WKWebView невидим, прикреплён к app root view, удаляется из hierarchy при ошибке инициализации.
+- Весь JS fallback ограничен direct audio/mp4, подходящим для AVPlayer. Audio/WebM исключён.
+- Remote client config закреплён на проверенном Musike snapshot commit `41706772a4c1e774e3bf1731ca28711fa1529cf4`, а не на изменяемом `main`.
+
+Финальная read-only сверка путей подтвердила: локальные ресурсы находятся в `plei/YouTubeResolver`; build script, XcodeGen folder source, Bundle lookup и .gitignore используют этот же root path. Числовые Client IDs 101/28/5 соответствуют constants youtubei.js 18.3.0; версии и User-Agent согласованы. Диагностика не выводит signed stream URL, cookies или visitorData.
+
+Остаются только build/runtime подтверждения: Swift compile, XcodeGen generation, реальная упаковка папки в app bundle, browser ESM import, bridge exchange, LOGIN_REQUIRED behavior, AVPlayer handoff, background audio/auto-advance. Эти проверки намеренно отложены до одного согласованного IPA build и последующих device tests.
