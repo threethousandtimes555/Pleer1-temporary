@@ -902,3 +902,16 @@ PO Token и собственный auth/cookie flow — отдельный эт�
 - AVPlayer YouTube UA приведён к MusikeAudio.
 
 Следующий этап — только финальная read-only сверка и один IPA build после неё; сборок/симуляций до этого не запускать.
+
+
+## 19.11.2026 — критерий Pleer1 1.0 и следующий этап YouTube auth
+
+**Релиз 1.0 / выход из beta:** только после полной успешной интеграции Musike-style resolver mechanism, успешного IPA build, установки и подтверждения на физическом iPhone. Одна успешная компиляция не является достаточным критерием. Repository cleanup/revision запрещены до этого рубежа.
+
+**Последовательность:** повторная read-only сверка Musike source → устранение только подтверждённых расхождений → финальная статическая проверка → ровно один разрешённый IPA build → анализ build logs/resources → установка → device tests (Swift primary, JS fallback, LOGIN_REQUIRED behavior, direct audio/mp4, AVPlayer, background/lock-screen, prefetch/auto-advance). Никаких промежуточных builds, simulator runs или параллельных CI jobs.
+
+**Повторная сверка:** Musike snapshot `41706772a4c1e774e3bf1731ca28711fa1529cf4`; Pleer1 source head `8968e993e7c193f964fcf75a873b852f793e6305`. Архитектура Swift primary → youtubei.js fallback и native HTTP transport сопоставлены. Отличия (youtubei.js 18.3.0 vs Musike lockfile 18.1.0, audio/mp4-only filtering, bounded LOGIN_REQUIRED refresh, timeouts/diagnostics, existing Pleer1 AVPlayer) перечислены в decision log; не считать их незаметными или runtime-проверенными.
+
+**Если LOGIN_REQUIRED сохранится после baseline integration:** следующий отдельный этап — исследовать PO Token/proof-of-origin и допустимый authenticated cookie/session context. Пока не добавлять это вслепую: сначала выяснить, требуется ли вообще. Не извлекать cookies из sandbox официального YouTube app; iOS не предоставляет другому приложению доступ к его приватному cookie store. Не обещать, что PO Token устранит любой bot-check.
+
+**Производительность:** JS fallback не добавляет задержку, когда Swift primary успешен. Дополнительная работа возникает только после отказа всех Swift clients; холодный запуск требует поднять скрытый WKWebView и создать Innertube session, последующие вызовы могут переиспользовать session/cache. Существующий prefetch следующего трека может скрыть часть задержки. Точные цифры появятся только после device measurements.
