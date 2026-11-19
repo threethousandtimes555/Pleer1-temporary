@@ -250,3 +250,31 @@ HTTP 400 на `/youtubei/v1/config` не остановил загрузку: п
 Изменения в Lab commits: `b9e1454c8131cff98c9d8ce49511e099669f92b8`, `d56e5a65bb0226ffe1ee3c101c48f37c7832e0fa` и `312b67c6a4dce919fc38e99dd3595b4d7fa98229` (сброс серии при ручном Previous). Это статическое изменение исходников; компиляция, сборка и физическое тестирование не выполнялись. Следующая проверка — на устройстве: один недоступный трек перед доступным, несколько недоступных подряд, очередь из полностью недоступных треков, ручной Next и нажатие Play в момент resolve/no-item. Отдельно проверить JS bridge исправление; оно всё ещё не проверено на устройстве.
 
 **Ограничения сохраняются:** не обходить YouTube age gate; не запускать Codemagic, xcodebuild, XcodeGen, симулятор, IPA packaging или установку без отдельного согласования. Следующие рабочие приоритеты: проверить bounded auto-skip и JS fallback на устройстве после разрешённой сборки; отдельно устранить расхождение resolver/AVPlayer duration. Обложки и их прямоугольный формат не менять.
+
+
+### Дополнение от 19 ноября 2026 — повторный аудит возрастного LOGIN_REQUIRED и сравнение с Musike
+
+Проверен актуальный исходный код публичного репозитория Musike (main), включая iOS native resolver, клиентский fallback, серверный yt-dlp resolver и README.
+
+**Что фактически делает Musike:**
+
+- Автономный iOS-путь в `mobile/ios/App/App/MusikeYouTube.swift` использует native URLSession и клиентов `VISIONOS → ANDROID_VR → IOS`, запрашивает и кэширует `visitorData`, передаёт `racyCheckOk/contentCheckOk`. В этом файле нет входа в Google-аккаунт, импорта cookies или отдельной age-verification-сессии.
+- При отказе всех native клиентов iOS-клиентский fallback в `web/src/native/streams.ts` вызывает `directAudio` с remote client list `ios`; текущий `mobile/streaming.json` задаёт `IOS → VISIONOS`. Это тоже прямые InnerTube-клиенты без account-cookie flow.
+- Автономное приложение iPhone, согласно README, работает без компьютера/сервера и запрашивает аудио прямо у YouTube.
+- Отдельный серверный/desktop/Docker путь использует `yt-dlp + Deno`. Для него Musike поддерживает `YTDLP_EXTRA_ARGS="--cookies-from-browser firefox"` или `--cookies /data/cookies.txt`. В `server/src/i18n.ts` причина age restriction описана как требующая cookies авторизованного аккаунта; `server/src/ytdlp.ts` распознаёт age-restricted ошибки. README предупреждает о риске блокировки аккаунта, используемого для cookies.
+
+**Сверка с Pleer1:**
+
+- Наш Swift primary resolver использует тот же порядок трёх клиентов, тот же visitor ID endpoint/24-часовой cache, те же ключевые поля player body и практически тот же client context, что и Musike iOS resolver. Поэтому сам список клиентов не является недостающей возрастной авторизацией.
+- В Pleer1 primary URLSession явно отключает cookie storage (`httpCookieStorage = nil`, `httpCookieAcceptPolicy = .never`). У JS fallback WKWebView создан с `.nonPersistent()`; нативный fetch через URLSession.shared не получает cookies из авторизованной YouTube-сессии пользователя и не имеет реализованного account sign-in flow.
+- Наш JS fallback — это прямой `youtubei.js getBasicInfo` с клиентами из remote config `ios`, а не Musike server-side `yt-dlp + Deno`. Исправление Promise bridge устраняет только несовместимый возврат Promise в WKWebView; оно само по себе не добавляет cookies/авторизацию и не решает age gate.
+
+**Вывод по логу:** `LOGIN_REQUIRED` вместе с reason `This video may be inappropriate for some users` означает, что именно анонимные запросы resolver получили отказ, похожий на age gate. Это не доказывает, что Google-аккаунт пользователя младше 18 лет: запросы не были выполнены от имени этого аккаунта. Пользователь сообщил, что ему 20 лет; текущая архитектура просто не передаёт подтверждённую сессию аккаунта в resolver.
+
+**Архитектурный пробел:** мы перенесли/воспроизвели Musike iOS native stream extraction, но не реализовали серверный authenticated yt-dlp path, который Musike документирует для cookies. Нельзя называть это полной интеграцией всех способов извлечения Musike. Ссылки на изученные файлы: [Musike iOS resolver](https://github.com/Ernani1234/musike/blob/main/mobile/ios/App/App/MusikeYouTube.swift), [iOS stream fallback](https://github.com/Ernani1234/musike/blob/main/web/src/native/streams.ts), [directAudio](https://github.com/Ernani1234/musike/blob/main/server/src/directAudio.ts), [yt-dlp resolver](https://github.com/Ernani1234/musike/blob/main/server/src/ytdlp.ts), [README troubleshooting/configuration](https://github.com/Ernani1234/musike#troubleshooting).
+
+**Дополнительная ошибка в нашей последней правке auto-skip:** сейчас общий обработчик пропускается на любой ошибке YouTube resolve, включая временный сетевой сбой, таймаут или сбой JS bridge. Это шире согласованного поведения «пропускать недоступные треки». До следующей сборки надо разделить окончательный отказ/требование авторизации и временную инфраструктурную ошибку: пропускать только подтверждённо недоступный в текущей сессии трек; временный сбой ограниченно повторять или показывать как ошибку, не сжигая элемент очереди.
+
+**Что пока не установлено:** пользовательский сценарий Musike, в котором играет именно этот трек. Если это автономное Musike iPhone и тот же точный YouTube video ID, поведение расходится с проверенным исходным кодом; надо сверить ID и фактический путь. Если это desktop/server/self-hosted Musike с cookies, отличие объясняется авторизованным yt-dlp path.
+
+**Следующий план аудита:** не запускать сборку. Сначала уточнить, какой именно Musike-путь воспроизводит этот же ID; затем спроектировать безопасную авторизованную сессию для Pleer1 (только с явным согласием пользователя, защищённым хранением секретов и без записи cookies/token в diagnostics), проверить классификацию ошибок и повторно пройти Player/Resolver/JS bridge/playlist flow. Нельзя считать 20-летний возраст автоматически известным YouTube — сервер должен получить авторизованную сессию, где возраст уже подтверждён самим Google.
