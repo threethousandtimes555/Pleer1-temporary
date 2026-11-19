@@ -829,3 +829,17 @@
 - **Статус проверки:** изменение внесено в исходники, но не компилировалось и не запускалось на устройстве. Нельзя заявлять, что поведение уже проверено.
 - **Следующие тесты после отдельно согласованной сборки:** недоступный первый трек → доступный следующий; несколько недоступных подряд; все недоступны/достигнут лимит; ручной Next сбрасывает серию; Play при пустом item не запускает AVPlayer. Также отдельно проверить JS Promise bridge на устройстве.
 - **Безопасность/границы:** age gate YouTube не обходится. Сборка, симулятор, Codemagic, xcodebuild, XcodeGen, IPA packaging и установка не запускались. Обложки и прямоугольный формат не менялись.
+
+
+### Запись №039 — аудит Musike: iOS resolver не реализует age-gate auth; cookies есть в серверном yt-dlp пути
+
+- **Дата:** 19.11.2026.
+- **Источник:** проверен актуальный код `Ernani1234/musike` (main): `mobile/ios/App/App/MusikeYouTube.swift`, `web/src/native/streams.ts`, `server/src/directAudio.ts`, `server/src/ytdlp.ts`, README; сопоставлено с Lab `YouTubeEngine.swift`, `YouTubeJSResolver.swift`, `youtubei-bridge.js`.
+- **Факт 1 — Musike iOS native:** те же клиенты `VISIONOS → ANDROID_VR → IOS`, visitorData и player body; в native resolver нет авторизации Google, cookie import или age-verification session.
+- **Факт 2 — Musike iOS JS fallback:** использует remote iOS client list (`IOS → VISIONOS`) и прямой `youtubei.js`/InnerTube. Автономный iPhone Musike, по README, работает без сервера и обращается к YouTube напрямую.
+- **Факт 3 — Musike server/desktop/Docker:** использует `yt-dlp + Deno`; поддерживает `YTDLP_EXTRA_ARGS="--cookies-from-browser firefox"` и `--cookies /data/cookies.txt`. Код переводит age-restricted ошибки в отдельное сообщение, прямо указывающее на необходимость cookies авторизованного аккаунта. README предупреждает о риске блокировки аккаунта, cookies которого используются.
+- **Сверка Pleer1:** native primary resolver в основном повторяет Musike iOS цепочку; однако в Pleer1 URLSession явно отключает cookie storage, WKWebView JS fallback non-persistent, а авторизованная YouTube-сессия не интегрирована. Наш youtubei.js fallback не эквивалентен server-side yt-dlp + Deno. Исправление Promise bridge не решает age gate.
+- **Коррекция трактовки лога:** `LOGIN_REQUIRED` + `This video may be inappropriate for some users` — отказ анонимному запросу с причиной, похожей на age gate; это не подтверждает, что возраст Google-аккаунта пользователя неверен. В текущем resolver запрос не идёт от имени его аккаунта.
+- **Выявленная ошибка auto-skip:** текущая реализация вызывает skip на любой resolve error, в том числе timeout/network/JS bridge failure. Это чрезмерно широко; требуется классификация permanent unavailable/auth-required vs transient infrastructure failure до следующей сборки.
+- **Открытый вопрос:** пользователь сообщает, что Musike воспроизводит трек. Проверенный код standalone iOS Musike не показывает age-auth support. Нужно уточнить, был ли это Musike iPhone standalone или desktop/server/self-hosted, и подтвердить точный video ID; не делать предположений.
+- **Решение по дальнейшей работе:** продолжить статический аудит и спроектировать opt-in authenticated resolver path с безопасным хранением сессионных данных; не логировать cookies/tokens. Не считать это обходом возраста: требуется подтверждённая Google-сессия самого пользователя. Никакой сборки/симулятора/IPA не запускалось.
