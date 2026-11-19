@@ -707,3 +707,38 @@ Read-only audit of Musike snapshot `41706772a4c1e774e3bf1731ca28711fa1529cf4` co
 **Критерий перехода к этапу 2:** после контролируемой проверки B на целевых сценариях, если он не способен получить пригодный direct audio URL, разобрать слой отказа и затем подготовить настоящий youtubei.js runtime вариант.
 
 **Ограничения:** запись фиксирует архитектурный выбор, но не разрешает application source changes, IPA/downloads/builds/simulator/CI/user tests. Для этих действий потребуется отдельное согласование.
+
+
+## 34. Полный аудит JS fallback Musike и runtime design для настоящего youtubei.js — 19.11.2026
+
+### Исправление фактической схемы Musike
+
+- iOS Musike использует два resolver/network path: Swift primary resolver через `URLSession`; затем JS fallback через `youtubei.js` внутри WKWebView.
+- JS fallback **не использует обычный WKWebView fetch**: `web/src/native/shims/config.ts` передаёт `nativeFetch`, а `web/src/native/http.ts` направляет запросы через `CapacitorHttp.request()` и формирует JS Response. CapacitorHttp предоставляет native HTTP transport. Условие `Capacitor.isNativePlatform()` включает iOS, несмотря на Android-focused комментарии в части файлов.
+- Штатный iOS IPA собирает `build:native` и `cap sync ios`; fallback входит в приложение, не требует удалённого Musike backend.
+- Swift resolver clients: VISIONOS → ANDROID_VR → IOS. JS fallback iOS clients: IOS → VISIONOS, с удалённым списком клиентов и локальным сохранением.
+- youtubei.js 18.1.0: одна in-memory session Promise на язык; `retrieve_player:false`; нет явных cookie/visitorData/PO token/persistent cache; библиотека сама создаёт обычную Innertube session. Retry session — один раз только на thrown exception; parsed LOGIN_REQUIRED перебирает следующий client, но не вызывает автоматический session refresh.
+- JS format selection: adaptive + formats, только audio-only с прямым URL, AAC/audio-mp4 выше WebM, затем bitrate. Cipher-only formats исключаются, deciphering отключён. Stream cache/in-flight deduplication, URL expiry, 60-секундный запас и invalidation через `forgetUrl()`.
+- Нативный Musike audio facade не переносить: Pleer1 уже использует AVPlayer.
+
+### Runtime design recommendation (не разрешение на реализацию)
+
+**Кандидат для второго этапа — отдельный скрытый WKWebView resolver host + Swift URLSession fetch bridge.** Это наиболее близко к фактической схеме Musike и даёт `youtubei.js/web` browser primitives без самостоятельного набора polyfills. WKWebView не должен становиться UI приложения: он только запускает локально встроенный JS bundle и возвращает typed resolver result. Native Swift Player/queue/AVPlayer/background/Siri остаются без изменений.
+
+JavaScriptCore через `youtubei.js/agnostic` остаётся альтернативой. Его можно настроить через `Platform.load()`, но нужно самостоятельно предоставить Platform shim и совместимые Request/Response/Headers/URL/encoding primitives. `retrieve_player:false` убирает необходимость decipher evaluator, но не снимает требования к базовой среде. Вернуться к JSC следует, если hidden WKWebView окажется неприемлем по background/process lifecycle или памяти.
+
+### Версия библиотеки — не забыть
+
+- Baseline для воспроизведения проверенной Musike реализации: **youtubei.js 18.1.0**.
+- Обязательный последующий upgrade target: **18.3.0**. Сначала baseline 18.1.0, затем отдельным изменением обновить dependency и lockfile до 18.3.0 и провести compatibility/regression check. Не забыть этот шаг до выпуска.
+- Upgrade сейчас не выполняется.
+
+### Очерёдность и ограничения
+
+1. Сначала закончить согласованный native Swift fallback (вариант B) и проверить его на контролируемых сценариях.
+2. Если B не справится или будет функционально недостаточен — перейти к настоящему youtubei.js через выбранный отдельный JS runtime.
+3. До реализации подготовить точный bundle/build resource path, bridge contract, native transport/session policy, timeout/cancellation, URL cache/expiry, diagnostics и background auto-advance test plan.
+4. Отдельно проверить, что resolver работает при заблокированном экране/background audio; WebKit process lifecycle является ключевым риском hidden WKWebView.
+5. Ни один runtime не гарантирует устранение LOGIN_REQUIRED; Musike fallback в проверенной конфигурации не генерирует PO token и использует анонимную сессию.
+
+**Статус:** read-only Musike/runtime audit завершён; WKWebView + native fetch bridge выбран как design candidate для настоящей интеграции, если потребуется этап 2. Source edits/builds/tests не выполнялись и не разрешены без отдельного согласования. Подробности — журнал №073.
