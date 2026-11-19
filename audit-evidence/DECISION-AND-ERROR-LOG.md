@@ -1360,3 +1360,62 @@
 - **Статус:** read-only audit завершён; runtime-кандидат выбран на уровне design recommendation, не реализован и не протестирован.
 - **Ограничения:** application source не менялся. Никаких IPA/downloads/builds/simulator/CI/user tests не выполнялось. Для source edits и тестов требуется отдельное разрешение.
 - **Источники:** [Musike streams.ts](https://github.com/Ernani1234/musike/blob/41706772a4c1e774e3bf1731ca28711fa1529cf4/web/src/native/streams.ts); [Musike http.ts](https://github.com/Ernani1234/musike/blob/41706772a4c1e774e3bf1731ca28711fa1529cf4/web/src/native/http.ts); [Musike config shim](https://github.com/Ernani1234/musike/blob/41706772a4c1e774e3bf1731ca28711fa1529cf4/web/src/native/shims/config.ts); [Musike directAudio.ts](https://github.com/Ernani1234/musike/blob/41706772a4c1e774e3bf1731ca28711fa1529cf4/server/src/directAudio.ts); [Musike search.ts](https://github.com/Ernani1234/musike/blob/41706772a4c1e774e3bf1731ca28711fa1529cf4/server/src/search.ts); [MusikeYouTube.swift](https://github.com/Ernani1234/musike/blob/41706772a4c1e774e3bf1731ca28711fa1529cf4/mobile/ios/App/App/MusikeYouTube.swift); [Musike build-ipa.mjs](https://github.com/Ernani1234/musike/blob/41706772a4c1e774e3bf1731ca28711fa1529cf4/mobile/scripts/build-ipa.mjs); [youtubei.js 18.1.0 PlatformShim](https://github.com/LuanRT/YouTube.js/blob/v18.1.0/src/types/PlatformShim.ts); [youtubei.js 18.1.0 web platform](https://github.com/LuanRT/YouTube.js/blob/v18.1.0/src/platform/web.ts); [youtubei.js 18.1.0 agnostic exports](https://github.com/LuanRT/YouTube.js/blob/v18.1.0/src/platform/lib.ts); [CapacitorHttp docs](https://capacitorjs.com/docs/apis/http).
+
+
+## 074. Повторное сравнение iOS resolver Musike и Pleer1: отсутствующий JS fallback — 19 ноября 2026
+
+### Главный вывод
+
+Pleer1 технически может реализовать работающую iOS-схему. Проблема не в том, что iOS принципиально не позволяет приложению получать прямые YouTube audio URLs. В текущем Pleer1 реализована только первая часть Musike-подобной архитектуры — native Swift resolver. Проверенный Musike iOS flow содержит дополнительный полноценный JS fallback через youtubei.js, которого в Pleer1 нет.
+
+### Сопоставление Swift primary
+
+Повторно сопоставлены:
+- Pleer1 `plei/Sources/YouTubeEngine.swift`, snapshot `ec7bfe8f0fef22eb5fe0c2eb28573309de484db4`;
+- Musike `mobile/ios/App/App/MusikeYouTube.swift`, snapshot `41706772a4c1e774e3bf1731ca28711fa1529cf4`.
+
+Подтверждено, что основа native resolver очень близка: VISIONOS → ANDROID_VR → IOS; те же client versions/IDs; visitorData endpoint и 24h cache; аналогичный player body; сходные User-Agent/Origin/client headers; выбор прямых audio/mp4 adaptive formats по bitrate. Поэтому нельзя объяснять отличие Musike только «правильным Swift запросом»: Pleer1 уже повторяет значительную часть этого механизма.
+
+Небольшие transport/session отличия существуют: Pleer1 держит один static ephemeral URLSession с отключённым cookie storage; Musike создаёт ephemeral URLSession для каждого native POST. Это зафиксировано как проверяемое отличие, но пока не доказанная причина LOGIN_REQUIRED.
+
+### Ключевое архитектурное отличие Musike iOS
+
+Фактическая последовательность Musike:
+1. Swift native resolver.
+2. Если native result отсутствует/ошибка — JS `directAudio()` через `youtubei.js`.
+3. JS fallback создаёт отдельную Innertube session, получает собственный session context и пробует iOS client list.
+4. Запросы JS идут через `nativeFetch` → `CapacitorHttp.request()`, не через обычный WKWebView fetch.
+5. Результат передаётся существующему native audio pipeline.
+
+В Pleer1 после трёх Swift client attempts нет второй resolver stage: отказ завершает resolve. Это наиболее существенный установленный функциональный пробел.
+
+Дополнительные различия JS stage:
+- iOS JS client order Musike: IOS → VISIONOS; remote config в `mobile/streaming.json` содержит `["IOS","VISIONOS"]`.
+- Swift primary Musike: VISIONOS → ANDROID_VR → IOS.
+- JS session `Innertube.create({ retrieve_player:false, lang, location, fetch })`.
+- В проверенном JS fallback нет явных cookies, ручного visitorData override или PO token acquisition.
+- `withClient()` пересоздаёт session один раз только при thrown exception; parsed LOGIN_REQUIRED обрабатывается перебором client profiles, а не автоматическим session refresh.
+- JS fallback выбирает audio-only direct URL из adaptiveFormats + formats; AAC/mp4 выше WebM, затем bitrate; cipher-only formats без direct URL исключаются.
+
+### Что означает текущий LOGIN_REQUIRED
+
+В инциденте Pleer1 YouTube ответил HTTP 200, но JSON содержал playabilityStatus LOGIN_REQUIRED и reason «Sign in to confirm that you're not a bot». AVPlayerItem не создавался. Следовательно, отказ происходит на этапе YouTube player/API response до получения stream URL, а не в AVPlayer и не при скачивании аудиоданных.
+
+Наличие visitorData в диагностике означает только, что строка непустая. Оно не доказывает, что токен свежий, принят сервером, соответствует текущей сессии или что запрос имеет требуемый anti-bot context.
+
+Воспроизведение того же ролика официальным YouTube app на том же iPhone подтверждает доступность видео для first-party app/account context, но не доказывает, что анонимный third-party InnerTube запрос получает эквивалентный контекст.
+
+### Уровень уверенности и ограничения
+
+- **Высокая уверенность:** Pleer1 не воспроизводит полную iOS resolver architecture Musike; JS fallback отсутствует.
+- **Высокая уверенность:** текущий LOGIN_REQUIRED возникает до AVPlayer/media download.
+- **Средняя уверенность:** отдельная youtubei.js session + native HTTP transport могут дать другой request/session context и дополнительные шансы получить player response.
+- **Не доказано:** что именно этот fallback решит LOGIN_REQUIRED на текущем IP/видео; Musike JS fallback в проверенном snapshot сам не получает PO token и не передаёт явные cookies.
+- Разные resolver implementations не означают разные IP/network egress: обе стадии могут выходить через тот же iPhone/VPN.
+- Не считать PO token, другой client profile или новый URLSession гарантированным решением.
+
+### Следующее инженерное действие
+
+Сохранить согласованную очередность: сначала спроектировать и закончить native Swift fallback B, но при оценке результата не выдавать его за полную Musike integration. При недостаточном результате — реализовать настоящий youtubei.js fallback по ранее выбранному кандидату hidden WKWebView + Swift URLSession bridge, baseline 18.1.0, затем обязательный upgrade до 18.3.0.
+
+**Ограничения:** это read-only аудит и документальная запись. Application source не менялся. IPA/downloads/builds/simulator/CI/user tests не запускались. Отдельного разрешения на эти действия нет.
