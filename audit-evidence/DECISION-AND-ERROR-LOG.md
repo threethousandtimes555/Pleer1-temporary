@@ -1292,3 +1292,71 @@
 - **Порядок дальнейших работ:** (1) закончить read-only feasibility и детальный контракт native fallback; (2) представить точные файлы/изменения и критерии успеха; (3) получить отдельное разрешение на source edits; (4) после отдельного разрешения провести ограниченную сборку/проверку; (5) если B не справится — разобрать причину и перейти к настоящему youtubei.js runtime варианту, снова согласовав объём работ.
 - **Статус:** архитектурное направление B выбрано как первый этап; настоящий youtubei.js зафиксирован как fallback-план второго этапа при неудаче B. Это не разрешение на немедленные source edits/builds/tests.
 - **Ограничения пользователя сохраняются:** пока продолжается подготовка и согласование, никаких application source edits, IPA/downloads/builds/simulator/CI/user tests без отдельного разрешения.
+
+
+### Запись №073 — полный разбор фактического JS fallback Musike и выбор runtime-кандидата для настоящего youtubei.js (19.11.2026)
+
+- **Область:** Musike iOS fallback / youtubei.js / native transport / выбор отдельного JavaScript runtime для Pleer1.
+- **Проверенные snapshots:** Musike `41706772a4c1e774e3bf1731ca28711fa1529cf4`; youtubei.js tag `v18.1.0`. Это read-only аудит исходников, не runtime-проверка.
+
+#### 1. Исправление неполного предыдущего вывода
+
+В предыдущих записях №068–069 было сказано, что JS fallback Musike использует стандартный Platform fetch. Это неполно и теперь исправлено: **iOS JS fallback Musike использует собственный fetch adapter через CapacitorHttp**, а не обычный WKWebView fetch.
+
+Подтверждение:
+- `web/src/native/shims/config.ts` выбирает `nativeFetch`, если `Capacitor.isNativePlatform()` возвращает true. Это условие включает iOS, хотя комментарии рядом с adapter в основном описывают Android.
+- `web/src/native/http.ts` реализует `makeFetch()`: вызывает `CapacitorHttp.request()`, передаёт method/headers/body, собирает native response в JS `Response`; при необходимости добавляет User-Agent из client context/body или desktop fallback и Origin для `/youtubei/` запросов.
+- Официальная документация Capacitor описывает CapacitorHttp как native HTTP support через native libraries. Следовательно, это не browser CORS fetch path.
+- `mobile/scripts/build-ipa.mjs` выполняет `web build:native`, затем `cap sync ios`, поэтому этот JS fallback входит в обычную iOS IPA при встроенном backend.
+
+#### 2. Фактическая схема Musike iOS
+
+1. **Primary:** `web/src/native/streams.ts` вызывает Swift resolver через `resolveNatively()`; bridge реализован через `WKScriptMessageHandler` (`musikeResolve`) и `window.__musikeResolve`.
+2. **Native resolver:** `mobile/ios/App/App/MusikeYouTube.swift` использует отдельный `URLSession(configuration: .ephemeral)`, visitor_id endpoint и кэш visitorData на 24 часа. Его client order: VISIONOS → ANDROID_VR → IOS. Он выбирает только прямой audio/mp4 URL из adaptiveFormats.
+3. **Fallback:** если Swift bridge недоступен, возвращает error/пустой URL или бросает исключение, `resolveOnIos()` возвращает null и вызывается `directAudio()` из `server/src/directAudio.ts`. JS fallback выполняется в WKWebView JavaScript runtime; это не Node.js, не Deno и не отдельный JavaScriptCore.
+4. **Native HTTP transport для JS:** `youtubei.js` получает `config.fetch`, равный `nativeFetch`; запросы проходят через CapacitorHttp, а не WebView fetch. Это отдельная реализация HTTP-запроса по сравнению с Swift resolver, но не отдельный IP/egress.
+5. **JS session:** `server/src/search.ts` хранит `Promise<Innertube>` в Map по языку. Создание: `Innertube.create({ retrieve_player: false, lang, location, fetch })`. Musike явно не передаёт cookie, visitor_data, po_token или persistent cache. Библиотека сама выполняет стандартную session initialization (включая /sw.js_data и config) и при невозможности получить server session использует local fallback по умолчанию.
+6. **Retry:** `withClient()` пересоздаёт session один раз только при thrown exception. Parsed `LOGIN_REQUIRED` не является исключением; `directAudio()` запоминает reason и пробует следующий client.
+7. **JS clients:** iOS fallback default order — IOS → VISIONOS; список берётся из `mobile/streaming.json`, может обновляться с raw GitHub и сохраняется в localStorage. Это отличается от порядка Swift primary.
+8. **Форматы:** JS fallback объединяет adaptiveFormats и formats, оставляет только audio-only formats с готовым строковым direct URL. AAC/audio-mp4 приоритетнее, затем bitrate; audio/webm допускается как запасной MIME. Cipher-only formats без прямого URL отбрасываются. `retrieve_player: false` отключает загрузку JS player и deciphering.
+9. **Cache:** in-memory cache по video ID, in-flight Promise deduplication, URL expiry из query parameter `expire`; cache hit разрешён при запасе более 60 секунд, fallback expiry — 3 часа. `forgetUrl()` удаляет URL из cache после downstream stream failure.
+10. **Output:** JS fallback возвращает URL/MIME/title/duration/expiry; дальше существующий Musike audio bridge передаёт управление нативному AVPlayer. Для Pleer1 этот audio facade переносить не требуется, потому что Pleer1 уже использует AVPlayer.
+
+#### 3. Что это значит для Pleer1
+
+- Не переносить весь Musike Vite/React/Capacitor stack. Нужны только библиотека youtubei.js, изолированный JS execution context, platform/network adapter, typed bridge и resolver output.
+- Нельзя считать JS fallback гарантированным решением LOGIN_REQUIRED: в проверенном Musike fallback нет явного cookie, visitorData override или PO-token acquisition; parsed LOGIN_REQUIRED лишь приводит к следующему client.
+- Native Swift primary и JS fallback могут использовать разные session/request implementations и native HTTP API, но оба выходят в сеть через тот же iPhone/VPN/IP. Это не независимый network egress.
+- `makeFetch()` в Musike не передаёт все возможные браузерные свойства Request (например, credentials/AbortSignal/redirect policy) в свой RawRequest contract. В Pleer1 bridge следует спроектировать явно: timeout, cancellation, redirect, response status/headers/body, cookie policy и request correlation.
+
+#### 4. Runtime comparison и выбранный кандидат
+
+**Рекомендованный кандидат для настоящей интеграции Pleer1 — отдельный скрытый WKWebView resolver host (WebKit JavaScript runtime) + собственный Swift URLSession fetch bridge.**
+
+Причины:
+- Это ближе всего к фактической рабочей схеме Musike: browser-compatible JS runtime для `youtubei.js/web`, но native transport вместо WebView fetch.
+- WebKit предоставляет необходимые browser primitives (URL, URLSearchParams, Request/Response/Headers, TextEncoder, crypto и др.), поэтому не требуется самостоятельно воспроизводить большой набор web APIs.
+- WKWebView будет отдельным изолированным resolver-контекстом, не UI приложения; в Pleer1 остаются native Swift Player, queue, AVPlayer, background audio и Siri.
+- Не требуется переносить Capacitor: аналогичный минимальный bridge можно реализовать через WKScriptMessageHandler и URLSession.
+- Риск, который обязательно проверить отдельно: жизненный цикл WebKit process и возможность resolver operation во время background audio/auto-advance. WebView memory/process overhead также измерить.
+
+**JavaScriptCore остаётся допустимой альтернативой, но не первым выбором:**
+- `youtubei.js/agnostic` позволяет загрузить библиотеку без browser platform entrypoint и вручную задать `Platform.shim`.
+- `retrieve_player: false` снимает необходимость выполнять player decipher script, но для полноценного `getBasicInfo()` всё равно потребуется корректный Platform shim, в частности Request/Response/Headers и совместимые URL/URLSearchParams/encoding primitives, а также fetch, cache/hash/UUID/eval hooks.
+- Это потенциально более лёгкий in-process runtime, но выше риск несовместимости и больше собственных polyfills/adapter кода. Возвращаться к нему имеет смысл, если WKWebView background/process lifecycle окажется неприемлемым.
+
+#### 5. Версия youtubei.js — обязательная запись на будущее
+
+- **Baseline для первого воспроизведения Musike-поведения:** `youtubei.js 18.1.0`, так как именно эта версия закреплена в проверенном Musike snapshot.
+- **Обязательная последующая цель обновления:** `youtubei.js 18.3.0`. Пользователь отдельно попросил не забыть обновить версию позже. Не подменять baseline на 18.3.0 до завершения первоначальной совместимости: сначала воспроизвести 18.1.0, затем отдельным шагом обновить dependency/lockfile до 18.3.0 и провести compatibility/regression check перед выпуском.
+- Версия 18.3.0 опубликована 23.10.2026; 18.2.0 и 18.3.0 changelog содержит добавления/улучшения, но upgrade всё равно требует проверки.
+
+#### 6. Границы и следующие шаги
+
+- Сохранить согласованную очередность: сначала закончить и проверить native Swift fallback (вариант B); настоящий youtubei.js runtime — следующий этап только если B не справится или будет недостаточен.
+- Для этапа youtubei.js: подготовить локальный JS bundle, hidden WKWebView host, native URLSession fetch bridge, typed request/result/error contract, session/client lifecycle, expiry/cache/in-flight handling и отдельные background-resolver критерии.
+- Не логировать signed stream URLs, cookies, visitorData или PO tokens.
+- Сначала baseline 18.1.0; позднее обязательное обновление до 18.3.0.
+- **Статус:** read-only audit завершён; runtime-кандидат выбран на уровне design recommendation, не реализован и не протестирован.
+- **Ограничения:** application source не менялся. Никаких IPA/downloads/builds/simulator/CI/user tests не выполнялось. Для source edits и тестов требуется отдельное разрешение.
+- **Источники:** [Musike streams.ts](https://github.com/Ernani1234/musike/blob/41706772a4c1e774e3bf1731ca28711fa1529cf4/web/src/native/streams.ts); [Musike http.ts](https://github.com/Ernani1234/musike/blob/41706772a4c1e774e3bf1731ca28711fa1529cf4/web/src/native/http.ts); [Musike config shim](https://github.com/Ernani1234/musike/blob/41706772a4c1e774e3bf1731ca28711fa1529cf4/web/src/native/shims/config.ts); [Musike directAudio.ts](https://github.com/Ernani1234/musike/blob/41706772a4c1e774e3bf1731ca28711fa1529cf4/server/src/directAudio.ts); [Musike search.ts](https://github.com/Ernani1234/musike/blob/41706772a4c1e774e3bf1731ca28711fa1529cf4/server/src/search.ts); [MusikeYouTube.swift](https://github.com/Ernani1234/musike/blob/41706772a4c1e774e3bf1731ca28711fa1529cf4/mobile/ios/App/App/MusikeYouTube.swift); [Musike build-ipa.mjs](https://github.com/Ernani1234/musike/blob/41706772a4c1e774e3bf1731ca28711fa1529cf4/mobile/scripts/build-ipa.mjs); [youtubei.js 18.1.0 PlatformShim](https://github.com/LuanRT/YouTube.js/blob/v18.1.0/src/types/PlatformShim.ts); [youtubei.js 18.1.0 web platform](https://github.com/LuanRT/YouTube.js/blob/v18.1.0/src/platform/web.ts); [youtubei.js 18.1.0 agnostic exports](https://github.com/LuanRT/YouTube.js/blob/v18.1.0/src/platform/lib.ts); [CapacitorHttp docs](https://capacitorjs.com/docs/apis/http).
