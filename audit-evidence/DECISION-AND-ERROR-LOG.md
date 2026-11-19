@@ -1175,3 +1175,27 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - **Текущий код:** RootView overlay использует те же действия, но горизонтальное расположение кнопок и иная композиция не совпадают с референсом.
 - **Статус:** только статический аудит и анализ изображений. Код не менялся; build/test/install не запускались.
 
+
+
+### Запись №058 — исправление атрибуции источников обложек и инвариант очереди на Build #5
+
+- **Дата:** 19.11.2026.
+- **Коррекция:** «Под Ноги» — Telegram/local audio; квадратная обложка отображается корректно. `18:45:54` — YouTube; его 16:9 thumbnail содержит квадратный artwork по центру и боковое заполнение. Предыдущая трактовка обоих треков как YouTube была ошибочной.
+- **Очередь:** повторно проверен именно установленный Build #5 `7eabcbc`. `Player.play` сохраняет переданный список; `Player.load` для YouTube проверяет `FavoritesAudioCache.lookup(videoID:)`, при hit запускает локальный файл и не меняет queue/index. Значит, базовая логика local-first cache hit с сохранением Search/Playlist queue уже есть в Build #5. Фактическое воспроизведение и следующий элемент ещё требуют device test.
+- **Статус:** только source review; никаких сборок/установок на этом этапе.
+
+### Запись №059 — согласованные исправления cover, Favorites/library, cellular UI и stale seek
+
+- **Дата:** 19.11.2026.
+- **Lab branch:** `feature/youtubei-js-ios-fallback-2026-11-19`.
+- **Source HEAD:** `86f02970a9b17fb52b04cfd5c73e9277a0bb6289`, 34 commits ahead of installed Build #5.
+- **Изменения:**
+  1. `Media.swift`: детектор центральной квадратной обложки внутри 16:9 YouTube thumbnail с консервативной проверкой боковых областей; настоящие wide thumbnails сохраняют ratio. Источник изображения и high-resolution selection не переписывались.
+  2. `Store.swift`: дедупликация `Store.library` по Track.id.
+  3. `Views.swift`: «Любимое» inline DisclosureGroup внутри «Моё», Favorites только из `store.favorites`; «Скачанные»/«Недавние» отдельными экранами; названия «Любимое» унифицированы.
+  4. `Views.swift`: cellular prompt центрирован, кнопки вертикальные и в утверждённом порядке, существующие действия сохранены.
+  5. `Views.swift`/ `Player.swift`: in-app seek связывается с ID/token на старте drag; remote seek снимает snapshot; Player.seek отклоняет устаревшие ID/token и пишет source diagnostics.
+- **Проверка:** изменённые GitHub файлы перечитаны, diff проверен; статические признаки ожидаемых изменений присутствуют.
+- **Не проверено:** Swift compile/build, Codemagic, IPA, iPhone runtime, изображение `18:45:54`, реальные Search/Playlist cache hits, обе ветки seek, отображение cellular prompt, Favorites/import/dedupe runtime.
+- **Ограничение:** Build #5 `7eabcbc` остаётся единственной установленной версией. Никакой новый билд не запускался; следующий build только после отдельного разрешения пользователя.
+
