@@ -503,3 +503,12 @@ A diagnostic export (53 entries, 01:41:07–01:41:27 UTC) shows that queue item 
 No AVPlayer item was created for that queue item. A subsequent `playback.user_resume` was followed by `AVPlayerWaitingWithNoItemToPlayReason`, consistent with there being no playable item after Resolve failed. At 01:41:19 the next queue item `Автостопом по фазе сна - lv` (`yo2J4B5POfeI`, index 6) loaded successfully, reached readyToPlay, and began playing at 01:41:23. The excerpt has no explicit `playback.advance` or skip-recovery event between the two items, so it does not establish whether the next item was selected automatically or by a user Next action.
 
 **Conclusion:** one YouTube item was unavailable to all three tested player clients; the following item played successfully. This does not establish a player-wide failure, network failure, or automatic skip. During source audit, inspect the intended queue policy after `playback.resolve.failure` (surface an error and wait vs automatically skip). No code changes, builds, downloads, simulator runs, or CI runs were performed. Full details are in journal entry №063.
+
+
+### Correction to section 26 — prior Build #14 playback and manual Next confirmation
+
+The user confirms this exact track previously played normally on the older Build #14. Therefore the current `UNPLAYABLE` response must not be treated as proof that the video is inherently unavailable, deleted, or private. This is now a resolver behavior difference/regression to investigate. The root cause is unknown; compare resolver implementation, client contexts/request parameters, player-response parsing/audioFormats extraction, and the exact source commits used by Build #14 versus the current IPA once those commits can be established. These are investigation paths, not confirmed causes.
+
+The user also confirms they manually pressed Next at 01:41:19. Thus the transition to `yo2J4B5POfeI` was not automatic, and this log does not test queue auto-recovery after a resolve failure.
+
+Do not infer deletion, regional restriction, or permanent unavailability. No builds, downloads, simulator runs, or CI runs.
