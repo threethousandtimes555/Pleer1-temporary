@@ -529,6 +529,8 @@ The primary audit target is the **currently installed, newer development IPA**. 
 - In Player.swift, `load()`, `loadYouTube()`, `finishCurrentItem()`, `tick()`/watchdog, `planNext()`, `reconcileYouTubePrefetch()`, `prefetchNext()`, and `advance()` are identical. Changes are limited to AVAudioSession reactivation/resume on YouTube start/readyToPlay and extra seek diagnostics. The actual seek call remains; seek does not remove the end observer or change loadToken.
 - `Media.swift` is byte-for-byte identical. Its existing DJB2 hash is only a local AudioCache filename key, not a YouTube stream cache. ArtView still uses `.scaledToFill()` and clipping; no thumbnail-layout fix was introduced.
 
+- Remaining changed files were reviewed: `YouTubeHTMLSearch.swift` changes search correlation, collection gating and result deduplication; `YouTubePlaylistEngine.swift` adds RD Mix renderer variants; `Store.swift`/`Providers.swift` change enabled search sources and remove ccMixter/Funkwhale; `YouTubeDiagnostics.swift` mirrors diagnostics to UI-test console; `project.yml` adds UI-test target. These do not change the Resolve/AVPlayer playback path. `Views.swift` changes search, diagnostics and accessibility identifiers, not ArtView layout.
+
 ### Reassessment of test findings
 
 - **UNPLAYABLE:** all three clients returned HTTP 200 + UNPLAYABLE for a track the user confirms played on Build #14. Since Resolver code is identical, the root cause is not established as an application-code regression. Existing logs do not expose the full playability payload or the actual visitorData value; dynamic YouTube response/request context remains to be examined. Do not label the video deleted/private.
