@@ -852,3 +852,39 @@
 - Счётчик consecutive skip теперь сбрасывается при успешном `readyToPlay` любого элемента очереди, в том числе локального трека.
 - Коммиты Lab: `0c129bc3adcda7aba23bd2e29a8fdce5476c8739`, `7a689fc2c606f137f63d5643d715f0e51191d437`, `2287b783cf3d93b51e0d2ad4dbd420912d16b217`.
 - Статические проверки прошли: наличие классификатора и transient веток, шестипопыточного лимита, защиты от повторного ID, очистки observer и guard на пустой AVPlayer. Это не компиляция и не runtime тест; текстовая классификация ещё должна быть подтверждена реальными логами.
+
+
+### Запись №040 — точное сопоставление Musike resolver: PO Token не является age-gate решением
+
+- **Дата:** 19.11.2026.
+- **Область:** YouTube InnerTube Player API, GVS PO Token, iOS native resolver, JS fallback, классификация возрастных отказов.
+- **Источник:** актуальный Musike main: mobile/ios/App/App/MusikeYouTube.swift, web/src/native/streams.ts, server/src/directAudio.ts, server/src/ytdlp.ts, server/src/search.ts, mobile/streaming.json, mobile/ios/App/App/MusikeAudio.swift, README; Lab branch feature/youtubei-js-ios-fallback-2026-11-19.
+
+**Главный вывод:** пользователь подтвердил, что не устанавливал Musike и не проверял его на своём устройстве; цель — воспроизвести именно исходный механизм Musike без Google-авторизации, cookies или account session. Проверенный standalone iOS resolver Musike анонимен и не содержит механизма age verification. Поэтому возрастной gate нельзя обещать снять через PO Token, VISIONOS или visitorData.
+
+**Разделение механизмов:**
+- visitorData + VISIONOS в Musike используются для прохождения определённых антибот-проверок и получения прямого полного GVS потока без GVS PO Token для этого клиента.
+- PO Token (Proof of Origin) — отдельное подтверждение происхождения запроса, применяемое YouTube для некоторых client/stream запросов. Это не доказательство возраста и не замена подтверждённой Google-сессии.
+- racyCheckOk/contentCheckOk позволяют обрабатывать часть предупреждений о чувствительном контенте; они не гарантируют доступ к ролику с настоящим age gate и не отменяют LOGIN_REQUIRED.
+- Официальная справка YouTube указывает, что age-restricted видео недоступны пользователям, которые вышли из аккаунта; для просмотра требуется вход и подтверждение возраста 18+. Источник: https://support.google.com/youtube/answer/2802167.
+- Дополнительное прямое подтверждение из Musike: server/src/i18n.ts сообщает для ageRestricted, что ролику нужны cookies авторизованного аккаунта; server/src/ytdlp.ts выделяет age-restricted/inappropriate/confirm-age ошибки. Это относится к отдельному desktop/server yt-dlp пути, не к standalone iOS.
+
+**Дополнительные детали Musike, проверенные в коде:**
+- Native iOS использует VISIONOS → ANDROID_VR → IOS; отдельный ephemeral URLSession на каждый POST; visitorData cache TTL 24 часа; client context включает userAgent, platform DESKTOP, hl/gl; player body включает originalUrl, racyCheckOk, contentCheckOk и HTML5_PREF_WANTS.
+- iOS JS fallback использует remote client list mobile/streaming.json (текущий порядок IOS → VISIONOS), youtubei.js Innertube.create с retrieve_player:false и повторяет запрос один раз после исключения/сбоя с пересозданием сессии.
+- DirectAudio выбирает audio-only URL, предпочитая audio/mp4, но оставляет альтернативный audio codec (например, audio/webm) как fallback; затем учитывает bitrate.
+- Musike не повторяет запрос специально при распознанном LOGIN_REQUIRED; он переходит к следующему client. Сброс сессии/один retry относится к исключениям вызова.
+- Native audio использует AVPlayer, User-Agent com.google.ios.youtube/... и preferredForwardBufferDuration = 30. В Pleer1 эти решения уже реализованы в Player.swift.
+
+**Исправления, внесённые в Lab после сравнения:**
+- Commit 2ab6bfe195b73a25df0efa0584c323af3d7c9d5b: YouTubeEngine.swift теперь использует отдельную ephemeral URLSession на каждый InnerTube POST с системным cookie handling по умолчанию; удалено принудительное отключение cookie storage. Это повторяет транспортную конфигурацию Musike, но не импортирует и не переносит account cookies между запросами.
+- Commit 107016882f466f6598882a0eccb7c82795fec4a3: youtubei-bridge.js больше не делает искусственный дополнительный retry при распознанном LOGIN_REQUIRED; fallback выбирает audio/mp4 приоритетно и допускает audio/webm, если MP4 отсутствует.
+- Статическая проверка после коммитов подтвердила: native client order VISIONOS → ANDROID_VR → IOS; per-request ephemeral session; отсутствие принудительного cookie-disable; JS default IOS → VISIONOS; отсутствие LOGIN_REQUIRED refresh; наличие WebM fallback.
+
+**Ранее существующие части, подтверждённые сравнением:** visitorData cache TTL 24 часа, player body и client context; JS retry после исключения; remote iOS client config; AVPlayer User-Agent и 30-секундный forward buffer.
+
+**Решение пользователя:** продолжаем точное воспроизведение механизма Musike без авторизации. Не добавлять Google login, cookies, аккаунтную сессию или самодельный age-gate обход без отдельного запроса. Не представлять PO Token как решение возрастного ограничения.
+
+**Статус:** два source commits внесены в Lab. Выполнены только статические проверки; код не компилировался и на устройстве не запускался. Сборка, Codemagic, xcodebuild, XcodeGen, симулятор, IPA packaging и установка не выполнялись.
+
+**Открытая граница:** настоящий YouTube age gate в анонимном Musike iOS пути остаётся недоступным по изученному исходному коду. Текущая реализация может исправлять несовпадения resolver-поведения, bot-check и GVS stream resolution, но не может гарантировать воспроизведение age-restricted роликов без подтверждённой YouTube-сессии.
