@@ -771,7 +771,7 @@ JavaScriptCore через `youtubei.js/agnostic` остаётся альтерн
 
 **Base:** актуальная ветка `fix/youtube-standalone-search-device-2026-11-19`, commit `a64ced41faf9fc93ec187c2d071e904bf0d1692b`. Default `main` отстаёт и не содержит актуального YouTube resolver.
 
-**Source head на момент записи:** `e1359e7d212e81a8a0935599807a0d417d00ccdd`.
+**Source head на момент записи:** `055cf5878a5fbf6962e88f57785a606f29f3d2a5`.
 
 ### Реализация первой ступени интеграции
 - Native Swift resolver сохранён primary.
@@ -798,10 +798,10 @@ Source code implementation пока не собрана и не запускал
 
 ### Addendum to Section 36 — static review status
 
-Source branch head: `e1359e7d212e81a8a0935599807a0d417d00ccdd`. The Xcode pre-build shell script passed `bash -n`; Swift/JS changes received manual read-only review. No XcodeGen or application build, simulator, CI, IPA or device test has been run. The implementation remains unverified until the separately authorized build/device stage. WKWebView local module loading and background process lifecycle remain top runtime risks.
+Source branch head: `055cf5878a5fbf6962e88f57785a606f29f3d2a5`. The Xcode pre-build shell script passed `bash -n`; Swift/JS changes received manual read-only review. No XcodeGen or application build, simulator, CI, IPA or device test has been run. The implementation remains unverified until the separately authorized build/device stage. WKWebView local module loading and background process lifecycle remain top runtime risks.
 
 ### Addendum — resource packaging refinement
 
 Resolver HTML, JS bridge, generated browser bundle and license are packaged as one XcodeGen folder resource under `plei/Sources/YouTubeResolver`; the folder is excluded from Swift source compilation. Generated bundle/license are gitignored and created before the folder resource copy phase. This avoids committing a placeholder browser bundle or requiring a runtime CDN.
 
-Current source branch head: `e1359e7d212e81a8a0935599807a0d417d00ccdd`.
+Current source branch head: `055cf5878a5fbf6962e88f57785a606f29f3d2a5`.
