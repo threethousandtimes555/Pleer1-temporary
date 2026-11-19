@@ -445,3 +445,11 @@ HTTP 400 на `/youtubei/v1/config` не остановил загрузку: п
 - [ ] Verify duration, end-of-track handling, AVPlayer configuration, buffering and playback lifecycle.
 - [ ] Produce a matrix: implemented and source-confirmed / intentional differences / incomplete / requires device test.
 - [ ] Keep the audit read-only until findings are presented; no speculative resolver changes.
+
+
+### UI direction and Search/offline interaction (19 Nov 2026)
+
+- Keep the previously approved custom Pleer1 visual language. “Native integration” means coherent, intuitive app behavior and familiar interaction patterns; it does not require default-looking iOS controls.
+- Do not redesign the audio scrubber or playback controls in the offline pass. Revisit them later as a dedicated visual-design task.
+- A YouTube Search result with a matching completed local download must use local-first playback through the same YouTube video ID. Search results and Search queue remain independent of Favorites and the Downloads library.
+- Static source review confirms this path; a physical-device test is still required.
