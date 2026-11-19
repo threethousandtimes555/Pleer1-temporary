@@ -1120,3 +1120,6 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 
 
 **Дополнение к записи №051 — fail-closed для мобильного канала и гонка path callback:** конфигурация ephemeral URLSession теперь получает `allowsCellularAccess` и `allowsExpensiveNetworkAccess` из согласия текущей сессии; без согласия сотовый/дорогой канал запрещён самим URLSession. При transient URLSession network error сверяется `pathMonitor.currentPath` до фиксации ошибки, чтобы поздний callback NWPathMonitor не приводил к потере элемента очереди. Коммиты Lab: `6a5fd56`, `08b07cf`.
+
+
+**Актуализация №051 — последний Lab source head:** `bb32a4e12cc376c4b86b5b7623d6a1a56640d8dd` на `feature/youtubei-js-ios-fallback-2026-11-19` (37 ahead / 0 behind от `51fb09a1a998056e70707837c48b3bbc3f1300bd`, ровно 6 source files changed). Последние уточнения: URLSession configuration запрещает cellular/expensive network до согласия; transient URLSession errors сверяются с `NWPathMonitor.currentPath`; обе resolver cache layers используют generation-safe invalidation по videoID; активные playback consumers не отменяются принудительно, а устаревший результат не кэшируется; MIME response должен соответствовать ожидаемому MIME и file signature.
