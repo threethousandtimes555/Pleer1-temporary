@@ -448,3 +448,18 @@ Diff относительно Lab base проверен: ровно 6 файло
 **Текущий режим:** только сбор и анализ фактов на установленной IPA. Никаких скачиваний, новых IPA, сборок, симуляций, CI-запусков или изменений кода до общего разбора и отдельного решения пользователя.
 
 **Следующий шаг:** продолжить следующий live-тест на уже установленной версии, затем зафиксировать его результат.
+
+
+## 24. Live playlist playback diagnostics — 19 November 2026
+
+The installed IPA successfully searched for `crystal castles playlist`, recognized 7 playlist results, opened playlist `PLzDFYTz8KSyBUDaNaPOKVjomV2lCm5W4G` and loaded 31 tracks. The first track (`CnqzIYZR1GA`) resolved successfully; AVPlayer reached `readyToPlay` about four seconds after item creation and entered playing state at approximately 01:24:09. Its playback position subsequently advanced beyond 200 seconds in the supplied log.
+
+The next track (`M7zxAI3GW2o`) was prefetched successfully at the resolve stage. This does **not** prove that the player transitioned to it or that playback is gapless: the supplied excerpt contains no subsequent `playback.load` for that track. The user described the track as having hung, but the log excerpt does not identify whether the symptom was audio, UI, queue navigation, or a later playback stall; clarification is required before assigning a cause.
+
+A diagnostic inconsistency also needs source-level review: initial resolved duration is 188 seconds, while a later seek reports 376.72 seconds and loaded range 376.77 seconds; playback position reaches 209.73 seconds. Treat this as a telemetry/state inconsistency to investigate, not proof that the media itself is malformed.
+
+**Confirmed:** playlist search/open and 31-track queue; first track eventually played; next-track stream resolve prefetch succeeded.
+**Not confirmed:** actual next-track transition, gapless playback, or the precise user-observed hang.
+**Constraints remain:** no downloads, IPA builds, simulator runs, CI runs, or source changes until the consolidated audit is reviewed and the user separately approves the next step.
+
+See decision/error log entry №061 for the full evidence and timestamps.
