@@ -313,3 +313,15 @@ HTTP 400 на `/youtubei/v1/config` не остановил загрузку: п
 ### Дополнение от 19 ноября 2026 — разделение LOGIN_REQUIRED age gate и bot-check в auto-skip
 
 При повторной проверке Player.swift найдено ещё одно важное смешение причин: общий маркер LOGIN_REQUIRED считался окончательной недоступностью и мог отправить трек в auto-skip, хотя YouTube использует этот статус также для bot-check («Sign in to confirm you're not a bot»). Исправлено: удалён общий маркер LOGIN_REQUIRED из isDefinitiveYouTubeAvailabilityFailure. Теперь пропуск зависит от конкретной причины (например, inappropriate for some users / confirm your age / age-restricted), а не от одного статуса. Это уменьшает риск пропустить трек из-за антибот-сбоя. Изменение Lab commit 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Только статическая правка; сборка и runtime-тест не выполнялись.
+
+### Дополнение от 19 ноября 2026 — длительность YouTube: AVPlayer item стал источником истины
+
+В Lab `plei/Sources/Player.swift` исправлена логика, из-за которой resolver duration (видео-метаданные YouTube) безусловно использовалась для шкалы, ограничения позиции и watchdog, даже когда длительность реально загруженного AVPlayer audio item отличалась почти вдвое.
+
+- Добавлено раздельное хранение `resolverYouTubeDuration` (резерв/диагностика) и `knownYouTubeDuration` (эффективная длительность для UI и watchdog).
+- После `readyToPlay` и далее при периодических тиках Pleer1 принимает конечную положительную `AVPlayerItem.duration` как авторитетную длительность. Это также покрывает случай, когда duration ещё indefinite непосредственно в момент `readyToPlay` и становится доступна позже.
+- Resolver duration остаётся fallback, пока AVPlayer item не предоставил валидную длительность. Поэтому не меняются обычные источники и не теряется раннее отображение длительности.
+- Watchdog, ограничение позиции и шкала продолжают использовать единое эффективное значение; диагностическая запись `playback.duration.authoritative` фиксирует источник и сравнение resolver/asset.
+- В `youtubei-bridge.js` исправлен только устаревший комментарий о LOGIN_REQUIRED: retry с пересозданием сессии относится к thrown exceptions, а разобранный playability refusal переводит resolver к следующему клиенту, как в Musike.
+
+**Lab commits:** `dab45e3e2dcdae26bc779e4ccf72c6a9d753e44b` (Player duration) и `72ba733d21a0156faad7a5bada72998076be313a` (JS comment). Изменения проверены статически по исходникам; компиляция и runtime не выполнялись. Не запускались сборка, симулятор, Codemagic, xcodebuild, XcodeGen, IPA packaging или установка.
