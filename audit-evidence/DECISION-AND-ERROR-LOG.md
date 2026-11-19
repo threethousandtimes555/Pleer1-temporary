@@ -1205,3 +1205,27 @@
 - **Статус:** Частично подтверждено — отсутствие полного переноса Musike iOS fallback подтверждается просмотренными файлами; причина LOGIN_REQUIRED и преимущество Musike над Pleer1 пока не установлены.
 - **Ограничения:** это документационная коррекция, не изменение application source. Никаких новых скачиваний, IPA, сборок, симуляций, CI/workflow runs или пользовательских тестов не выполнялось. Действующий запрет пользователя сохраняется.
 - **Источники:** [Musike README](https://github.com/Ernani1234/musike/blob/41706772a4c1e774e3bf1731ca28711fa1529cf4/README.md); [MusikeYouTube.swift](https://github.com/Ernani1234/musike/blob/41706772a4c1e774e3bf1731ca28711fa1529cf4/mobile/ios/App/App/MusikeYouTube.swift); [streams.ts](https://github.com/Ernani1234/musike/blob/41706772a4c1e774e3bf1731ca28711fa1529cf4/web/src/native/streams.ts); [ytplayer.ts](https://github.com/Ernani1234/musike/blob/41706772a4c1e774e3bf1731ca28711fa1529cf4/web/src/native/ytplayer.ts); [directAudio.ts](https://github.com/Ernani1234/musike/blob/41706772a4c1e774e3bf1731ca28711fa1529cf4/server/src/directAudio.ts); Pleer1 current source commit `ec7bfe8f0fef22eb5fe0c2eb28573309de484db4`, file `plei/Sources/YouTubeEngine.swift`.
+
+
+### Запись №068 — полный iOS fallback и native playback pipeline Musike — 19 ноября 2026
+
+- **Область:** архитектурный аудит YouTube Resolve / iOS playback
+- **Наблюдение:** после первичного сравнения Swift Resolver выяснилось, что предыдущая формулировка о «серверном fallback Musike» была неточной. В стандартной iOS IPA Musike fallback реализован внутри собранного приложения.
+- **Факты и источники (snapshot Musike `41706772a4c1e774e3bf1731ca28711fa1529cf4`):**
+  - `mobile/scripts/build-ipa.mjs` запускает `pnpm --filter @musike/web build:native`, затем `cap sync ios`. Значит штатная IPA использует native backend, если не задан `MUSIKE_SERVER_URL`.
+  - `web/vite.config.ts` в native mode заменяет `web/src/lib/api.ts` на `web/src/native/api.ts`, а server config/ytdlp modules — native shims. Комментарий конфигурации называет этот режим Android, но build-ipa явно использует его и для iOS.
+  - `web/src/native/streams.ts`: iOS сначала вызывает Swift bridge `resolveNatively`; если результат содержит error/не содержит URL или bridge недоступен, возвращает null и запускает `directAudio(id, clients, lang)`.
+  - `mobile/streaming.json`: текущий iOS fallback client list — [`IOS`, `VISIONOS`]. В Swift native resolver порядок другой: VISIONOS, ANDROID_VR, IOS.
+  - `server/src/directAudio.ts`: fallback вызывает `withClient((yt) => yt.getBasicInfo(...))`, выбирает direct audio URL из adaptive/formats. `server/src/search.ts` создаёт и кеширует `Innertube` session через `youtubei.js` 18.1.0; `retrieve_player: false`. В native build этот TypeScript-код входит в локальный app bundle; это не запрос к удалённому Musike server и не запуск yt-dlp на iPhone.
+  - `server/src/config.ts` задаёт `fetch: undefined`; отдельный native fetch override в просмотренном коде не найден. Фактическая транспортная реализация fallback зависит от стандартного fetch/поведения youtubei.js в WebView и требует дальнейшего анализа.
+  - `MusikeAudio.swift` — нативный AVPlayer за HTMLMediaElement-подобным JS facade. Он устанавливает forward buffer 30 секунд, отдаёт known duration из Resolver, посылает seeked event после завершения seek и завершает трек по известной длительности. Это архитектура адаптера WebView, а не обязательный компонент для Pleer1.
+- **Сравнение с Pleer1:**
+  - Pleer1 уже воспроизводит YouTube URL через AVPlayer напрямую; переносить Musike HTMLMediaElement facade и отдельный MusikeAudio player целиком не требуется.
+  - Pleer1 уже задаёт preferredForwardBufferDuration=30. Musike также использует 30 секунд.
+  - В Musike seek завершается явным callback/event; JS adapter временно игнорирует старые позиции до подтверждения seek. В Pleer1 сейчас есть seek completion diagnostics, но нет такого отдельного состояния/события для синхронизации UI.
+  - Главный функциональный пробел Pleer1 относительно изученной схемы Musike — отсутствие подтверждённого второго resolver path через youtubei.js/Innertube после отказа Swift resolver.
+- **Ограничение вывода:** fallback Musike потенциально использует отдельную Innertube session и другой HTTP stack, но пока не доказано, что он обходит конкретный `LOGIN_REQUIRED` / bot verification из журнала №066. Не утверждать, что интеграция гарантированно решит bot check; runtime-тест не проводился.
+- **Проверка:** только чтение исходников GitHub и конфигурации сборки. Никаких checkout/download, source changes, builds, IPA, simulator, CI или пользовательских тестов.
+- **Вывод:** целевой кандидат для минимальной интеграции — изолированный fallback resolver на базе совместимой версии youtubei.js/Innertube и управляемого client list, с сохранением текущего Swift resolver как первого этапа и текущего AVPlayer pipeline. Перед реализацией нужно проверить совместимость библиотеки/зависимостей с iOS WebView bundle, транспорт/visitor/session semantics, обработку LOGIN_REQUIRED и URL expiry. Отдельно оценить, стоит ли переносить только seek-state handshake из Musike.
+- **Статус:** Частично подтверждено; архитектурный аудит продолжается.
+- **Следующий шаг:** завершить проверку transport/session и точного fallback error path; затем представить минимальную схему интеграции, файлы/изменения, риски и план контрольных тестов. До отдельного согласования source не менять и тесты не запускать.
