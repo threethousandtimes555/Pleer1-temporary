@@ -418,3 +418,19 @@ HTTP 400 на `/youtubei/v1/config` не остановил загрузку: п
 - Это ещё не полноценная офлайн-библиотека: впереди независимое от Favorites хранилище, раздел «Скачанные», статусы загрузок, включение Telegram/local files, политика хранения без неожиданного LRU удаления, ошибки/частичные файлы и тесты на реальном устройстве.
 - Не менять поиск, его очередь, фоновое аудиовоспроизведение или Siri. Не запускать массовую загрузку всей библиотеки; только последовательная очередь с низким приоритетом.
 - Статические правки; build/compile/device tests не выполнялись.
+
+### Offline library — implementation pass 1 (19.11.2026)
+
+- [x] Decouple completed YouTube downloads from Favorites; removing a like no longer removes the downloaded file.
+- [x] Persist a lightweight downloaded-track catalog and restore it after app launch.
+- [x] Add a dedicated «Скачанные» section combining complete YouTube downloads and imported local audio, including Telegram Share/Inbox files.
+- [x] Keep local-first playback for downloaded YouTube tracks even after they are removed from Favorites.
+- [x] Add unobtrusive per-track states: downloaded, downloading, queued, failed, not downloaded.
+- [x] Add «Только скачанные» mode: filter new queues to complete local files and skip missing files without invoking YouTube.
+- [x] Stop automatic LRU deletion of completed offline tracks; the 1 GiB value is now a soft budget with diagnostics only.
+- [ ] Persist failure/retry state and expose a deliberate retry action.
+- [ ] Handle low-storage conditions before starting a download; never silently remove completed files.
+- [ ] Review duplicate traffic: playback streaming and full-file download can currently transfer the same track simultaneously.
+- [ ] Decide whether to implement a real background URLSession and resume support after the basic device test.
+- [ ] Test 300 favorites, queue seriality, Wi-Fi↔cellular transitions, partial/cancelled downloads, local-first playback, Telegram imports, un-favorite behavior, offline mode, and storage pressure on an iPhone.
+- [ ] Build and install only after the remaining static audit is complete and the user explicitly asks to proceed.
