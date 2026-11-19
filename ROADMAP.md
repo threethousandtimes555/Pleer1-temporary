@@ -563,3 +563,6 @@ Lab implementation on `feature/youtubei-js-ios-fallback-2026-11-19`:
 - No compile, build, simulator, IPA packaging, install, or runtime test was run as part of these source edits. User data and the stable checkpoint branch were not touched.
 
 **Lab source commits:** `90a85a5` (network/download hardening), `c60abf4` (persist deferred deletion), `0045b72` (finish deletion on track switch), `e40a0e5` (native hint and UI action), `6a60eba` (retain refreshed stream), `5d5aa21` (cancellation race).
+
+
+**Дополнение к разделу 14 — лимит с учётом свободного места:** перед передачей вычисляется эффективный лимит `min(500 MiB, свободное место − 64 MiB резерв)`. URLSessionDownloadDelegate останавливает поток при превышении известного Content-Length/ожидаемого размера либо фактически записанных байтов. Временный файл перемещается, а не копируется, чтобы не удваивать потребление диска. Это статическое описание реализации; проверка поведения на устройстве ещё не выполнена.
