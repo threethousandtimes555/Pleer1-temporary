@@ -683,3 +683,27 @@ Read-only audit of Musike snapshot `41706772a4c1e774e3bf1731ca28711fa1529cf4` co
 **Статус:** integration design preparation начата. Источники: журнал №071 и read-only source snapshot выше.
 
 **Ограничения:** до отдельного разрешения запрещены application source changes, IPA/downloads/builds/simulator/CI/user tests. Документационная подготовка не является разрешением на кодирование или тестирование.
+
+
+## 33. Принято направление: native Swift fallback первым, настоящий youtubei.js при неудаче — 19 ноября 2026
+
+**Выбранный первый этап:** отдельный native Swift fallback по логике Musike `directAudio()`; текущий Pleer1 Swift Resolver остаётся primary. Выбор сделан как наиболее естественная и минимально рискованная интеграция для нативного Swift/AVPlayer проекта.
+
+**Запасной план:** если Swift fallback не даст результата на целевых отказах или окажется недостаточно эквивалентен возможностям библиотеки, следующим этапом рассмотреть настоящую интеграцию `youtubei.js` через подходящий JS runtime/platform adapter. Swift adaptation не называть прямой интеграцией youtubei.js.
+
+### Важное ограничение результата
+
+Вариант B — разумный следующий шаг, но не доказанное решение текущего `LOGIN_REQUIRED`. До runtime проверки нельзя гарантировать, что он устранит bot verification.
+
+### Resolver independence vs network independence
+
+- Два resolver-модуля могут иметь разную реализацию, сессии, client order, request context, обработку ответа и извлечение direct URL.
+- Это **не означает** два независимых сетевых маршрута: оба могут обращаться к InnerTube по HTTP(S) через тот же iPhone, VPN, IP и сетевой egress.
+- HTTP — обычный транспорт, не причина отказа сама по себе.
+- На первом этапе исследовать отдельный session lifecycle/cookie policy, visitorData freshness, request context, client strategy и точное место отказа. Не делать случайных изменений заголовков/клиентов и не маскировать bot verification.
+- Отдельный proxy/server egress — возможный будущий архитектурный вариант, но не входит в B; он добавляет стоимость, инфраструктуру, приватностные и надёжностные риски и не гарантирует устранение проверки.
+- PO Token исследовать отдельно; не считать его автоматическим решением LOGIN_REQUIRED.
+
+**Критерий перехода к этапу 2:** после контролируемой проверки B на целевых сценариях, если он не способен получить пригодный direct audio URL, разобрать слой отказа и затем подготовить настоящий youtubei.js runtime вариант.
+
+**Ограничения:** запись фиксирует архитектурный выбор, но не разрешает application source changes, IPA/downloads/builds/simulator/CI/user tests. Для этих действий потребуется отдельное согласование.
