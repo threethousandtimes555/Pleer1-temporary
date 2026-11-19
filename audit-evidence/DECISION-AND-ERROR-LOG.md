@@ -931,3 +931,50 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - В Lab дополнительно добавлена очистка оставшихся `.part` файлов при инициализации cache manager и гарантированная попытка удалить временный файл после завершения/отмены URLSession download.
 - Дополнительный Lab commit: `e99f7ad71af61316a4a9d912505296f5b29e7bf3`.
 - Это статическое изменение; runtime-проверка отмены и восстановления после принудительного завершения приложения ещё не проводилась.
+
+
+#### Ретроспективное дополнение к диагностической хронологии 19.11.2026 — YouTube search и playback
+
+Эти результаты восстановлены из доступных сообщений и диагностических фрагментов. Не считать, что полный экспорт на 329 или 180 строк повторно прочитан целиком: в доступном контексте есть отдельные фрагменты и подтверждённые пользователем итоги.
+
+**Поиск:**
+- `Concrete`: Innertube HTTP 200, 20 videoRenderer candidates, 20 видео, 0 плейлистов; HTML fallback не извлёк `ytInitialData` (страница consent). Итог — 20 видео.
+- `Crystal Castles`: Innertube включил `videoFilter=true`, `includeCollections=false`; 20 видео, 0 плейлистов. HTML fallback также остановился на consent.
+- `crystal castles playlist`: Innertube HTTP 200, 23 видео + 6 плейлистов = 29 результатов; HTML fallback HTTP 200, но `ytInitialData` отсутствовал/consent. Пользователь подтвердил, что плейлисты присутствовали внизу выдачи и открывались отдельной очередью. Первоначальное сообщение о пропаже плейлистов было ошибкой проверки расположения, а не дефектом выдачи.
+- `Kunteynir`: 25 результатов — 23 видео и 2 плейлиста. Первым был `Kunteynir – Не прут колёса | Премьера 2020`, YouTube ID `NOuIXUmFc3g`, внутренний ID `yNOuIXUmFc3g`.
+- `Kunteynir playlist`: 28 результатов — 22 видео и 6 плейлистов; среди верхних коллекций `Kunteynir Все треки` и `Kunteynir - Неизданное`. HTML fallback не дал данных из-за consent.
+- `Kunteynir mix`: 19 результатов — 15 видео, 4 плейлиста, 0 radio. В верхней части были коллекции, в том числе `kunteynir на ночь | mix`. Отдельную корректность классификации Mix/radio по этим цифрам не считать окончательно доказанной.
+- **Продуктовое решение остаётся прежним:** обычный поиск — отдельные музыкальные видео первыми, коллекции отдельным блоком/ниже; явный запрос playlist/mix расширяет поиск коллекций. Не классифицировать по одному слову в названии. Mix parser по прежнему решению пользователя не переписывать без отдельного согласования.
+
+**Воспроизведение:**
+- Ранний доступный фрагмент около 02:00 UTC для `Kunteynir feat. Metox — 12 шагов до рая`, YouTube ID `bs4hu3M-cfY` (внутренний `ybs4hu3M-cfY`): все три native клиента VISIONOS/ANDROID_VR/IOS получили HTTP 200, но `LOGIN_REQUIRED`; AVPlayer item не создавался, звук/буферизация/автопереход не начинались. В доступном контексте был 16-entry фрагмент, а не полный экспорт на 329 строк.
+- Для `Kunteynir – Не прут колёса` resolver VISIONOS вернул OK, audio/mp4 (`mp4a.40.2`), duration 281 с, bitrate 130517. В тесте Favorites пользователь подтвердил повторное открытие того же ID; AVPlayer сначала ожидал буфер, затем перешёл к воспроизведению, после чего пользователь поставил паузу примерно на 15.45 с. Это подтверждает успешный старт в том тесте, но не полный 281-секундный прогон.
+- Отдельный доступный 28-entry фрагмент 05:54:02–05:54:06 UTC для того же трека показывает resolver VISIONOS OK и AVPlayer `readyToPlay`, но всё ещё waiting/buffering. Фрагмент слишком короткий; фактический старт звука именно в этом запуске не подтверждён.
+- Отдельные упомянутые пользователем полные экспорты на 180 и 329 строк в текущем восстановленном контексте отсутствуют. Не приписывать им незафиксированные результаты и не объявлять эти два экспорта полностью разобранными только по кратким заголовкам.
+
+---
+
+### Запись №043 — повторная сверка с Musike: исправлена ошибочная трактовка длительности AVPlayer; усилен офлайн-кэш избранного
+
+- **Дата:** 19.11.2026.
+- **Причина:** контрольное сравнение с актуальным Musike выявило, что прежняя логика в Pleer1 после записи №041 считала длительность AVPlayer основной. Это расходится с реальным Musike native audio implementation.
+- **Источник:** `mobile/ios/App/App/MusikeAudio.swift` (актуальный main). Musike прямо документирует, что AVPlayer для YouTube audio-only потока может сообщать длительность примерно вдвое больше YouTube duration из-за добавленной тишины. Он хранит длительность YouTube и завершает трек по ней; AVPlayer duration используется как запасное значение, если YouTube duration недоступна.
+- **Коррекция решения №041:** длительность YouTube metadata/resolver — источник истины для UI и момента окончания. AVPlayer duration — только fallback при отсутствии валидной длительности resolver. Предыдущее решение «AVPlayer duration authoritative» отозвано как потенциальная регрессия.
+- **Изменение в Lab `Player.swift`:**
+  - `adoptYouTubeItemDuration` теперь выбирает `resolverYouTubeDuration`, если оно валидно; AVPlayer duration используется только при отсутствии resolver duration.
+  - Добавлено явное завершение YouTube item при достижении YouTube duration (порог 0.5 с), с pause и передачей в единый `finishCurrentItem`. Учитываются ручная пауза и audio interruption; защита `completionHandledToken` предотвращает двойной переход.
+  - Добавлена диагностика `playback.duration.selected` и `playback.youtube_duration_end`; сравнение resolver/asset/effective сохраняется.
+- **Lab commit:** `a95760c293390288bf0095b1dc01e788adad0450`.
+- **Повторная проверка Musike parity:** native client order VISIONOS → ANDROID_VR → IOS и параметры клиента сохранены; visitorData и player body сопоставлены; JS fallback использует iOS remote client list IOS → VISIONOS, refresh сессии только после исключения запроса, audio/mp4 приоритетно и WebM fallback. Pleer1 сохраняет повторное использование ephemeral URLSession для native запросов вместо создания новой на каждый POST — это сознательное отличие ради reuse соединений, не пропущенная часть stream extraction. AVPlayer UA, `preferredForwardBufferDuration=30`, `automaticallyWaitsToMinimizeStalling` и playback audio session присутствуют. Google login, импорт пользовательских cookies и ручная передача account Cookie header не добавляются.
+- **Дополнительное усиление Favorites audio cache в Lab:**
+  - Сохранение исходной YouTube duration в UserDefaults рядом с кэш-файлом; при локальном запуске Player восстанавливает эту длительность, чтобы офлайн-воспроизведение не вернуло удвоенную длительность AVPlayer.
+  - Prefetch не делает YouTube resolve для следующего избранного трека, если полный локальный файл уже есть.
+  - При синхронизации избранного удаляются orphan audio files, при старте повторно применяется лимит 1 GiB.
+  - Убрано ограничение количества ожидающих избранных треков; фактическая загрузка по-прежнему строго последовательная — один активный низкоприоритетный download.
+  - User-Agent файловой загрузки выровнен с YouTube UA, который использует native AVPlayer path.
+- **Дополнительные Lab commits:** `eff1c2089d73dbd551baa8ca27f64f83852fce6c` (очередь/сироты/UA), `8a2d0d2ce8f6a3062835e5777921227787d381bc` (сохранение длительности), `cd50b1a37eabc03f954437a106199de3e91af113` (локальный playback с длительностью и пропуск ненужного prefetch), `38f5e67423c217cf37ac12b709e5781c77e8c8e4` (проверка лимита при старте), `cb087e592a0c020d922a71e3681926e548826d51` (очередь не отбрасывает новые избранные из-за малого лимита pending).
+- **Ограничения кэша:** Application Support, исключение из backup, предел 1 GiB, LRU, скачивание только новых обычных YouTube video tracks, явно добавленных в Favorites; существующие избранные не загружаются массово. Файлы WebM/Opus не сохраняются. Текущий `URLSession.shared.download(for:)` с utility task priority и `networkServiceType=.background` не является background URLSession и не гарантирует продолжение после принудительного закрытия/длительной приостановки. Полноценную background URLSession оставить отдельным следующим этапом после проверки текущей реализации на устройстве.
+- **Codemagic YAML audit:** корневой `codemagic.yaml` и `plei/project.yml` сверены. `working_directory: plei` означает, что скрипты создают `plei/build.log` и `plei/build/Build/Products/Release-iphoneos/Plei.app`; IPA копируется в корень clone directory через `$CM_BUILD_DIR/Plei-unsigned.ipa`. Codemagic документирует artifact paths как относительные clone directory, поэтому `Plei-unsigned.ipa`, `plei/build.log` и `plei/build/Build/Products/Release-iphoneos/Plei.app` соответствуют фактическим путям. Предыдущая проблема Build #1 `No artifacts were found` адресована копированием IPA в clone root и ZIP/path checks.
+- **Статус YAML:** корректен по статическому аудиту; изменений YAML не требуется. Workflow `pleer1-unsigned-ipa` собирает generic iOS device Release без подписи и без simulator. Ручной запуск доступен в Codemagic UI; в этой сессии нет прямого Codemagic build/dispatch подключения.
+- **Статус проверки:** только статические изменения и сверка исходников. Компиляция, Codemagic build, симулятор, xcodebuild, XcodeGen, IPA packaging и установка ещё не выполнялись. Несмотря на согласие пользователя приступить к билду, сам запуск через Codemagic должен быть инициирован в Codemagic UI; не объявлять IPA готовым до получения результата.
+- **Следующие проверки после сборки:** шкала и end event на треке с resolver duration около половины AVPlayer duration; cached favorite offline/no VPN; отсутствие повторного YouTube resolve при локальном файле; cache duration; добавление/удаление во время download; LRU/1 GiB; background/screen lock; поиск и очереди; Siri/background playback.
