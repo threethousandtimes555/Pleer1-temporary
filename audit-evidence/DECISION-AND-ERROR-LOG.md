@@ -1269,3 +1269,13 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - План: сначала пользовательский Codemagic build и проверка текущей YTM+legacy базы; затем прежний backlog (artwork, duration mismatch, auto-advance/skip, seek, queue/cache, Favorites/Downloaded/Recent, Telegram import/dedup, cellular UI и visual polish); дополнительные Musike features — после этого.
 - Статус проверки: source/document review only. Никакого Swift compile, JS bundle build, XCTest, Codemagic, IPA, install или iPhone runtime test в этой записи не было. Build #5 остаётся установленным; stable checkpoint не затронут.
 - Source HEAD: 29cc97997a243cda5796605e64a290987eecaf3a.
+
+
+### #065 — Codemagic first build: Swift diagnostic interpolation syntax error
+
+- User supplied Codemagic log from the first device Release build. Xcode reached Swift compilation; build exited status 65 at `YouTubeEngine.swift:107`.
+- Root cause: the `catalog.filter` comparisons used escaped quote sequences inside Swift interpolation (`\\"song\\"`, etc.), which Swift parsed as a broken interpolation/string literal.
+- Fixed by extracting `songCount`, `musicVideoCount`, and `youtubeVideoCount` as local values, then interpolating those constants into the diagnostic string.
+- Pleer1-Lab feature branch commit: `4edd6da89053a074ea3b1ff82f035022add1bc25`.
+- The updated source was fetched back from GitHub and visually verified. No local Swift compiler was available in this workflow; no compile, XCTest, simulator, IPA, install, or device test has been run after the correction.
+- Next action: user reruns Codemagic workflow `pleer1-unsigned-ipa` on `feature/youtubei-js-ios-fallback-2026-11-19`. Treat any subsequent compiler errors as new evidence; do not assume this was the only blocker.
