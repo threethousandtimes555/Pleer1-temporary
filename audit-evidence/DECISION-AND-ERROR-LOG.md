@@ -1169,3 +1169,12 @@
 - **Пересмотр прежних предложений:** (1) изменение Resolver request context как установленная причина — не подтверждено diff; (2) seek как причина пропуска observer — не подтверждено кодом; (3) оптимизация ожидания HTML fallback относится к задержке выдачи результатов поиска, а не к долгому старту уже выбранного аудио; (4) hash не решает сетевую буферизацию; (5) prefetch URL не равен gapless. Эти направления не использовать как основания для немедленного патча.
 - **Следующие read-only задачи:** изучить полный Build #14 → текущая IPA diff по оставшимся source files; отдельно проследить выбранный audio format (`mimeType`, `approxDurationMs`, `contentLength`, bitrate) и AVPlayer item duration; проверить доступные поля visitorData и raw playability payload в уже имеющихся логах/коде; отдельно проверить thumbnail source dimensions. Не запускать новые тесты и не менять код.
 - **Ограничения:** никаких новых IPA, скачиваний, сборок, симуляций, CI/workflow runs или изменений application source. Все выводы выше — read-only сравнение.
+
+
+**Дополнение к записи №065 — сверка остальных изменённых файлов:**
+- `YouTubeHTMLSearch.swift`: изменения относятся к search correlation ID, включению/исключению collections и корректной дедупликации video + playlist/radio результатов. HTML fallback не участвует в Resolve уже выбранного трека.
+- `YouTubePlaylistEngine.swift`: добавлено распознавание RD Mix из вариантов `playlistRenderer` / `compactPlaylistRenderer` / `gridPlaylistRenderer`; это search/collection parsing, не audio stream Resolve.
+- `Store.swift` / `Providers.swift`: добавлено сохранение набора включённых источников поиска; удалены ccMixter и Funkwhale из активного поиска. Это не меняет YouTube playback path.
+- `YouTubeDiagnostics.swift`: локальные диагностические записи дополнительно выводятся в консоль UI-тестов. Это наблюдаемость, не изменение Resolve.
+- `project.yml`: добавлена конфигурация UI-test target/scheme. Это тестовая инфраструктура.
+- `Views.swift`: изменения касаются активных источников поиска, диагностического экспорта и accessibility identifiers; layout `ArtView`/thumbnail не изменён.
