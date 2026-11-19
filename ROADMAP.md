@@ -549,6 +549,10 @@ The primary audit target is the **currently installed, newer development IPA**. 
 4. Hashing Track IDs does not accelerate YouTube Resolve or AVPlayer buffering; the local cache already has a non-cryptographic hash key.
 5. YouTube stream prefetch is Resolve-only, not gapless audio buffering.
 
+### New global LOGIN_REQUIRED observation — 19 November 2026
+
+Codemagic commit `33697a5904646e7fc3f442d8580afaff7f9da364` has parent `ec7bfe8f0fef22eb5fe0c2eb28573309de484db4` and changes only `codemagic.yaml`; no Swift source changed. The new 02:00 UTC log shows all three configured clients (VISIONOS, ANDROID_VR, IOS) receiving HTTP 200 with `LOGIN_REQUIRED` and the same bot-verification reason for video `bs4hu3M-cfY`. `visitorData available=true` only confirms a nonempty cached/fetched value; current source caches it for 24h and disables cookies. The player request body contains no PO token field. This raises an external YouTube anti-bot/session-context hypothesis, not a proven code regression. The same error is documented in a Jan 2026 YouTube.js issue affecting multiple clients; Cisco's Sep 2026 notice documents similar YouTube verification prompts in VPN/Secure Access paths. First discriminate by checking whether the same video plays in the official YouTube app/browser on the same iPhone and same network/VPN. No source changes or new builds/tests are authorized.
+
 ### Next read-only audit
 
 1. Finish reviewing the remaining source-file diffs between Build #14 and the current IPA candidate.
