@@ -915,3 +915,20 @@ PO Token и собственный auth/cookie flow — отдельный эт�
 **Если LOGIN_REQUIRED сохранится после baseline integration:** следующий отдельный этап — исследовать PO Token/proof-of-origin и допустимый authenticated cookie/session context. Пока не добавлять это вслепую: сначала выяснить, требуется ли вообще. Не извлекать cookies из sandbox официального YouTube app; iOS не предоставляет другому приложению доступ к его приватному cookie store. Не обещать, что PO Token устранит любой bot-check.
 
 **Производительность:** JS fallback не добавляет задержку, когда Swift primary успешен. Дополнительная работа возникает только после отказа всех Swift clients; холодный запуск требует поднять скрытый WKWebView и создать Innertube session, последующие вызовы могут переиспользовать session/cache. Существующий prefetch следующего трека может скрыть часть задержки. Точные цифры появятся только после device measurements.
+
+
+## 19.11.2026 — повторный предсборочный аудит WKWebView и Codemagic
+
+**Source head:** `threethousandtimes555/Pleer1-Lab@0c174079aa7edaf640ab3b803f0c83b546eb6f1b`.
+
+Повторная сверка обнаружила два важных build/runtime риска, которые исправлены до сборки:
+- локальный ES module import из `file://` заменён на единый classic IIFE runtime `youtubei-runtime.js`, формируемый esbuild из integrity-pinned youtubei.js 18.3.0 + Pleer1 bridge;
+- скачивание npm-пакета и bundling вынесены из Xcode `preBuildScripts` в отдельный Codemagic step до XcodeGen, чтобы не зависеть от Xcode user-script sandbox/network restrictions.
+
+Восстановлена Musike live iOS client config: Pleer1 JS fallback получает `mobile/streaming.json` с Musike `main`, с валидированием client list. Текущий список подтверждён как `IOS → VISIONOS`. Native Swift profiles остаются исходными Musike profiles.
+
+**Codemagic YAML:** корневой файл, ручной workflow без push triggers, установка XcodeGen/esbuild, подготовка runtime до XcodeGen, generic iOS device build, unsigned IPA packaging и artifact paths проверены статически. XcodeGen project spec не содержит больше network-dependent preBuildScripts. Scheme test alias `[test]` является допустимым XcodeGen syntax; Codemagic запускает только `xcodebuild build`, не test/simulator.
+
+**Статус:** статическая проверка и изменения завершены; ни XcodeGen, ни esbuild, ни xcodebuild, ни Codemagic, ни simulator/IPA/device tests не запускались. Runtime и compilation не объявлять подтверждёнными до единственного согласованного IPA build и проверки на iPhone.
+
+Порядок остаётся прежним: одна контролируемая IPA build → анализ build logs/resources → установка → device tests. Только после полной успешной интеграции разрешены repo revision и переход к Pleer1 1.0. PO Token/authorized session остаются последующим этапом, если baseline не устранит LOGIN_REQUIRED.
