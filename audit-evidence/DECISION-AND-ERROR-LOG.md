@@ -1483,3 +1483,20 @@ Current source branch head: `5dce04c6e09a40de20e3487a9851ba459c3f76c7`.
 Read-only inspection of youtubei.js 18.1.0 `web.ts` and `Session.ts` showed that the browser platform cache uses IndexedDB. Because this resolver is loaded from a local file URL, relying on browser storage support there would add an avoidable initialization risk. The JS adapter now passes a small in-memory `ICache` implementation to `Innertube.create()`; session caching remains available for the lifetime of the resolver runtime without requiring IndexedDB or file-origin local storage.
 
 Current source branch head: `5dce04c6e09a40de20e3487a9851ba459c3f76c7`.
+
+
+### Addendum — интеграционный порядок и разрешение на следующий этап (19.11.2026)
+
+Пользователь подтвердил следующий порядок работ:
+
+1. Сначала довести базовый перенос Musike до надёжного состояния: native Swift primary + настоящий JS/youtubei.js fallback, согласованный client context, устойчивый bridge, корректная упаковка локальных ресурсов и диагностика.
+2. Затем выполнить статическую проверку исходников и конфигурации. Это не означает запуск сборки или симулятора.
+3. После завершения работ и проверок разрешён один контролируемый IPA build для проверки. Не запускать серию сборок/симуляций и не расходовать CI на промежуточные эксперименты.
+4. После успешной интеграции и проверки на устройстве отдельно заняться ревизией и наведением порядка в репозиториях. До этого не объединять ветки, не чистить историю и не переносить проектные файлы между репозиториями.
+5. PO Token, собственная авторизация/cookies и более глубокая работа с anti-bot остаются следующим этапом после стабилизации базового переноса. Не заявлять, что они гарантированно устранят LOGIN_REQUIRED; не извлекать приватные данные официального YouTube app.
+
+### Уточнение текущего состояния исходников
+
+Read-only повторная проверка GitHub tree и файлов ветки Pleer1-Lab подтвердила source head `5dce04c6e09a40de20e3487a9851ba459c3f76c7`. Ветка содержит Swift JS resolver, локальный HTML/JS bridge, XcodeGen folder resource и pre-build script. При этом `plei/Scripts/prepare-youtubei.sh` и комментарий в `plei/project.yml` всё ещё закрепляют `youtubei.js 18.1.0`; запланированный upgrade до 18.3.0 ещё НЕ выполнен. Это обязательная задача перед build-ready состоянием, но checksum/tarball integrity должны быть подтверждены по официальному npm metadata/tarball, а не угаданы.
+
+Повторно подтверждено: никаких XcodeGen/xcodebuild, GitHub Actions/Codemagic runs, simulator, IPA downloads или device tests в рамках этого read-only прохода не запускалось. Разрешение пользователя относится к одному контролируемому IPA build после завершения source review, а не к промежуточным сборкам.
