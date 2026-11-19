@@ -672,14 +672,14 @@ Lab implementation on `feature/youtubei-js-ios-fallback-2026-11-19`:
 ### Реализованные source changes (не собраны и не установлены)
 
 Lab branch: `feature/youtubei-js-ios-fallback-2026-11-19`.
-Последний source commit на момент записи: `86f02970a9b17fb52b04cfd5c73e9277a0bb6289` (34 commits ahead of Build #5, 0 behind).
+Последний source commit на момент записи: `1c47717c3f264cb5fab63ec1dc40389f0eb24d9b` (35 commits ahead of Build #5, 0 behind).
 
 - `Media.swift`: добавлено консервативное распознавание YouTube 16:9 canvas с центральной квадратной обложкой. При достоверно однородных боковых полосах центральная квадратная область показывается как square; настоящие 16:9 сохраняют исходный ratio. Обработка sample bitmap использует валидный mutable pixel buffer. Не затронуты выбор исходника и алгоритм высокого разрешения. Требуется тест на `18:45:54` и настоящем широком thumbnail.
 - `Store.swift`: `Store.library` дедуплицирует объединённые files/favorites по Track.id. Импортированные local files по-прежнему автоматически добавляются в favorites отдельной логикой импорта.
 - `Views.swift`: «Любимое» возвращено в раскрываемый inline-раздел «Моё»; «Скачанные» и «Недавние» остаются отдельными страницами; названия приведены к «Любимое». Favorites list теперь содержит только store.favorites, не offline-only downloads.
 - `Views.swift`: cellular prompt перестроен по предоставленному референсу: центрированные заголовок и пояснение, вертикальные широкие кнопки «Продолжить» и «Только Wi-Fi»; действия не менялись.
 - `Views.swift` + `Player.swift`: SeekBar фиксирует track ID/loadToken при начале drag, сбрасывается при смене трека; Player.seek проверяет ожидаемую идентичность, логирует source и отклоняет stale command; lock-screen handler фиксирует snapshot до передачи команды на MainActor.
-- Изменения source commits: `4793520`, `a623bce`, `de0f65c`, `3f088b0`, `fd6d5d0`, `e9f9a39`, `9313815`, `86f0297`.
+- Изменения source commits: `4793520`, `a623bce`, `de0f65c`, `3f088b0`, `fd6d5d0`, `e9f9a39`, `9313815`, `86f0297`, `1c47717`.
 
 ### Валидация и ограничения
 
