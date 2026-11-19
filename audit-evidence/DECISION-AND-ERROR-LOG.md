@@ -1430,7 +1430,7 @@ Pleer1 технически может реализовать работающу
 
 База — актуальная рабочая ветка `fix/youtube-standalone-search-device-2026-11-19`, commit `a64ced41faf9fc93ec187c2d071e904bf0d1692b`. Ветка `main` в этом репозитории отстаёт и не содержит актуального YouTube resolver; поэтому не использовать main как integration base.
 
-Текущий source head на момент записи: `055cf5878a5fbf6962e88f57785a606f29f3d2a5`.
+Текущий source head на момент записи: `5dce04c6e09a40de20e3487a9851ba459c3f76c7`.
 
 ### Что уже добавлено в source branch
 
@@ -1466,7 +1466,7 @@ Pleer1 технически может реализовать работающу
 
 ### Addendum to Journal 075 — static pass
 
-- Source branch advanced to `055cf5878a5fbf6962e88f57785a606f29f3d2a5`; resolver and prefetch diagnostics now identify resolver source, client, bitrate and expiry without logging signed URLs.
+- Source branch advanced to `5dce04c6e09a40de20e3487a9851ba459c3f76c7`; resolver and prefetch diagnostics now identify resolver source, client, bitrate and expiry without logging signed URLs.
 - JS module initialization is explicitly checked after WKWebView navigation; failures are surfaced instead of silently waiting for the full resolver timeout.
 - Device language/region are used for the JS Innertube session.
 - Shell syntax of `prepare-youtubei.sh` was checked with `bash -n` and passed.
@@ -1476,4 +1476,10 @@ Pleer1 технически может реализовать работающу
 
 The local HTML host, JS bridge, generated browser bundle and generated license are now grouped under `plei/Sources/YouTubeResolver` and declared as one XcodeGen folder resource. The source scan excludes that folder from Swift compilation. The generated bundle/license are gitignored and created by the pre-build phase before the folder resource is copied. This avoids committing a placeholder bundle or loading a CDN at runtime.
 
-Current source branch head: `055cf5878a5fbf6962e88f57785a606f29f3d2a5`.
+Current source branch head: `5dce04c6e09a40de20e3487a9851ba459c3f76c7`.
+
+### Addendum — WKWebView storage isolation
+
+Read-only inspection of youtubei.js 18.1.0 `web.ts` and `Session.ts` showed that the browser platform cache uses IndexedDB. Because this resolver is loaded from a local file URL, relying on browser storage support there would add an avoidable initialization risk. The JS adapter now passes a small in-memory `ICache` implementation to `Innertube.create()`; session caching remains available for the lifetime of the resolver runtime without requiring IndexedDB or file-origin local storage.
+
+Current source branch head: `5dce04c6e09a40de20e3487a9851ba459c3f76c7`.
