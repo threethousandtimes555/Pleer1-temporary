@@ -399,3 +399,12 @@ HTTP 400 на `/youtubei/v1/config` не остановил загрузку: п
 
 
 - Дополнительная защита: при инициализации удаляются оставшиеся staging-файлы `.part`, а временный URLSession download-файл очищается через `defer` после получения результата/ошибки. Lab commit `e99f7ad71af61316a4a9d912505296f5b29e7bf3`.
+
+
+### Дополнение от 19 ноября 2026 — повторная сверка Musike, офлайн-кэш и Codemagic preflight
+
+- Восстановлены доступные диагностические итоги по запросам `Concrete`, `Crystal Castles`, `crystal castles playlist`, `Kunteynir`, `Kunteynir playlist`, `Kunteynir mix`; HTML fallback в этих запусках часто получал consent page без `ytInitialData`, но Innertube возвращал структурированные результаты. Подтверждено: обычный поиск возвращает видео, явный playlist-запрос возвращает отдельные плейлисты; коллекции не смешиваются с очередью треков. Mix/radio классификацию пока не менять.
+- Важная коррекция по Musike: его `MusikeAudio.swift` предпочитает длительность YouTube metadata, поскольку AVPlayer может сообщать примерно 2× padded duration. Pleer1 #041 был пересмотрен: resolver duration снова основная для шкалы и окончания; AVPlayer duration только fallback. Lab commit `a95760c293390288bf0095b1dc01e788adad0450`.
+- Favorites cache дополнен сохранением resolver duration, офлайн playback использует её; prefetch пропускает уже кэшированный избранный трек; сиротские файлы очищаются; 1 GiB лимит применяется при запуске; новые избранные ставятся в последовательную очередь без малого лимита pending. Commits: `eff1c2089d73dbd551baa8ca27f64f83852fce6c`, `8a2d0d2ce8f6a3062835e5777921227787d381bc`, `cd50b1a37eabc03f954437a106199de3e91af113`, `38f5e67423c217cf37ac12b709e5781c77e8c8e4`, `cb087e592a0c020d922a71e3681926e548826d51`.
+- Полноценная background URLSession не включена в текущую версию кэша. Её добавить после проверки базового кэширования, чтобы не усложнять первый device test. Текущая реализация не гарантирует продолжение после принудительного закрытия приложения.
+- Codemagic YAML проверен: artifact paths соответствуют clone-root semantics; IPA копируется в `$CM_BUILD_DIR/Plei-unsigned.ipa`; YAML изменений не требует. Ручной запуск workflow `pleer1-unsigned-ipa` на ветке `feature/youtubei-js-ios-fallback-2026-11-19` — следующий шаг в Codemagic UI. Build/install пока не выполнены.
