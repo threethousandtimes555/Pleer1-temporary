@@ -1473,3 +1473,13 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Codemagic Build #5: ID `6afee60816a4e9e15494d532`; Index 5; finished; workflow `Pleer1 — unsigned iOS device IPA`; started 2026-11-19 17:10 +05; duration 1m26s; Mac mini M2; branch `feature/youtubei-js-ios-fallback-2026-11-19`; commit `7eabcbc` / full SHA `7eabcbcbb83fe1aa402dc2831dbac29f8f507989`. User reports this is the build installed on iPhone. Distinct from GitHub Actions Build #5.
 - Continue complete commit-by-commit audit: each commit SHA/date/message/files/intent; determine whether current HEAD retains, supersedes, or reverts it; link source evidence and four-level status. Do not start fixes before audit completion; no Codemagic without explicit approval.
 - Visual direction: replace system-default iOS UI with Pleer1's own custom visual language based on user's previously shared mockup screenshot. “SF” was not a technical preference and must not be treated as one. Reuse the mockup if retrievable; otherwise ask for it only when visual phase starts.
+
+
+### #081 — Complete commit inventory; semantic audit still in progress
+
+- GitHub API returned 298 commits for `feature/youtubei-js-ios-fallback-2026-11-19` (100 + 100 + 98), from initial laboratory commit `c0e2d757c0cb4936b5ce1c875d6adbe9dbe7f535` to current HEAD `a69ddc5a7421a5346ed6a5009f749c2186a5d956`.
+- Every commit was individually fetched for metadata and diff. Do not misstate this as a completed line-by-line semantic audit: remaining hunks and current-HEAD reconciliation are still open.
+- Complete SHA/date/subject index: `audit-evidence/COMMIT-AUDIT-INDEX.md`.
+- Already reviewed in depth: Library/Recent/Store/Player/download/network, duration/Repeat One/seek provenance, YTM/JS resolver/WebKit lifecycle, and selected revert reconciliation.
+- Remaining: inspect/reconcile every other commit and changed hunk, especially SearchModel/search race, ordinary YouTube search, playlist/Mix parsing, artwork, import/Telegram, app lifecycle/persistence/diagnostics, CI/build workflow, and baseline import. For each: retain/supersede/revert status, current source evidence, test/build/device status, next action.
+- No source edit or build. Full audit remains the gate before implementation.
