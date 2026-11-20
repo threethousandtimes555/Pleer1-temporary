@@ -1355,3 +1355,14 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Дополнительный source review FavoritesAudioCache.swift: при скачивании в UserDefaults сохраняется только `stream.duration` (YouTube resolver metadata), а не независимо измеренная длительность сохранённого файла. При локальном воспроизведении Player использует `cachedDuration` как `knownYouTubeDuration`; AVPlayer item duration отдельно логируется и сравнивается. Это важная зона для P0: cached duration может быть тем же metadata value, а не реальной длительностью файла. Нельзя автоматически объявлять AVPlayer duration правильной без проверки содержимого и фактического конца аудио.
 - Пока не внесён speculative change, который просто заменяет resolver duration на AVPlayer duration: имеющееся наблюдение 218.00 vs 435.12 доказывает расхождение, но не доказывает, что удвоенная длительность asset соответствует слышимому аудио, а не padded/duplicated media timeline.
 - Проверки: source review only; Swift compile, XCTest, Codemagic и iPhone runtime не запускались.
+
+
+### #072 — «Недавние» как metadata-only history; Repeat One test scope
+
+- **Дата:** 20.11.2026.
+- Пользователь уточнил требование: «Недавние» не должны скачивать аудио или сохранять лишнюю информацию ради повторного воспроизведения. Это лёгкая история, а не offline cache.
+- Зафиксирован желаемый контракт: компактные метаданные (source/video ID, title, artist, artwork reference/URL, known duration, last-played timestamp); никаких аудиобайтов, stream URLs, AVPlayer/AVAsset/player items, resolver sessions, очередей или самостоятельных аудиокопий в истории. Повторное воспроизведение — через обычный resolver; если уже есть штатный локальный файл, использовать его без копирования.
+- Текущий source review: Store сохраняет history как [Track] в UserDefaults и ограничивает её 40 записями при загрузке/добавлении. Player.load вызывает store.addHistory(t). YouTube offline audio живёт отдельно в FavoritesAudioCache; его enqueue требует, чтобы ID уже находился в favoriteVideoIDs. Тем не менее нужно проверить полный Track Codable payload, сериализованные transient поля и все вызовы enqueue/cache, затем при необходимости ввести отдельную компактную HistoryEntry с миграцией.
+- Пользователь подтвердил: Play One — это Repeat One в полноэкранных controls (цикл repeat queue → repeat track → shuffle/off), не действие выбора строки. Следующая проверка должна охватывать общую работоспособность Repeat One, обязательно естественное завершение скачанного трека при включённом «Только скачанные»; проверить также потоковый трек и естественный конец, а не ручную перемотку.
+- **Порядок:** P0 — выяснить и исправить duration mismatch; затем комплексная проверка/починка Repeat One; затем остальные согласованные YTM resolver/search fixes; Musike feature ideas остаются отдельным этапом обсуждения после стабилизации.
+- Source review only для этого обновления документации; сборка и устройство не запускались.
