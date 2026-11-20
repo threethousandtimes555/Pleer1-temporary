@@ -1049,3 +1049,59 @@ Source HEAD после повторного аудита Musike: 6f53515f8974a60
 5. Не начинать функциональные правки до завершения инвентаризации и согласования приоритетов. Не запускать Codemagic без явного разрешения пользователя.
 
 Исторический аудит 20.11 просмотрел 298 commit entries и compare 47 commits ahead / 0 behind от точки 1c47717c3f, но не был полным построчным аудитом всех diff hunks. Это ограничение сохранять явно.
+
+
+## 17. Source audit продолжение: Library / Recent / downloads / network — 20 ноября 2026
+
+Проверены текущие исходники feature/youtubei-js-ios-fallback-2026-11-19 (source review; без компиляции и запуска на устройстве).
+
+### UI и библиотека
+
+- Views.swift blob: 1fe71608c29301ef6ea991a929cb1335ec7457b3.
+- RootView сохраняет три root tabs: «Поиск», «Моё», «Настройки».
+- LibraryView: верхняя панель «Играть всё»/«Перемешать» использует Store.library; блок «Любимое» находится в DisclosureGroup и может быть свёрнут; «Скачанные» и «Недавние» являются NavigationLink на отдельные экраны. Это не соответствует целевому дизайну: Favorites должны быть видимым верхним содержимым, а ниже две постоянно видимые кнопки-вкладки/сегмента Downloads и Recent, переключающие нижнюю область той же страницы.
+- RecentView использует TrackRow. TrackRow запускает player.play(list, at: list.firstIndex(of: track) ?? 0), поэтому source-level действие воспроизведения присутствует. Проверка replay после миграции/перезапуска/удаления локального файла на iPhone не выполнена.
+- PlaylistView и настройки остаются отдельными экранами/формой; корневые вкладки не менялись.
+- Текущий UI активно использует системные SwiftUI-компоненты и стили (TabView, NavigationStack, List, Form, Menu, Slider, systemImage, системные шрифты). Кастомные элементы уже встречаются (обложки, player backdrop, отдельные overlays), но проект пока не является полностью кастомной дизайн-системой. Пользовательское требование о нежелании оставлять системное оформление iPhone записано в §16; до уточнения значения «SF» не менять шрифты/символы механически.
+
+### Store и Recent history
+
+- Store.swift blob: c2dad1b067ad1e33f79b53c233a2d0a7b6b25ec7.
+- Models.swift blob: 84db1af1cb68451b8649cf63ac909df838e16f09.
+- Store.library формируется как deduplicated (files + favorites), сортируется по added.
+- Store.downloadedLibrary формируется как deduplicated (FavoritesAudioCache.downloadedTracks + files), сортируется по added. Это подтверждает source-level разделение скачанного и избранного.
+- History хранится как компактные HistoryEntry в UserDefaults his.v2; ограничение 40; legacy his мигрируется из [Track], старый ключ удаляется только после успешной записи новой сериализации. При наличии корректного his.v2 старый his удаляется как legacy.
+- HistoryEntry сохраняет id/title/artist/art/artFile/listenedAt и filename существующего локального файла; для YouTube URL принудительно nil, для других источников текущий Track.url сохраняется. Аудиоданные и stream URL YouTube в HistoryEntry не копируются.
+- HistoryEntry пока не содержит duration и youtubeResultKind.
+- Найдено поведение, требующее уточнения/возможного исправления: Store.addHistory возвращается без обновления записи, если тот же ID уже находится первым. Повторное прослушивание того же самого трека подряд не обновляет listenedAt. Позиция в Recent не меняется, но timestamp перестаёт отражать последнее прослушивание.
+- История хранит filename reference локального файла. Store.deleteFile удаляет файл и метаданные, но не удаляет/не помечает соответствующую HistoryEntry. Поэтому запись Recent может остаться после удаления файла; повторное нажатие может обратиться к уже отсутствующему локальному пути. Это source-level риск, требует проверки и решения (удалять entry, очищать file reference или показывать недоступность).
+- Не делать вывод, что migration безопасна на реальных старых данных, пока не будет теста с legacy UserDefaults и повреждённым/отсутствующим his.v2.
+
+### Player call sites / offline playback
+
+- Player.swift blob: 00385aa9cfdaeb11b08570cbd5a5ec7cc5863384.
+- Player.load обрабатывает radio/playlist/archive контейнеры до store.addHistory; обычная запись истории добавляется для реального трека после разворачивания контейнера.
+- YouTube track сначала проверяет FavoritesAudioCache.lookup; если есть offline copy — играет локальный кэш; иначе запускается свежий YouTube resolver. Это согласуется с metadata-only Recent.
+- FavoritesAudioCache.enqueue вызывается только когда store.isFav(track) == true; Recent не инициирует загрузку самостоятельно.
+- offlineOnly проверяет наличие завершённой локальной копии до начала загрузки. Отсутствующие треки удаляются из очереди с диагностикой offline_skip.
+- Удаление импортированного local file через Store.deleteFile не имеет такого же defer-if-current механизма, который есть у FavoritesAudioCache.removeDownloaded для текущего YouTube cached track. Требуется отдельный тест «удалить локальный файл во время воспроизведения» и «потом нажать на оставшуюся Recent запись».
+
+### FavoritesAudioCache / downloads / network
+
+- FavoritesAudioCache.swift blob: 9c63f242571d9373fdfda9211c67e580bf6f0146.
+- Completed YouTube offline downloads находятся отдельно от favorites; снятие лайка отменяет незавершённую загрузку, но сохраняет завершённые offline files в отдельной библиотеке.
+- Enqueue требует, чтобы YouTube track оставался в favorites; уже скачанный файл не ставится повторно в очередь.
+- Есть отдельный serial worker, очередь pendingTracks, retry action, обработка отмены, временные .part и очистка .part при запуске.
+- Скачивание проверяет MIME и сигнатуру контейнера (ISO BMFF ftyp для MP4/M4A или ADTS для AAC), размер и свободное место; ограничивает один файл 500 MB и резервирует минимальное свободное место. После HTTP 403/410 один раз удаляет временный файл, инвалидирует старый stream и запрашивает свежий URL.
+- Сохранение идёт через временный файл и staging .part с последующим переносом в конечное имя; existing downloads не должны незаметно вытесняться при превышении soft budget.
+- Network path change через NWPathMonitor возвращает активный трек в начало очереди, отменяет текущую задачу, инвалидирует resolver/JS URL cache и запускает worker заново после завершения invalidation. При обнаруженном cellular без разрешения загрузка удерживается и показывается prompt. Разрешение «Продолжить» действует на сессию приложения; «Только Wi-Fi» действует до возврата Wi-Fi.
+- Ограничение: NWPathMonitor не гарантирует обнаружение каждого изменения VPN egress/IP, если системный интерфейсный path остаётся тем же. Поэтому VPN handoff остаётся device test, не закрытая задача.
+- removeDownloaded откладывает удаление, если YouTube audio сейчас играет; импортированный файл через Store.deleteFile удаляется иначе. Нужна проверка обеих веток.
+- Эти пункты подтверждены только наличием соответствующей логики в исходниках. Build, сетевые переключения, реальные загрузки, удаление во время playback и восстановление после app relaunch ещё не проверены на iPhone.
+
+### Статус по четырём уровням на 20.11
+
+- **Реализовано в исходниках:** компактная Recent history + migration path; отдельный downloadedLibrary; local-first YouTube cache path; offlineOnly gate; download worker, storage/MIME checks, retry 403/410, route-change handling; Recent TrackRow playback action.
+- **Сборка/статическая проверка подтверждена:** для этих конкретных текущих blobs в рамках данного source audit не выполнялась новая Swift compile/build. Ранее успешные сборки не переносить автоматически на текущий HEAD.
+- **Подтверждено на iPhone:** только те тесты, для которых будет предоставлен лог/точный build identity; в этом source audit новых device tests нет.
+- **Требует исправления/проверки:** My layout; default/collapsed Favorites; Recent timestamp refresh; stale Recent entry after local file deletion; migration against real legacy defaults; local file deletion while playing; Wi-Fi/cellular/VPN handoff; download cancellation/retry/relaunch; storage pressure; duplicate traffic and file preservation.
