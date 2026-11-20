@@ -1573,3 +1573,13 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - **Conclusion:** no evidence that source parser, Xcode build, simulator or UI tests executed for these runs. The failures are not evidence of a source defect; exact dispatch/runner cause is not exposed. Do not speculate beyond this.
 - Manual GitHub IPA workflow is dispatch-only; its presence is not a successful build. Codemagic Build #5 is separate and remains the last confirmed successful device IPA build.
 - No workflow retry, rerun, simulator build or Codemagic build was initiated. Await explicit approval before spending build minutes.
+
+
+### #089 — Bounded YouTube auto-skip source audit
+
+- **Дата:** 20.11.2026.
+- Current source classifies explicit availability failures only (unplayable/unavailable, age-restricted/confirm age, private/removed, no direct audio). Generic network/bridge errors remain transient and do not skip.
+- AVPlayer failure gets one bounded fresh-resolve retry after invalidating the URL; only a subsequent definitive availability failure can skip.
+- Queue skip logic tracks unique IDs, attempts at most six consecutive unavailable tracks, avoids repeat attempts in the same run, ignores Repeat One when selecting another candidate, and resets after readyToPlay.
+- Status: implemented in source, not verified on latest iPhone build. Need runtime matrix for unavailable vs transient errors, retry, six-limit, exhausted queue, Repeat One, and mixed local/YouTube queue.
+- Source unchanged.
