@@ -1551,22 +1551,31 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 
 ### Таблица 3. Что мы обязательно должны сделать — возможности Musike, которые не оставляем забытыми
 
-Это отдельный продуктовый backlog. Все функции ниже — будущие задачи, а не уже реализованные возможности. Они не теряются и не подменяют стабилизацию текущего плеера.
+Сверка выполнена по Musike v1.5.1 README/feature list. Все пункты ниже — отдельный backlog, а не утверждение, что функции уже есть в Pleer1. Очерёдность — после стабилизации playback/search/resolver и отдельного UX-обсуждения.
 
 | Возможность | Что внедряем в Pleer1 | Критерий готовности | Зависимость |
 |---|---|---|---|
-| Albums | Поиск/распознавание альбомов, typed model и album detail со всеми треками и pagination | Альбом открывается по корректному ID, полный порядок треков сохраняется, треки воспроизводятся | Стабильные YTM search/parser |
-| Artists / discography | Переход от трека к исполнителю, artist page, albums/singles и pagination | Из песни можно открыть исполнителя и просмотреть полную дискографию | Albums + browse parsing |
-| Genres | Категории/жанры, typed genre model и отдельные страницы выдачи | Выбор жанра даёт воспроизводимый список без искусственного дописывания поискового запроса | Исследование YTM browse endpoints |
-| Live autocomplete | Suggestions endpoint, debounce, отмена старых запросов и выбор подсказки | Поздний ответ не затирает новый; выбор запускает поиск именно выбранного текста | SearchModel cancellation |
+| Search categories/tabs | Отдельные режимы/фильтры Songs, Videos и Albums поверх единого YTM catalog; не ломать текущий объединённый поиск | Пользователь может выбрать тип выдачи; ranking и отмена запросов не конфликтуют | SearchModel cancellation + стабильный catalog |
+| Albums | Поиск/распознавание альбомов, typed model, album detail со всеми треками и pagination; play in order/shuffle и «сохранить как плейлист» | Альбом открывается по корректному ID, полный порядок сохраняется, все треки воспроизводятся | Стабильные YTM search/parser |
+| Artists / discography | Переход от трека к исполнителю, artist page, greatest hits, albums/singles и pagination | Из песни можно открыть исполнителя и просмотреть дискографию с корректными IDs | Albums + browse parsing |
+| Genres | Категории/жанры, typed genre model, отдельные страницы; список артистов/групп и песен, Load more/continuation | Выбор жанра даёт воспроизводимую выдачу без искусственного дописывания поискового запроса | Исследование YTM browse endpoints |
+| Live autocomplete | Suggestions endpoint, debounce, отмена старых запросов и UI списка подсказок | Поздний ответ не затирает новый; выбор запускает поиск именно выбранного текста | SearchModel cancellation |
 | Direct watch URL | Вставка youtu.be / watch / shorts URL, проверка video ID и создание одиночного Track | Ссылка открывает правильный ролик; playlist/Mix URL не маскируется под одиночный трек | Надёжный resolver |
-| Batch search | Список запросов, ограниченный параллелизм, объединение частичных результатов и дедупликация | Несколько запросов завершаются без гонок, перегрузки и потери частичных результатов | SearchModel + cancellation |
-| Per-track radio / getUpNext | Радио/похожие треки от выбранной песни, seed и продолжение очереди | Радио строит очередь от нужного трека и стабильно получает следующую страницу | Queue + YTM continuation |
-| Official video matching | Связь аудиотрека с официальным видеороликом/каналом и сохранение обоих IDs | Сопоставление не подменяет исходный трек случайным видео | Typed YTM models |
+| Batch search / Search a list | Ввод нескольких названий, ограниченный параллелизм, best-match с возможностью заменить выбор, массовое добавление/избранное/воспроизведение | Несколько запросов завершаются без гонок и перегрузки; пользователь может исправить неверное сопоставление | SearchModel + cancellation |
+| Play Next / queue editing | Добавить трек следующим после текущего, переставлять/удалять элементы очереди, не теряя текущий индекс | Новые элементы встают в ожидаемое место; Next/Previous/Repeat/Shuffle не ломают очередь | Стабильная модель очереди |
+| Per-track radio / getUpNext | Радио/похожие треки от выбранной песни, seed и continuation | Радио строит очередь от нужного трека и стабильно получает следующую страницу | Queue + YTM continuation |
+| Autoplay radio at queue end | Опционально продолжать воспроизведение похожими треками, когда ручная очередь закончилась; отдельный переключатель и понятное состояние | Радио стартует только при включённой настройке; Repeat One/Repeat All и ручная очередь имеют предсказуемый приоритет | Per-track radio + queue lifecycle |
+| Official video matching | Связь аудиотрека с официальным видеороликом/каналом исполнителя и сохранение обоих IDs | Сопоставление не подменяет исходный трек случайным видео | Typed YTM models |
 | Audio / Video mode | Переключение audio-only ↔ official video с сохранением позиции и состояния очереди | Переключение сохраняет playback position, не создаёт дублей и не ломает background audio | Official video matching + Player lifecycle |
+| Native video experience | Отдельно спроектировать полноэкранный/мини-плеер и выбор качества; не считать WebM поддержанным заранее | Есть нативный iOS playback pipeline, синхронизация позиции, корректные lifecycle/PiP и проверенные поддерживаемые форматы | Отдельное решение по video pipeline; не часть текущей аудио-стабилизации |
 | Multi-select / bulk actions | Выбор нескольких треков, массовое добавление в Favorites/playlist, воспроизведение и удаление | Действия применяются только к выбранным IDs; selection доступен и понятен | Стабильная библиотека и UX |
 | Persistent queue | Сохранение queue snapshot: IDs/metadata, index, repeat/shuffle и position; stream URLs заново resolve после запуска | После relaunch очередь восстанавливается без expiring URLs и безопасно обрабатывает недоступные треки | Надёжные Track IDs + persistence |
 | Backup / export / restore | Версионированный архив, metadata и optional local files, preview, merge/replace и collision policy | До импорта виден preview; пользователь явно выбирает merge/replace; нет молчаливой потери данных | Persistent queue + library consistency |
+| Themes / accent colors | Светлая/тёмная тема, набор акцентных цветов и произвольный цвет; контраст и читаемость; всё в фирменном стиле Pleer1 | Тема/акцент применяются ко всем экранам, сохраняются после перезапуска и доступны с Dynamic Type | Отдельный custom design system после стабилизации |
+| Localization | Языковой выбор интерфейса и системных сообщений; YouTube Music genre/artist strings учитывать отдельно как внешние данные | Все ключевые экраны и сообщения локализованы, переключение не ломает поиск/навигацию | Решение о целевых языках + design system |
+| Configurable library/home sections | Изучить адаптацию Musike show/hide panels к мобильной структуре: какие секции «Моё»/главной можно скрывать или переставлять | Настройки не прячут обязательные действия и сохраняются между запусками | Отдельное UX-решение; desktop sidebar 1:1 не переносить |
+
+**Платформенные границы Musike:** lock-screen/headphone/background controls, Favorites/playlists/history и shuffle/repeat уже представлены в Pleer1 source и не считаются новыми backlog-функциями. Видео-режим, cinema/fullscreen и SD/HD controls в Musike README относятся к другим платформенным сценариям; для iOS это только отдельное будущее решение после нативного video pipeline. Настройки боковой панели desktop не переносить буквально в мобильный интерфейс.
 
 ### Порядок реализации и неизменные ограничения
 
