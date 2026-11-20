@@ -1187,3 +1187,18 @@ Source HEAD после повторного аудита Musike: 6f53515f8974a60
 - **Реализовано в исходниках:** concurrent three-source search; catalog parser + diagnostics; song/musicVideo classification and ranking; suggestions retry for empty YTM shelves; JS resolver cache/inflight generation guard; native fetch bridge; WebKit ready check/reload; AAC/MP4-only stream path; pinned/integrity-checked bundle preparation.
 - **Требует проверки/исправления:** SearchModel request identity; отмена outer searchCatalog task; cleanup readyWaiters при отмене; end-to-end timeout budgets; non-empty but irrelevant YTM results; real YTM search/playback on iPhone; age-restricted/authenticated/PO Token scenarios; network/VPN handoff.
 - **Сборка/устройство:** в этой проверке не запускались. Не считать интеграцию завершённой.
+
+
+## 20. Revert reconciliation: что осталось в HEAD, а что было восстановлено позже — 20 ноября 2026
+
+Сопоставлены diff трёх известных revert commits с текущими файлами активной feature-ветки.
+
+- **dd9f7ca09b — duration/end/seek diagnostics:** revert удалил lastSeekTarget, lastSeekRequestedAt и trigger/origin из finishCurrentItem/advance. В текущем Player.swift эти поля и trigger labels по-прежнему отсутствуют. Этот revert оставил реальный диагностический пробел: manual seek-to-end нельзя однозначно отличить от естественного окончания только по finish event. Открытая задача, P0 перед следующей серией natural-end тестов.
+- **5ec6207cce — Favorites + downloaded cache:** revert возвращал cached downloads в FavoritesView и показывал их даже после снятия лайка. Текущий Store/Views снова разделяет concepts: Store.library = files + favorites; Store.downloadedLibrary = FavoritesAudioCache.downloadedTracks + files; inline Favorites использует store.favorites. Значит, именно это поведение в текущем HEAD восстановлено/позже изменено, а не осталось как в revert. При этом экран Downloads всё ещё отдельный NavigationLink — это UX mismatch, не смешение данных.
+- **96b54c5e7d — library deduplication:** revert удалял deduplication из Store.library. Текущий Store.library снова использует Set ID и фильтрует дубликаты. Эта конкретная регрессия не присутствует в текущем source.
+- **3f088b0a9c:** current RootView содержит inline Favorites DisclosureGroup и custom cellular-download overlay with «Продолжить»/«Только Wi-Fi»; текущая версия кнопок визуально отличается от исходного patch details, но сама логика вызовов согласована с permission methods.
+- **b8aafeec5b:** current RootView сохраняет компактные root tabs «Поиск», «Моё», «Настройки»; отдельные Favorites/Downloads root tabs не используются.
+- **87c620a5e5:** current LibraryView сохраняет Section «Плейлисты» ниже media library. Порядок текущей media library всё ещё не соответствует новому требованию Favorites visible + lower Downloads/Recent segment tabs.
+- **68422d712a:** historical separate Favorites/Downloads root tabs не являются текущей архитектурой.
+
+Вывод: не все revert commits означают, что соответствующий старый код сохранился до HEAD. В текущем source из перечисленных revert-ов явно сохранилось удаление manual-seek provenance из dd9f7ca09b; deduplication и Favorites/Downloads data separation сейчас присутствуют. UI navigation remains separate task.
