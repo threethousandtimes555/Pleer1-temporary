@@ -1553,3 +1553,13 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Current Player.swift seek(source:) writes request/completion diagnostics, but there is no lastSeekTarget/lastSeekRequestedAt state and finishCurrentItem has no trigger/source argument. AVPlayerItemDidPlayToEndTime and watchdog/duration-end paths converge on the same finishCurrentItem, which then calls advance(auto:true).
 - **Confirmed audit finding:** current source cannot reliably distinguish a user seek to the end from natural AVPlayer EOF in the finish diagnostics. Manual seek-to-end may be treated as completion and auto-advance. Do not count manual seek-to-end as natural-end test evidence.
 - After duration root-cause analysis, first decide expected product behavior for manual seek-to-end; then implement explicit completion origin/provenance and tests for manual seek, AVPlayer natural end, and watchdog completion. No code change now.
+
+
+### #087 — Recent history semantic audit
+
+- **Дата:** 20.11.2026.
+- RecentView is a direct full list and matches the approved screen navigation.
+- Current Player.load() calls Store.addHistory(track) before resolver completion and before AVPlayer readyToPlay. Therefore a failed/unavailable track may appear in Recent. Whether «Недавние» means attempted/selected or successfully started playback is an open product decision; do not move the call site without deciding.
+- Store.addHistory() does not refresh the top entry if the same ID is already first, so HistoryEntry.listenedAt does not update on replay of the current most-recent track. Current HistoryEntry also does not store duration. It stores metadata and references only; no audio copy and no YouTube watch URL.
+- After commit audit, decide expected semantics and add tests for failed resolve, same-track replay, metadata update, and missing local file. Preserve metadata-only storage.
+- Source unchanged; no build.
