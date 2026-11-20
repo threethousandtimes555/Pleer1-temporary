@@ -1416,3 +1416,12 @@ Current active feature branch source reviewed: Store.swift `c2dad1b067ad1e33f79b
 - Store.addHistory() returns immediately if the same ID is already the first entry. Replaying the current most-recent track does not refresh HistoryEntry.listenedAt or its metadata. This may be fine for unique recent order, but it is not a true “last listened at” timestamp.
 - HistoryEntry currently stores title, artist, artwork URL/file reference, source ID, local filename reference, and listenedAt; it does not store duration. History does not own/copy local audio bytes and YouTube watch URL is omitted for YouTube IDs.
 - These are behavior/metadata decisions, not reasons to undo the metadata-only history design. Decide semantics after the commit audit; then add tests for failed resolve, replaying the same first item, and local-file deletion.
+
+
+### GitHub Actions execution evidence check — 20 November 2026
+
+- Read-only API review of the 100 latest runs on active feature branch found: Pleer1 source validation 10/10 failures; iOS simulator smoke 9/9 failures; companion audit workflow 81/81 failures.
+- Latest source-validation run 44702566334 on HEAD a69ddc5a7421a5346ed6a5009f749c2186a5d956 ended in 4 seconds; latest simulator run 44702566384 on the same HEAD ended in 11 seconds. Both job records show no step list and no logs URL. Job log download returns 404. No evidence that Swift parser, Xcode build, simulator, or UI tests actually executed.
+- Therefore these failures must not be interpreted as source compile/test failures. They are execution/runner/dispatch failures with exact cause not exposed by the returned job metadata. Do not claim runner exhaustion or a code error without logs.
+- The GitHub manual IPA workflow is workflow_dispatch-only; its presence does not establish a successful run. Codemagic Build #5 remains a separate, confirmed successful unsigned device IPA build on commit 7eabcbc.
+- No retry/re-run was triggered. Do not spend CI minutes or start another build without the user's explicit approval.
