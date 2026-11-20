@@ -1442,3 +1442,14 @@ Current active feature branch source reviewed: Store.swift `c2dad1b067ad1e33f79b
 - This is important to verify against the user's battery/data concerns. Do not assume it is free or change it silently. After audit, agree whether the intended policy is download-on-like, download-after-first-play, manual download action, or a combination; then define whether to pause/cancel download when user skips or background state changes.
 - Network path handling: consent is app-session scoped; declining pauses until Wi-Fi returns; a detected NWPath change requeues the active track and invalidates both resolver layers before retry. Detection is based on NWPath status/interface changes, not external egress-IP verification.
 - Storage: 500 MiB per-track cap and 64 MiB reserve are hard guards; 1 GiB total is a soft budget that logs overage and preserves completed downloads (no silent eviction). Document as soft, not hard, total limit.
+
+
+### Resolver timeout/cancellation deep check — current source details
+
+- Native Swift resolve: YouTubeEngine.post() does not set URLRequest.timeoutInterval; requestSession is ephemeral with platform defaults. resolveUncoordinated() fetches visitor data, iterates client profiles, and then may invoke JS fallback; no single end-to-end deadline wraps the full chain.
+- JS stream resolve: YouTubeJSResolver.resolveOnce() has a 120-second continuation timeout. Caller cancellation resumes/removes the Swift continuation but sends no cancel command to JavaScript.
+- WebView readiness: ensureReady() waits on readyWaiters and has a 30-second timeout, but no cancellation handler removes a caller's waiter. A cancelled caller can remain suspended until runtime becomes ready or the shared timeout fires.
+- Catalog: internal searchCatalogOnce() has 75 seconds; outer searchCatalog() has 15 seconds and cancels workTask on its own deadline. That still does not cancel the JS Promise/native fetch operations already started.
+- Native fetch bridge: performNativeFetch() calls URLSession.shared.data(for:) with 30-second request timeout (6 seconds for raw.githubusercontent.com). There is no requestID→URLSessionTask registry or abort message, so Swift cannot cancel a specific native fetch when its JS Promise or catalog caller is cancelled. JS pendingFetch is cleaned on normal resolve/reject, but cancellation/timeout can leave underlying work alive until the HTTP request returns or WebKit process exits.
+- WebKit process termination fails pending continuations and clears Swift maps; it does not explicitly cancel native URLSession tasks already in performNativeFetch.
+- This confirms the P1 cancellation/cleanup and end-to-end timeout tasks. Keep stream resolver, catalog resolver, and native fetch timeout budgets distinct; do not simply shorten one timer without understanding retries and caller expectations.
