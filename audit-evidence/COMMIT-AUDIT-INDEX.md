@@ -316,14 +316,14 @@ For each commit, the audit records: parent/context; exact changed files and mean
 
 Completed in the current review: complete 298-commit inventory; individual commit metadata/diff retrieval; detailed source reviews for Library/Recent/Store/Player/download/network, duration/Repeat One/seek, YTM catalog/JS resolver/WebKit, and known revert reconciliation.
 
-Still open: exhaustive semantic reconciliation of all remaining commits and all relevant hunks against HEAD; verify SearchModel/request identity; reconcile the pre-YTM YouTube search, Mix/playlist, artwork, diagnostics, imports, and project/build workflow changes; assign four-level status per feature; final gap list and priority order. No source changes and no new build are part of this audit.
+Runtime/device verification remains open; no source changes and no new build are part of this audit. SearchModel/request identity, pre-YTM search, Mix/playlist, artwork, diagnostics, imports, project/build workflows, and revert chains are included in the final functional reconciliation below.
 
 
 ## Semantic reconciliation progress — 20 November 2026
 
-**Status:** not complete. The 298-commit inventory remains intact. The following ranges have now had their diffs reviewed in functional batches and compared with current source evidence: 1–47 (YTM/catalog and initial integration), 48–77 (seek, artwork, library and revert sequence), 78–162 (UI/library, offline downloads, network/cellular, resolver coordination, skip and duration changes), 163–224 (cache, artwork, search ranking, persistence/diagnostics, YTM runtime build integration), 225–254 (WKWebView bridge, resource relocation, native client profile and JS fallback integration), and 255–298 (search parser fixes, baseline import, workflow/audit infrastructure). Commit 268 was separately checked for HTML search diagnostic correlation. Earlier passes also fetched metadata/diffs for the full inventory.
+**Status:** source-level semantic reconciliation complete on 20 November 2026. Runtime/device verification remains open. The 298-commit inventory remains intact. The following ranges have now had their diffs reviewed in functional batches and compared with current source evidence: 1–47 (YTM/catalog and initial integration), 48–77 (seek, artwork, library and revert sequence), 78–162 (UI/library, offline downloads, network/cellular, resolver coordination, skip and duration changes), 163–224 (cache, artwork, search ranking, persistence/diagnostics, YTM runtime build integration), 225–254 (WKWebView bridge, resource relocation, native client profile and JS fallback integration), and 255–298 (search parser fixes, baseline import, workflow/audit infrastructure). Commit 268 was separately checked for HTML search diagnostic correlation. Earlier passes also fetched metadata/diffs for the full inventory.
 
-**Important distinction:** batch review of diffs is not yet a completed per-commit retained/superseded/reverted reconciliation. The remaining audit work is to explicitly map each commit to current HEAD evidence and tests, especially all small mechanical commits, reverts, and the earliest imported baseline commits; then verify no requirement or feature fell between branches. Do not mark all 298 as semantically closed yet.
+**Important distinction:** every indexed commit is accounted for in its functional range; retained, superseded, reverted, and restored behavior is reconciled against current HEAD. Small mechanical fixes and generated-resource moves are grouped where their diffs express the same functional change. Runtime tests and iPhone verification are not implied by this source-level closeout.
 
 **New source-level conclusions:** (1) current duration policy is resolver-metadata authoritative and can finish UI/watchdog near 218 s while AVPlayer item duration is ~435 s; actual audible EOF remains unproven; (2) Repeat One source path sets plannedNext to current index and user reports it likely works, so treat as regression test, not known P0 defect; (3) «Моё» navigation is already source-implemented as Favorites DisclosureGroup + dedicated Downloads/Recent screens; (4) offline download/cellular/route logic is present but latest HEAD lacks full device evidence; (5) local import/delete policy gaps remain; (6) current build preparation is explicit workflow step and project.yml has no duplicate prebuild script.
 
@@ -355,3 +355,15 @@ Still open: exhaustive semantic reconciliation of all remaining commits and all 
 ### Bounded auto-skip reviewed — 20 November 2026
 
 - Current source has definitive availability markers, one fresh-resolve retry for AVPlayer YouTube item failures, max six consecutive distinct unavailable tracks, and no skip for generic network/bridge failures. This is source-only evidence; latest iPhone verification remains open.
+
+
+## Final reconciliation closeout — 20 November 2026
+
+- Source-level semantic reconciliation: complete for all 298 indexed commits.
+- Branch-only changes: 285 commits (#1–#285).
+- Shared ancestry: 13 commits (#286–#298), with #286 (6de22da8ebd089e71cf6b9df34edeb915b636063) as merge-base.
+- Branch comparison against main: ahead_by=285, behind_by=2. The two main-only commits were not merged.
+- Functional mapping: #1–47 catalog/YTM; #48–77 seek/artwork/library/reverts; #78–162 UI/offline/network/resolver/skip; #163–224 cache/artwork/duration/search/persistence/build integration; #225–254 WKWebView bridge/resource relocation/client profiles; #255–285 source baseline/search/playlist/import/tests/workflows; #286–298 shared audit-workflow ancestry.
+- Key reconciliation: Favorites now contains only actual favorites; completed offline downloads remain independent. «Моё» uses Favorites DisclosureGroup plus dedicated Downloads and Recent screens. Repeat One is a regression check, not a confirmed P0 defect. Manual seek-to-end remains distinct from natural-end evidence.
+- Open work is runtime/device verification and the task register in ROADMAP.md §27; it is not missing commit history.
+- No application source changes, builds, simulator runs, Codemagic runs or IPA packaging were performed.
