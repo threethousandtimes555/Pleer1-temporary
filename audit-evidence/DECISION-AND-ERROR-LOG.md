@@ -1541,3 +1541,15 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - **Future Musike features:** ROADMAP §26 now contains a concrete implementation sequence and acceptance criteria for albums, artists/discography, genres, autocomplete, direct watch URL, batch search, per-track radio, official video/audio-video switching, multi-select, persistent queue and backup/restore. These are planned future work, not implemented features.
 - **Plan correction:** Repeat One moved from active P0 defect to regression check based on user's latest report; duration remains P0. Favorites/Downloads/Recent screen navigation is source-implemented, not device-verified.
 - Source unchanged; no build/workflow run; continue commit-by-commit reconciliation.
+
+
+### #086 — Revert chain reconciled: manual seek completion provenance is absent in current HEAD
+
+- **Дата:** 20.11.2026.
+- Reconciled commits 96b54c5, 5ec6207, dd9f7ca against later commits and current source:
+  - Store.library dedupe reverted, later restored by 1bef38f / a623bce; current HEAD dedupes stable Track.id.
+  - Favorites briefly included completed offline downloads, later corrected by 9313815 / 6dc1ee6; current FavoritesView uses only store.favorites.
+  - dd9f7ca reverted the recent-seek-to-end classification fields and typed completion trigger. 1cd735 resets the watchdog baseline after a seek but does not restore completion provenance.
+- Current Player.swift seek(source:) writes request/completion diagnostics, but there is no lastSeekTarget/lastSeekRequestedAt state and finishCurrentItem has no trigger/source argument. AVPlayerItemDidPlayToEndTime and watchdog/duration-end paths converge on the same finishCurrentItem, which then calls advance(auto:true).
+- **Confirmed audit finding:** current source cannot reliably distinguish a user seek to the end from natural AVPlayer EOF in the finish diagnostics. Manual seek-to-end may be treated as completion and auto-advance. Do not count manual seek-to-end as natural-end test evidence.
+- After duration root-cause analysis, first decide expected product behavior for manual seek-to-end; then implement explicit completion origin/provenance and tests for manual seek, AVPlayer natural end, and watchdog completion. No code change now.
