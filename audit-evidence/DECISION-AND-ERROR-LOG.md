@@ -1615,3 +1615,15 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - withClient() invalidates a shared session on any thrown exception and retries once. Since operations share a lang/region session, concurrent exceptions may cause session churn; mark as hypothesis/race risk, not confirmed functional failure.
 - Keep client configuration, 64-entry in-memory expiring stream cache, and FavoritesAudioCache conceptually separate.
 - No source changes.
+
+
+### #085 — Network/download cluster semantic audit (partial)
+
+- Reviewed commit segment: 08b07cf, 6a5fd56, f5344f0, 56031eb, 4195aae, 0f3ee45, da9bd55, 3a74010, be3bfb2, e00b1ae, b83253b, f3b2e2e, 2a6250c, 60020f3, 972f1fb. Reconciled relevant behavior against current YouTubeEngine.swift, FavoritesAudioCache.swift, YouTubeJSResolver.swift.
+- Resolver invalidation decision in code history: an earlier change cancelled in-flight jobs; later f5344f0 intentionally changed this to detach stale jobs from cache while allowing existing consumers to finish, to avoid breaking active playback. Generation checks prevent stale results being cached after route change. Deliberate behavior; requires race tests.
+- Download handoff: detected path change requeues active track, clears preferred stream, cancels worker, invalidates JS + Swift resolver caches, and gates restart until invalidation tasks complete. Cellular permission is app-session scoped and enforced in URLSession config. URLSession failures reconcile current NWPath snapshot before declaring final failure.
+- Offline safety: serial capped download; 500 MiB per track, 1 GiB total cache, 64 MiB free reserve; unknown size bounded by available capacity; expected MIME plus MP4/AAC file-signature checks; one refresh retry for 403/410; temp cleanup on cancellation; deferred active-file deletion persisted. Source facts, not device verification.
+- Confirmed follow-up gap: JS forgetVideo generation-invalidates and removes in-flight mapping but does not itself abort network work started by directAudio; native fetch is bridged to URLSession but current audit has not yet confirmed per-request abort/cleanup. Possible wasted network work after handoff/cancellation. Continue checking pending-fetch map and bridge cancellation.
+- VPN caveat: NWPathMonitor interface type/satisfaction may remain unchanged when VPN egress IP changes; current source cannot guarantee detection of every VPN route change.
+- Tests still required: resolver old/new generation race; route changes including rapid transitions; VPN egress same interface; cancellation before/after URLSession task creation; cap overflow cleanup; remove active download; 403/410 one-retry; cellular prompt and permission enforcement; low storage; deletion while playback active.
+- No source changes/build/device tests in this audit segment.
