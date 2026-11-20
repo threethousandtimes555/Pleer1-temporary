@@ -1366,3 +1366,15 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Пользователь подтвердил: Play One — это Repeat One в полноэкранных controls (цикл repeat queue → repeat track → shuffle/off), не действие выбора строки. Следующая проверка должна охватывать общую работоспособность Repeat One, обязательно естественное завершение скачанного трека при включённом «Только скачанные»; проверить также потоковый трек и естественный конец, а не ручную перемотку.
 - **Порядок:** P0 — выяснить и исправить duration mismatch; затем комплексная проверка/починка Repeat One; затем остальные согласованные YTM resolver/search fixes; Musike feature ideas остаются отдельным этапом обсуждения после стабилизации.
 - Source review only для этого обновления документации; сборка и устройство не запускались.
+
+
+### #073 — Компактная HistoryEntry и однократная миграция Recent
+
+- Дата: 20.11.2026.
+- Добавлена модель HistoryEntry вместо хранения полных Track в истории.
+- Store теперь использует historyEntries и новый UserDefaults key his.v2; старый his декодируется как [Track], преобразуется в компактные записи, записывается в his.v2 и удаляется только после успешного кодирования/сохранения. Существующая история ограничивается 40 элементами.
+- Сохраняются ID/title/artist/artwork, существующий локальный filename reference, added и listenedAt. YouTube URL очищается, чтобы не хранить короткоживущий watch/stream locator и всегда получать свежий URL через resolver. Для других источников пока сохраняется Track.url, так как текущий Player использует его для replay; это отдельный компромисс, который нужно проверить на устойчивость/возможность re-resolve.
+- rename() теперь обновляет compact history entry; UI по-прежнему получает [Track] через computed history.
+- Call-site audit: addHistory() сам не вызывает аудиокэш. FavoritesAudioCache.enqueue() в Player выполняется только при store.isFav(track) == true; история не создаёт favorite membership и не запускает загрузку сама по себе.
+- Source commits: 84e60f2ee4a041c585e2ce2e027f998cf6ccd67a, a69ddc5a7421a5346ed6a5009f749c2186a5d956.
+- Ограничения: Track пока не содержит normalized duration, поэтому HistoryEntry не сохраняет known duration. Нет Swift compile, теста migration на реальном legacy UserDefaults, проверки replay из Recent и iPhone runtime. Codemagic не запускался. Следующий шаг — source validation/static parse, затем при разрешении пользователя единый build/device test.
