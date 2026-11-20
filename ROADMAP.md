@@ -1461,3 +1461,29 @@ Current active feature branch source reviewed: Store.swift `c2dad1b067ad1e33f79b
 - The embedded youtubei.js resolver uses live client configuration from Musike's raw GitHub main/mobile/streaming.json, with localStorage fallback and default IOS/VISIONOS. Current validator checks uppercase identifier format and uniqueness but has no pinned revision/signature or strict maximum list length. This is an intentional live-update dependency, not the same as a Pleer1 proxy/server.
 - withClient() invalidates the shared lang/region session and retries once after any thrown request exception. Concurrent operations share a session key; one request exception can invalidate the shared session while other operations are still using the previous session object. This is a possible concurrency/session-churn risk; verify with concurrent resolve/search failures before changing.
 - Stream cache is in-memory, bounded to 64 entries and pruned near expiry; it is not a persistent audio cache. Client configuration, stream cache and FavoritesAudioCache are three distinct layers.
+
+
+## 26. Audit continuation — network handoff, downloads, stream cache (20 Nov 2026)
+
+Semantic reconciliation continued for the network/download commit cluster, including 08b07cf, 6a5fd56, f5344f0, 56031eb, 4195aae, 0f3ee45, da9bd55, 3a74010, be3bfb2, e00b1ae, b83253b, f3b2e2e, 2a6250c, 60020f3, 972f1fb. This is a reviewed segment, not completion of all 298 commits.
+
+**Confirmed current source behavior:**
+- Resolver coordinator shares one native+JS resolver task per video ID. Resolved cache max 64, refresh margin 60 sec; expired/unknown-expiry entries are discarded. Current invalidation increments a generation and removes cache/inFlight mapping but does not cancel an already shared resolver task. This was intentional after f5344f0: preserve the result for consumers already awaiting it (e.g. active playback), while prevent that stale generation being cached for future lookups. A fresh request after invalidation can start a new resolver job while old consumers still await the previous task.
+- Network-path changes in FavoritesAudioCache requeue active track at queue head, clear preferred stream, cancel serial download worker, invalidate JS and Swift resolver layers, and wait for pendingRouteInvalidations == 0 before restarting. This is the intended download path-handoff policy. NWPathMonitor only observes detected interface/satisfaction changes; a VPN egress/IP change on the same interface may not trigger it. Do not claim VPN transitions are fully detected.
+- Cellular permission is session-scoped; URLSessionConfiguration.allowsCellularAccess and allowsExpensiveNetworkAccess are set from that permission. On an unapproved cellular path, queue pauses and prompt state is refreshed. Keep-Wi-Fi defers until Wi-Fi returns.
+- A failed URLSession download can reconcile pathMonitor.currentPath before marking a network error final, because NWPathMonitor delivery can lag behind URLSession failure.
+- Offline downloads use a serial queue and capped URLSessionDownloadDelegate transfer, per-track cap 500 MiB and free-space reserve 64 MiB; cache total cap 1 GiB. Unknown-size transfers are bounded by available capacity. Download MIME validation checks both expected stream MIME and file signature (ISO BMFF ftyp for MP4/M4A; ADTS sync for AAC). application/octet-stream accepted only when signature matches expected format. iOS fallback is intentionally restricted to audio/mp4 in JS bridge.
+- Expired stream HTTP 403/410 triggers one fresh resolver attempt. Retry state/failure reason is persisted and low-storage failures retain retry action.
+- Download cancellation removes temporary file and cancels URLSession task. Active audio deletion is deferred until track switch, with deferred deletion IDs persisted.
+- Resolver result can be reused by download queue when playback already resolved the same favorite, avoiding duplicate resolve work.
+
+**Audit concerns / items to verify against full history and tests:**
+1. Current Swift coordinator invalidation deliberately detaches but does not cancel old in-flight resolver work. Check old playback consumer vs new post-handoff consumer; old completion must not overwrite new inFlight entry/cache. Generation check appears to prevent stale cache insertion.
+2. JS bridge forgetVideo increments stream generation and deletes inflight mapping, but does not abort underlying directAudio network operations. Old result is blocked from cache insertion by generation guard; however native fetches may continue. Audit pending nativeFetch cleanup and possible wasted cellular data after route changes.
+3. Route invalidation uses one unstructured Task per detected path change; pending counter gates worker restart. Test rapid transitions, unsatisfied path, Wi-Fi↔cellular, and VPN egress change without interface change.
+4. CappedAudioDownload.cancel cancels URLSessionDownloadTask. Verify continuation/session cleanup for cancellation before task creation, concurrent cancel, didComplete callback, and byte-cap abort.
+5. removeDownloaded removes pending job and cancels worker if active. Confirm active temporary/final file cleanup and queue consistency after cancellation.
+6. Product behavior to agree after audit: what happens if user removes a downloaded track while it is also a Favorite/playlist/history entry; do not infer that removal should delete Favorites or history.
+7. No iPhone validation inferred from source or commit descriptions. Cellular consent, route handoff, storage pressure, retry, cancellation, and delete-while-playing need explicit device scenarios later.
+
+**Status:** source implementation present for this cluster; historical commits are in the audited segment; no new build or device test performed. Full commit reconciliation remains in progress.
