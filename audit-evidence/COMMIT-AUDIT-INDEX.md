@@ -336,3 +336,10 @@ Still open: exhaustive semantic reconciliation of all remaining commits and all 
 - Commit 5ec6207 reverted Favorites-only display and temporarily merged downloadedTracks into Favorites; later 9313815 and 6dc1ee6 restored Favorites-only content, and current FavoritesView uses store.favorites.
 - Commit dd9f7ca reverted recent-seek-to-end classification fields and typed completion trigger. Commit 1cd735 resets the YouTube watchdog baseline after seek but does not restore the classification. Current Player has seek source diagnostics but no lastSeekTarget/lastSeekRequestedAt correlation; finishCurrentItem has no trigger/source argument.
 - **Current source gap:** manual seek to end may flow into the same completion/advance path as natural AVPlayer EOF. This does not make manual seek a valid natural-end test. Expected behavior for manual seek-to-end must be decided before a fix.
+
+
+### Recent history semantics checked — 20 November 2026
+
+- RecentView is a direct list screen.
+- Player.load() records history before resolver/AVPlayer readiness; failed tracks may appear in Recent. Store.addHistory() does not refresh listenedAt when the same ID is already first. HistoryEntry does not store duration and retains only metadata/local filename reference, not audio bytes or YouTube watch URL.
+- Expected semantics (“attempted/selected” vs “actually started playing”) remain a product decision. No source change.
