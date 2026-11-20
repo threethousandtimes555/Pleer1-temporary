@@ -863,3 +863,35 @@ Source HEAD после повторного аудита Musike: 6f53515f8974a60
 **Осознанно не перенесено из Musike:** autocomplete UI, browse альбомов/исполнителей/жанров, per-track `getUpNext` radio, official-video matching, batch search, desktop/server yt-dlp. Они остаются отложенными до стабилизации базового YTM + YouTube поиска и воспроизведения. WebM также не добавлять без отдельного нативного codec/player pipeline.
 
 **Проверка:** Codemagic build подтверждает Swift app compilation и IPA packaging; JS runtime только собран и упакован, его выполнение не проверено. XCTest/UI tests не запускались; GitHub Actions ранее не получил runner (`runner_id=0`). Нет проверки на реальном iPhone для YTM search, audio resolve, background/Siri, queue, natural auto-advance, VPN route handoff или offline downloads. Build #5 остаётся последней версией, фактически проверенной на устройстве; stable checkpoint `6ff25c7...` не затронут.
+
+
+## 14. Дополнительная инвентаризация механик Musike v1.5.1 — 20 ноября 2026 года
+
+Официальная GitHub Releases page на дату аудита помечает v1.5.1 как Latest. Повторная сверка README/feature list Musike с Pleer1 выявила дополнительные функции, не входившие в первоначальные 7 технических замечаний:
+
+- YTM albums tab / поиск альбомов и открытие полного альбома.
+- Страницы исполнителей / дискографии.
+- Browse по жанрам YouTube Music.
+- Автоподсказки по мере ввода (не только retry suggestions после пустой выдачи).
+- Вставка прямой YouTube watch URL для отдельного трека (сейчас есть отдельный парсер плейлистных ссылок, но не полноценный direct-track URL flow).
+- Search a list: пакетный поиск нескольких названий.
+- Multi-select треков и массовые действия: play/favorite/add to playlist.
+- Backup/export и merge/replace import библиотеки с preview.
+- Сохранение и восстановление текущей очереди после перезапуска.
+- Audio/video mode switch с сохранением текущей позиции.
+- Подбор официального музыкального видео с канала исполнителя и переключение audio/video.
+- Per-track radio / getUpNext.
+
+Текущая iOS UI/source проверка подтверждает: SearchView пока только запускает запрос по submit; нет suggestion UI, album/artist/genre browse, batch search, multi-select или backup/restore UI. `YouTubePlaylistEngine.playlistTrack(from:)` разбирает YouTube playlist URLs; отдельный сценарий для одиночного watch URL не реализован. Player queue не сохраняется в Store/UserDefaults как восстанавливаемое состояние. В UI нет video mode switch. Это backlog для будущих этапов, не часть текущего срочного стабилизационного патча.
+
+Не переносить механически платформенные/серверные части Musike (yt-dlp/FFmpeg, desktop server, web UI). Для iOS каждую функцию проектировать нативно и сохранять текущий AAC/MP4 + AVPlayer путь.
+
+### Play One — отдельный пользовательский дефект, диагностика не завершена
+
+Пользователь сообщил, что сценарий/функция «Play One» дважды не сработал; после перезапуска приложение снова работало, но проблема повторилась, в том числе после ещё одного перезапуска. Приложен diagnostics excerpt от 20.11.2026 06:39–06:43.
+
+В видимом фрагменте нет событий начала нажатия/действия, `playback.load`, `playback.resolve.begin` или `playback.favorite_audio_cache_hit`, поэтому первопричина не определяется. Есть успешный prefetch следующего трека через Swift/VISIONOS, а текущий `yzjnHQZrHGKY` показывает `item=1`, `control=2`, `empty=false`, `likely=true`, `waiting=none` и движение позиции 215→236 секунд. Это похоже на нормальное состояние воспроизведения в показанном отрезке, а не на зависание. При этом `expected=218.00`, `assetDuration=435.12` — примерно двукратное расхождение длительности, известная отдельная проблема.
+
+В текущем source нет отдельной строки/обработчика с названием `Play One`; нажатие на строку TrackRow вызывает `player.play(list, at: selectedIndex)`, то есть запускает очередь списка с выбранного трека, а не однотрековый queue. Нужно уточнить у пользователя, означает ли «Play One» именно нажатие на один трек в списке или другой UI/команду. Следующая диагностика должна включать полный журнал с момента до действия и после него, не очищая журнал, и добавить явный лог intent/origin для запуска single row, очереди, Siri/remote actions.
+
+До уточнения не менять семантику одиночного запуска наугад. Не объявлять дефект исправленным по факту перезапуска.
