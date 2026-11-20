@@ -373,6 +373,13 @@ Runtime/device verification remains open; no source changes and no new build are
 
 - Reviewed inventory: 298 commit entries; each SHA was individually fetched for metadata/diff and the history was read newest-to-oldest in functional batches.
 - Current feature HEAD: `a69ddc5a7421a5346ed6a5009f749c2186a5d956`.
-- Comparison against `main`: merge base `6de22da8ebd089e71cf6b9df34edeb915b636063`, feature branch ahead 285, behind 0. The 298-entry reachable-history inventory must not be explained as commits 286–298 being common commits with main.
+- Comparison against `main`: merge base `6de22da8ebd089e71cf6b9df34edeb915b636063`, feature branch ahead 285, behind 2. The 298-entry reachable-history inventory must not be explained as commits 286–298 being common commits with main.
 - Functional dispositions and the three project task matrices are recorded in `ROADMAP.md` §27. Major revert/restore chains and open technical risks remain explicitly documented there and in the decision log.
 - This audit is source/history review only. It does not prove current-head compilation, CI success, installation, or iPhone runtime. No source code or build workflow was changed/run during this pass.
+
+## Build #5 baseline comparison — 20 November 2026
+
+- Confirmed Codemagic Build #5 source commit: `7eabcbcbb83fe1aa402dc2831dbac29f8f507989`.
+- Current feature HEAD: `a69ddc5a7421a5346ed6a5009f749c2186a5d956`.
+- Compare result: 82 commits ahead, 0 behind; merge base is exactly Build #5. The current feature branch is a linear continuation of the installed baseline.
+- This comparison does not imply that the 82 later commits were compiled, installed or tested on iPhone. No new build or device verification was performed in this audit.
