@@ -1303,3 +1303,39 @@ Current active feature branch source reviewed: Store.swift `c2dad1b067ad1e33f79b
 - Source implemented: direct share URL import, Inbox move/Telegram path, auto-Favorites, metadata extraction, app lifecycle flush, 40-item Recent cap, 1200-line diagnostics ring, thumbnail optimization and aspect-ratio/pillarbox handling.
 - Source-level issues/open decisions: unsupported Inbox item deletion; duplicate imports by content; deleting local audio leaves stale Favorite/playlist/Recent references and has no active-playback deferral; migration/relaunch/crash tests; artwork fixture/device tests; orphan artwork cleanup.
 - No source edit/build/device test in this pass.
+
+
+## 25. Единая матрица состояния Pleer1 и правило принятия решений — 20 ноября 2026
+
+Эта матрица — рабочий контрольный реестр всего проекта. Она не заменяет commit-by-commit audit и не означает, что пункты уже прошли все проверки. При каждом существенном изменении обновлять соответствующую строку и ссылаться на commit/build/test.
+
+**Четыре независимых статуса:**
+1. **В исходниках** — реализация присутствует в текущем source branch; это не доказательство сборки или работоспособности.
+2. **Технически проверено** — указан конкретный commit и успешный автоматический тест/компиляция/build. Синтаксический parse не равен Xcode build; build не равен runtime.
+3. **Проверено на iPhone** — пользователь реально выполнил сценарий на установленной сборке; обязательно записать build ID, commit, шаги и результат.
+4. **Не завершено / отложено / требует решения** — явно указать причину и следующий шаг. Нельзя молча переводить такой пункт в «готово».
+
+| Направление | В исходниках | Технически проверено | На iPhone | Следующий шаг / решение |
+|---|---|---|---|---|
+| Фоновое воспроизведение и Siri skip | Есть в стабильной контрольной точке | Исторический GitHub Actions build #5 для commit 6ff25c7... | Да: три полных фоновых прослушивания и Siri skip на стабильной контрольной точке | После текущего полного аудита повторить регрессию на актуальной сборке |
+| YouTube playback / resolver | Есть; Swift + youtubei.js bridge | Codemagic Build #5 успешно собран на 7eabcbc...; не включает последующие изменения HEAD | Пользователь сообщает, что Build #5 установлен; это не доказывает все новые сценарии | Повторно проверить поиск → resolve → play, background, ошибки и сетевые переходы |
+| Длительность / natural end / Repeat One | Диагностика и часть логики есть; остаётся mismatch и недостаток provenance | Текущая ветка после Build #5 отдельно не собрана целиком | Не подтверждено для естественного окончания; ручной seek к концу не засчитывать | P0: восстановить цепочку duration → AVPlayerItem → end event, затем проверить natural end и Repeat One |
+| Очередь / auto-advance / stale seek / auto-skip | Основная логика присутствует, отдельные изменения после Build #5 | Частично исторические тесты; точный актуальный commit/build требуется | Не закрыто полным набором сценариев | Проверить естественный конец, удалённый трек, временную сеть, лимит skip и seek race |
+| Downloads / FavoritesAudioCache / offline-only / cellular consent | Есть в source | Build #5 покрывает только состояние на 7eabcbc...; более поздний HEAD отдельно не подтверждён | Нужна повторная проверка на актуальном билде | Проверить Wi-Fi↔cellular/VPN, согласие, отмену/повтор, лимиты, файлы и отсутствие дублей трафика |
+| Telegram/import/local audio | Путь импорта реализован | Полная актуальная проверка не подтверждена | Нет свежего полного теста | Сначала определить безопасную политику неподдерживаемых файлов, дублей и удаления |
+| Favorites / Downloads / Recent UX | Favorites DisclosureGroup сохранён; Recent metadata-only; Downloads отдельная модель/экран частично в source | Recent commits после Build #5 не собраны | UI-контракт утверждён, но новая навигация Downloads/Recent не подтверждена на iPhone | Не менять «Любимое»; после аудита спроектировать отдельные переходы на полные экраны «Скачанные» и «Недавние» |
+| Search: YTM + InnerTube + HTML | Реализовано в source; SearchModel race найден | Отдельный полный актуальный build/test не подтверждён | Нет end-to-end подтверждения текущей YTM ветки | Проверить SearchModel race, relevance retry, catalog cancellation, обычный поиск и выдачу |
+| Playlist / Mix / radio | Парсеры и pagination реализованы | Есть отдельные source tests; broad modern Mix matrix не подтверждена | Нет полного iPhone сценария | Добавить fixtures современных /next renderer форм и проверить продолжение Mix |
+| Artwork | Реализованы варианты выбора размера, fallback и ratio logic | Fixture matrix не подтверждена | Полная визуальная проверка не подтверждена | Проверить square-in-wide, genuine wide, fallback, Mix/playlist, local metadata, portrait |
+| Persistence / migration / diagnostics | Реализовано в source, включая Recent v2 и rolling diagnostics | Crash/relaunch/atomicity не подтверждены | Требует теста | Проверить миграцию, relaunch, flush, предел 40 Recent / 1200 log lines; внешние raw logs хранить неизменно |
+| Build / CI | Codemagic, manual IPA, simulator smoke и Linux syntax workflow присутствуют | Build #5 подтверждён; workflows не считать доказательством успешного запуска без run IDs | Установка Build #5 заявлена пользователем | Проверить каждый workflow и артефакт отдельно; новые Codemagic runs только с явного разрешения |
+
+**Правило определения правильного поведения до исправления:** изучить текущую реализацию и её call sites; восстановить историю соответствующих commits/reverts; найти утверждённое пользовательское требование и существующие тесты; описать текущее фактическое поведение и варианты; определить безопасное ожидаемое поведение и согласовать его с пользователем, если это продуктовый выбор; записать решение; только затем менять source и добавлять тест. Для очевидного технического дефекта без продуктовой неоднозначности всё равно сначала зафиксировать причинную цепочку и критерий исправления. Никаких правок наугад.
+
+**Плановые статусы backlog:**
+- **P0 сейчас:** duration mismatch; доказательство natural end; Repeat One.
+- **Следующий блок:** auto-advance/seek/queue; resolver и JS cancellation/readiness cleanup; VPN/network handoff; timeout budgets; SearchModel stale request race; search relevance; Mix parser fixtures.
+- **После ядра:** import/Telegram policy, local file delete consistency, deduplication, persistence migration/relaunch, artwork fixture suite, Favorites/Downloads/Recent navigation and visual system.
+- **Отдельный будущий этап (не считать реализованным):** Musike mechanics — albums/discographies/artists/genres, live autocomplete, batch search, direct watch URL, per-track radio/getUpNext, official video matching, audio/video switch preserving position, bulk selection/actions. Это backlog, не текущая задача и не часть критериев стабилизации.
+
+**Гейт:** пока все 298 commits не reconciled с HEAD, source fixes не начинаем. После завершения commit audit — сверяем весь план, закрываем уже выполненное, переносим оставшееся в конкретные задачи с критериями проверки. Сборки Codemagic без отдельного разрешения не запускаем.
