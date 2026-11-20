@@ -1219,3 +1219,13 @@ Source HEAD после повторного аудита Musike: 6f53515f8974a60
 **Audit process reaffirmed:** finish the commit-by-commit review, not only selected commits and current source files. For each commit record SHA/date/message, changed files, functional intent, whether the change remains in current HEAD, whether later commits superseded/reverted it, current implementation evidence, and status (source / build / iPhone / open). Then reconcile all findings into ROADMAP and DECISION-AND-ERROR-LOG before starting fixes. No Codemagic build unless user explicitly approves.
 
 **Visual design:** the user wants to replace the app's system-default iOS appearance with Pleer1's own visual design based on a previously shared mockup screenshot. This is a later design-system task; do not interpret the user's stray “SF” as a specific technical request or make assumptions about SF Symbols/fonts. Reuse the actual previously supplied mockup when available; if it cannot be retrieved, ask for it when the visual-design phase begins.
+
+
+## 22. Full commit-by-commit audit — inventory established, semantic review ongoing (20 Nov 2026)
+
+- Complete branch history inventory retrieved from GitHub: 298 commits across API pages 100 + 100 + 98, from `c0e2d757c0cb4936b5ce1c875d6adbe9dbe7f535` through current branch head `a69ddc5a7421a5346ed6a5009f749c2186a5d956` (history ordered newest-first by API; branch snapshot `feature/youtubei-js-ios-fallback-2026-11-19`).
+- Each commit was individually fetched for commit metadata and diff. This establishes full coverage/inventory, but does NOT yet mean every hunk has been exhaustively interpreted or reconciled against HEAD.
+- Full 298-entry SHA/date/subject manifest: `audit-evidence/COMMIT-AUDIT-INDEX.md` in `Pleer1-temporary`.
+- Detailed source audits already appended in §§17–20 and decision/error entries #076–#080. Continue with all remaining commits, including small fixes, test/build changes, file moves, and pre-YTM history; do not stop at thematic summaries.
+- Outstanding areas explicitly include SearchModel/request race identity, YouTube ordinary search and playlist/Mix parsing, artwork behavior, import/Telegram, lifecycle/persistence/diagnostics, build/CI workflow and all earlier baseline/import commits. For each commit mark retained/superseded/reverted and link current source evidence.
+- Final audit gate: reconcile all 298 commits, assign four statuses per feature, update journals, then and only then begin implementation changes. No Codemagic build without explicit user approval.
