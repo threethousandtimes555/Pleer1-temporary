@@ -1655,3 +1655,13 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Source history review не равен device verification. Build #5 остаётся последней подтверждённой успешной IPA контрольной точкой на более раннем commit; текущий HEAD не собран/не установлен в этой проверке. Никакие builds, simulator runs или workflows не запускались. Source code не изменён.
 - **Нумерация журнала:** предыдущая запись #094 уже существовала; эта итоговая запись использует следующий номер #095. Исторические записи не перенумеровывались.
 - Следующий этап — реализация согласованных P0/P1 задач по acceptance criteria из ROADMAP §27. Новые builds — только с отдельного явного разрешения пользователя.
+
+### #096 — Correction: main comparison, Build #5 baseline and pre-YTM UI work
+
+- **Дата:** 20.11.2026.
+- Исправление к #095: актуальный GitHub compare feature...main возвращает **285 ahead / 2 behind**, merge-base `6de22da8ebd089e71cf6b9df34edeb915b636063`. Формулировка «285 ahead / 0 behind» в #095 была ошибочной; два коммита main-only не входят в feature branch.
+- Подтверждённый Codemagic Build #5: ID `6afee60816a4e9e15494d532`, source commit `7eabcbcbb83fe1aa402dc2831dbac29f8f507989`. Compare Build #5 → current HEAD `a69ddc5a7421a5346ed6a5009f749c2186a5d956`: **82 ahead / 0 behind**, merge-base равен Build #5.
+- Сверка UI до YTM pivot: Build #5 уже использовал `Cover` в player backdrop; commit `68422d7` вводил отдельные root tabs Favorites/Downloads, но последующие `b8aafe` и `87c620` вернули компактные root tabs и shortcuts в «Моё»; `3f088b0` и `86f0297` сохранили точечную полировку cellular confirmation dialog. Текущий HEAD подтверждает `Cover`, Favorites `DisclosureGroup` и отдельные экраны Downloads/Recent.
+- Полный custom redesign не потерян как выполненная функция: он был отложен до стабилизации и отдельной проверки на iPhone. Отдельный публичный `Pleer1-UI` содержит overlay/вспомогательные части и не является готовой заменой дизайна основного приложения.
+- Таблицы 1–3 в ROADMAP §27 уже содержат реализованное, стабилизационные задачи и Musike backlog. В ROADMAP убран дублирующий старый вариант §27; сохранён один авторитетный раздел. Индекс и итоговая запись синхронизированы по сравнениям.
+- Никакие app source files не менялись; Codemagic, Xcode, simulator, IPA packaging и device install не запускались.
