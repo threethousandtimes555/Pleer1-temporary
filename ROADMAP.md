@@ -1407,3 +1407,12 @@ Current active feature branch source reviewed: Store.swift `c2dad1b067ad1e33f79b
 - dd9f7ca reverted the attempted manual-seek-to-end classification: removed lastSeekTarget/lastSeekRequestedAt, removed finish trigger provenance, and returned finishCurrentItem to a single untyped completion handler. Commit 1cd735 later reset the watchdog baseline after seek but did not restore seek-to-end provenance.
 - Current Player.swift confirms seek(source:) logs the source and finishCurrentItem logs position/duration/repeat/queue but has no correlated recent-seek state or trigger field. Both AVPlayerItemDidPlayToEndTime and watchdog/duration completion can call finishCurrentItem. Therefore a manual seek to the end can be mistaken for natural completion in current diagnostics and may enter auto-advance. A test that manually drags to the end must never be counted as proof of natural EOF.
 - **Next step after duration audit:** determine and document desired behavior for manual seek-to-end (advance immediately or remain at end), then add an explicit completion origin/provenance model and tests for manual seek vs AVPlayer natural end vs watchdog. This is a source-confirmed gap; do not patch before the full commit audit gate.
+
+
+### Recent history semantic check — current source details
+
+- RecentView is already a dedicated direct list page, with TrackRow playback; no nested dropdown or segmented control.
+- Player.load() calls Store.addHistory(track) before YouTube resolve / AVPlayer readyToPlay. Thus a track that fails to resolve or never starts audible playback can still enter «Недавние». This is a source-confirmed behavior; decide whether Recent means “selected/attempted” or “actually started playing” before changing the call site.
+- Store.addHistory() returns immediately if the same ID is already the first entry. Replaying the current most-recent track does not refresh HistoryEntry.listenedAt or its metadata. This may be fine for unique recent order, but it is not a true “last listened at” timestamp.
+- HistoryEntry currently stores title, artist, artwork URL/file reference, source ID, local filename reference, and listenedAt; it does not store duration. History does not own/copy local audio bytes and YouTube watch URL is omitted for YouTube IDs.
+- These are behavior/metadata decisions, not reasons to undo the metadata-only history design. Decide semantics after the commit audit; then add tests for failed resolve, replaying the same first item, and local-file deletion.
