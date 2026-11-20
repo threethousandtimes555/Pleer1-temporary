@@ -1583,3 +1583,14 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Queue skip logic tracks unique IDs, attempts at most six consecutive unavailable tracks, avoids repeat attempts in the same run, ignores Repeat One when selecting another candidate, and resets after readyToPlay.
 - Status: implemented in source, not verified on latest iPhone build. Need runtime matrix for unavailable vs transient errors, retry, six-limit, exhausted queue, Repeat One, and mixed local/YouTube queue.
 - Source unchanged.
+
+
+### #090 — Download trigger / duplicate traffic audit
+
+- **Дата:** 20.11.2026.
+- Current TrackRow has no explicit Download action. FavoritesAudioCache.enqueue() is called from Player.loadYouTube() only after successful resolve and only if Store.isFav(track) is true. Liking alone does not enqueue. Current policy is “play a favorite → stream through AVPlayer + enqueue a separate full-file download”, not download-on-like/manual download.
+- The full audio download uses a separate URLSessionDownloadTask while AVPlayer streams; resolver URL may be reused, but audio bytes are transferred separately. This can duplicate network traffic and add energy cost. User's battery/data concerns require an explicit product decision after the audit; do not change silently.
+- Cellular consent is session-scoped; declining pauses until Wi-Fi returns. Detected NWPath changes requeue active download and invalidate resolver layers before retry; this does not verify external VPN egress changes.
+- 500 MiB per-track and 64 MiB free reserve are hard guards; 1 GiB total is only a soft budget with no silent eviction.
+- Next: agree intended download trigger (on like / after first play / manual / combination), and cancellation/pause policy; then test cellular, background, skip and duplicate traffic.
+- Source unchanged.
