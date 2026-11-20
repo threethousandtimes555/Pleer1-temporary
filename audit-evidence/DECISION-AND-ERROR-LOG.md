@@ -1344,3 +1344,14 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - **Recent history:** Store уже ограничивал добавление истории 40 элементами, но не нормализовал загруженное из UserDefaults старое значение при запуске. Изменён Pleer1-Lab/plei/Sources/Store.swift: добавлен единый maxHistoryCount = 40; init обрезает загруженную историю до 40, addHistory использует ту же константу. Commit 2da04a48c853341b93f9d600da0fc386a4a78899. Это source change; compile/device validation ещё не выполнялись.
 - **Документация:** roadmap обновлён, commit 81eb6a777a68f438acdfd87ec97e26f72c6b09f1. Дополнительные Musike mechanics перенесены в отдельный согласованный этап после P0, а не удалены из планов.
 - **Ограничения:** Codemagic не запускался; build minutes сохранены. Последняя device-verified версия по-прежнему Build #5. Ни duration fix, ни Repeat One runtime fix пока не объявлять готовыми.
+
+
+### #071 — Repeat One diagnostics and history cap normalization source patch
+
+- **Дата:** 20.11.2026.
+- В Pleer1-Lab/plei/Sources/Player.swift добавлена диагностика переключения режима `playback.repeat_mode_changed`: old/new mode, YouTube track ID, queue count, index, plannedNext, offlineOnly и loadToken. `playback.finish_event` теперь также записывает repeatMode, plannedNext, queueCount, index, loadToken и AVPlayer assetDuration; `playback.advance` записывает repeatMode, queueCount и loadToken.
+- Commit Player.swift: `b414fbbd8495a506a5281937bff8ef48d7523068`.
+- Это диагностический patch, не исправление логики Repeat One. Он позволит установить, был ли реально активирован режим one, какой plannedNext был установлен и какой переход произошёл при естественном окончании.
+- Дополнительный source review FavoritesAudioCache.swift: при скачивании в UserDefaults сохраняется только `stream.duration` (YouTube resolver metadata), а не независимо измеренная длительность сохранённого файла. При локальном воспроизведении Player использует `cachedDuration` как `knownYouTubeDuration`; AVPlayer item duration отдельно логируется и сравнивается. Это важная зона для P0: cached duration может быть тем же metadata value, а не реальной длительностью файла. Нельзя автоматически объявлять AVPlayer duration правильной без проверки содержимого и фактического конца аудио.
+- Пока не внесён speculative change, который просто заменяет resolver duration на AVPlayer duration: имеющееся наблюдение 218.00 vs 435.12 доказывает расхождение, но не доказывает, что удвоенная длительность asset соответствует слышимому аудио, а не padded/duplicated media timeline.
+- Проверки: source review only; Swift compile, XCTest, Codemagic и iPhone runtime не запускались.
