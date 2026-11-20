@@ -1229,3 +1229,37 @@ Source HEAD после повторного аудита Musike: 6f53515f8974a60
 - Detailed source audits already appended in §§17–20 and decision/error entries #076–#080. Continue with all remaining commits, including small fixes, test/build changes, file moves, and pre-YTM history; do not stop at thematic summaries.
 - Outstanding areas explicitly include SearchModel/request race identity, YouTube ordinary search and playlist/Mix parsing, artwork behavior, import/Telegram, lifecycle/persistence/diagnostics, build/CI workflow and all earlier baseline/import commits. For each commit mark retained/superseded/reverted and link current source evidence.
 - Final audit gate: reconcile all 298 commits, assign four statuses per feature, update journals, then and only then begin implementation changes. No Codemagic build without explicit user approval.
+
+
+## 23. SearchModel / ordinary YouTube search / playlist-Mix source audit — 20 Nov 2026
+
+Current active branch files inspected: Providers.swift blob `10c400475c35b4afffcf16fea6fde47713f46a57`; YouTubeEngine.swift `991981227581763fe7ceedd93c5b02a4e88ad1c6`; YouTubeHTMLSearch.swift `c09945bbbde82ba9f4cf7c8ddd48f3e933575d64`; YouTubePlaylistEngine.swift `6382cde2b56259e4d2c87a01db3339653dc79240`; YouTubeSearchIntent.swift `126d6feadda120224c15c78e3f386293825f22e4`; SearchSmokeTests.swift `db6884654c7f19872765007e789ba325beb2b2b1`; bridge JS `0b7277cad1f0fd884cc7b894772438b11ed1c033`.
+
+### SearchModel — confirmed race defect in current source
+
+- SearchModel is in Providers.swift (not a separate SearchModel file). `run` clears results/errors, sets loading=true, starts a TaskGroup for enabled sources, then writes results/errors/loading=false when that invocation completes.
+- There is no request generation/identity, no stored active task to cancel, and no stale-response guard. SearchView launches each submission in a new unstructured `Task { await model.run(...) }`.
+- Because `run` is MainActor-isolated but suspends while awaiting its TaskGroup, a second run can begin while the first is suspended. The slower earlier query can finish last and overwrite the newer results; it can also set loading=false while the newer request is still active. Confirmed source-level race. P1 after P0 playback/duration work; add request ID + cancel/ignore stale completion and test out-of-order responses.
+
+### YouTube search and result ranking
+
+- YouTubeEngine starts YTM catalog, InnerTube and HTML searches concurrently. It consumes InnerTube and HTML results before awaiting catalog, merges catalog first, then InnerTube, then HTML; deduplicates by track ID; ranks by result kind and title/artist token relevance.
+- SearchIntent.includesCollections currently always returns true. This is deliberate current behavior: ordinary track queries can also surface playlists/Mixes, but default ranking is song → music video → ordinary video → playlist → Mix. Explicit playlist/mix terms move matching collection type first. The old test name `testSearchParserDoesNotLeakPlaylistsOrMixesIntoTrackMode` tests the parser with an explicit false argument, not actual SearchIntent routing; do not mistake it for a current default behavior test.
+- YTM catalog asks song, music-video and ordinary-video endpoints concurrently with Promise.allSettled. It parses modern shelves/sections and convenience arrays; validates 11-character YouTube IDs; deduplicates. Suggestion retry happens only if BOTH original song and music-video result lists are empty. Non-empty irrelevant lists do not trigger suggestions/retry; no minimum relevance threshold exists. This remains an open relevance gap, consistent with the user's search-quality observations.
+- Relevance ranking uses title and artist tokens, exact/prefix/contains/title-token/artist-token scoring and stable source order as tie-break. No semantic relevance model or acceptance threshold.
+- HTML fallback uses ephemeral URLSession without cookies, GETs `/results`, extracts balanced `ytInitialData`, parses music/lockup/video renderers and collections. HTTP and consent/captcha/parse diagnostics exist. It is a separate transport, not a guaranteed bypass for regional/consent blocks.
+- InnerTube uses a WEB client with fixed clientVersion and locale RU/ru, applies video filter only when collections are excluded (currently they are never excluded by SearchIntent). Renderer traversal includes videoRenderer/grid/compact/reel/music/lockup. Swift boundary validates YTM catalog IDs.
+
+### Playlists and Mixes
+
+- Direct playlist URL parser recognizes `list=PL...`; direct Mix requires `list=RD...` plus seed `v=...`. Search parser excludes RD IDs from ordinary playlist and recognizes radio renderers/playlistRenderer variants with seed video.
+- Playlist load uses browse endpoint, up to 20 pages and 1000 tracks; deduplicates video IDs and continuation tokens; supports playlistVideoRenderer and fallback video/lockup renderer traversal. HTTP timeout 25s per request; no explicit overall playlist deadline or caller cancellation policy was established in this review.
+- Mix load uses `/next` with playlist ID + seed video, up to 20 pages and 500 tracks, deduplicates videos/continuations; currently collects playlistPanelVideoRenderer and wrapper. Modern/alternate Mix `/next` renderer shapes beyond these are not demonstrated; this is still an explicit follow-up.
+- Tests cover search intent ordering, song/musicVideo priority, title exact match, old-style playlist/Mix renderer classification, direct URL recognition, one standalone video UI search and one playlist second-track/seek UI scenario. No explicit JS bridge catalog parser fixture tests, no broad modern `/next` Mix continuation fixture matrix, no SearchModel out-of-order race test, and no on-device YTM song→resolve→playback regression test were found in this test file.
+
+### Status
+
+- Source implemented: concurrent three-source YouTube search, YTM song/music-video catalog, ranking, HTML fallback, playlist/Mix parsing and pagination, source diagnostics, UI test scenarios described above.
+- Confirmed source defect: SearchModel stale-result race (P1).
+- Open: YTM relevance threshold/retry for non-empty irrelevant results; SearchModel race fix and test; more modern Mix `/next` renderer coverage; end-to-end YTM search/stream playback on the identified Codemagic Build #5; full device tests for ordinary YouTube/playlist/Mix.
+- No code changes/build/device tests in this audit pass.
