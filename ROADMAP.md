@@ -1433,3 +1433,12 @@ Current active feature branch source reviewed: Store.swift `c2dad1b067ad1e33f79b
 - AVPlayer YouTube item failure receives one bounded fresh-resolve retry after invalidating the failed URL; after that, a definitive availability reason may be skipped. Other transient failures are shown to the user, not silently skipped.
 - Skip loop records distinct IDs, attempts at most six consecutive unavailable tracks, avoids retrying the same failed IDs in the same run, and ignores Repeat One while searching for another candidate. A successful readyToPlay resets the streak.
 - This is source-implemented, not yet confirmed on the latest iPhone build. Test matrix: deleted/private/age-restricted/no-direct-AAC track; temporary DNS/HTTP/bridge failure; AVPlayer CDN failure then successful retry; six consecutive unavailable tracks; queue exhausted; Repeat One enabled; mixed local + YouTube queue. Verify no transient error is silently skipped.
+
+
+### Download trigger and network-cost semantics — current source
+
+- Current TrackRow has no explicit «Скачать» action. A YouTube track is enqueued into FavoritesAudioCache only after it is played/resolved and only if it is already in Favorites. Merely liking a track does not immediately enqueue it. Thus this is play-triggered auto-download of favorites, not download-on-like and not an explicit manual-download action.
+- When the favorite is playing, AVPlayer streams the track while FavoritesAudioCache downloads the full file over a separate URLSessionDownloadTask. The resolver URL may be reused, but audio bytes are transferred separately; this can mean simultaneous streaming + full download traffic and additional energy use.
+- This is important to verify against the user's battery/data concerns. Do not assume it is free or change it silently. After audit, agree whether the intended policy is download-on-like, download-after-first-play, manual download action, or a combination; then define whether to pause/cancel download when user skips or background state changes.
+- Network path handling: consent is app-session scoped; declining pauses until Wi-Fi returns; a detected NWPath change requeues the active track and invalidates both resolver layers before retry. Detection is based on NWPath status/interface changes, not external egress-IP verification.
+- Storage: 500 MiB per-track cap and 64 MiB reserve are hard guards; 1 GiB total is a soft budget that logs overage and preserves completed downloads (no silent eviction). Document as soft, not hard, total limit.
