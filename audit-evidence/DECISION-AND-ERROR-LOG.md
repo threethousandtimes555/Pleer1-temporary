@@ -1672,3 +1672,10 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Оба файла остаются в `Pleer1-Lab/main`; feature branch их не содержит. Они не удалены и не потеряны. Их содержимое не удалось просмотреть через текстовый GitHub connector, поэтому не объявлять их mockups до визуальной проверки.
 - Считать эти изображения потенциально важными UI/reference materials. Не удалять, не перезаписывать и не переносить автоматически. Перед будущим UI redesign открыть/просмотреть оба изображения и определить их назначение.
 - Source code и feature branch не менялись.
+
+### #098 — Musike v1.5.1 feature parity: расширение обязательного backlog
+
+- Повторно сверена полная секция Features README Musike v1.5.1, а не только ранее выписанные технические механики.
+- В ROADMAP §27 расширена таблица 3: добавлены отдельные search tabs/filters; Play Next и редактирование очереди; autoplay radio при окончании очереди (отдельно от per-track getUpNext); themes/accent colors; localization; адаптируемые home/library sections; отдельная native video experience с явным pipeline gate.
+- Уточнено, что shuffle/repeat, lock-screen/headphone/background controls, Favorites/playlists/history уже представлены в Pleer1 source и не должны дублироваться как новые задачи. Desktop sidebar/video features Musike не переносятся напрямую в iOS.
+- Все новые пункты остаются будущими задачами после P0/P1 стабилизации и отдельного UX-обсуждения. Исходники приложения не изменялись; сборки не запускались.
