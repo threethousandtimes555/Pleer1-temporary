@@ -1605,3 +1605,13 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Native fetch uses URLSession.shared.data(for:) with 30s (6s for raw GitHub) but no requestID→URLSessionTask registry or abort channel. Cancellation/timeout/WebKit termination can leave underlying native requests running until they finish.
 - This is a confirmed source-level cleanup/timeout gap. No fix yet; after full commit audit define one end-to-end budget and propagate cancellation across Swift→JS→native URLSession.
 - Source unchanged.
+
+
+### #092 — Musike client profile and live config commit reconciliation
+
+- **Дата:** 20.11.2026.
+- Current Swift resolver uses exact Musike profiles (VISIONOS 1.02/101, ANDROID_VR 1.60.19/28, IOS 20.10.4/5). Commits 5b11067 and 53973fab introduced per-client User-Agent/context alignment but were superseded by 2b90e880 restoring the exact Musike native Swift profiles. Current source confirms the older exact profiles; AVPlayer media request User-Agent is separately iOS YouTube-like.
+- Embedded JS resolver intentionally reads live Musike mobile/streaming.json from raw GitHub main; localStorage and IOS/VISIONOS defaults provide fallback. Current validator checks uppercase IDs and uniqueness but does not pin a revision/signature or enforce a strict maximum list size.
+- withClient() invalidates a shared session on any thrown exception and retries once. Since operations share a lang/region session, concurrent exceptions may cause session churn; mark as hypothesis/race risk, not confirmed functional failure.
+- Keep client configuration, 64-entry in-memory expiring stream cache, and FavoritesAudioCache conceptually separate.
+- No source changes.
