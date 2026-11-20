@@ -956,7 +956,7 @@ Source HEAD после повторного аудита Musike: 6f53515f8974a60
 - Ранее отдельная Musike-style интеграция youtubei.js stream fallback началась 19.11.2026 в 03:26 UTC: commit 055cf5878a (in-memory youtubei.js cache) и 5dce04c6e0 (Musike-style youtubei.js fallback). Это этап извлечения аудиопотока, не каталог YouTube Music.
 - Именно **YouTube Music catalog search** начался 19.11.2026 в 18:52 UTC: commit 894573b571 (embedded youtubei bridge) и последующие commits 3b4427eff9, a79b64ea86, e772cee119, edecb21249 и другие.
 - Непосредственная предшествующая точка для сравнения — commit 1c47717c3f (18:09 UTC, stale-seek diagnostic refactor). Сравнение этой точки с текущей feature branch показывает 47 commits вперёд, без отставания, по данным GitHub compare на 20.11.2026.
-- Полный список commit subjects активной ветки просмотрен по GitHub history (страницы 1–3; 248 commit entries in the returned history window). Это аудит истории/тематики commits, а не утверждение, что каждый из сотен diff hunks уже прошёл отдельный line-by-line review. Для закрытия задач нужен source/diff audit по соответствующим областям и runtime checks.
+- Полный список commit subjects активной ветки просмотрен по GitHub history (страницы 1–3; 298 commit entries in the returned history window (100 + 100 + 98 across pages 1–3)). Это аудит истории/тематики commits, а не утверждение, что каждый из сотен diff hunks уже прошёл отдельный line-by-line review. Для закрытия задач нужен source/diff audit по соответствующим областям и runtime checks.
 
 ### Что делали непосредственно перед YouTube Music catalog pivot и что нельзя потерять
 
