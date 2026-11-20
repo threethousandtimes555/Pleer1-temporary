@@ -362,7 +362,7 @@ Runtime/device verification remains open; no source changes and no new build are
 - Source-level semantic reconciliation: complete for all 298 indexed commits.
 - Branch-only changes: 285 commits (#1–#285).
 - Shared ancestry: 13 commits (#286–#298), with #286 (6de22da8ebd089e71cf6b9df34edeb915b636063) as merge-base.
-- Branch comparison against main: ahead_by=285, behind_by=2. The two main-only commits were not merged.
+- Branch comparison against main: ahead_by=285, behind_by=2. The two main-only commits were not merged: they are uploaded image files `IMG_5753.png` (85874b0a7ff6350330df48c2b63cdecf73559df1) and `IMG_5754.png` (b0481f5f2f8a90109519d73a5ab3da362177b9b4). Both remain on main; binary contents were not previewed in this source audit.
 - Functional mapping: #1–47 catalog/YTM; #48–77 seek/artwork/library/reverts; #78–162 UI/offline/network/resolver/skip; #163–224 cache/artwork/duration/search/persistence/build integration; #225–254 WKWebView bridge/resource relocation/client profiles; #255–285 source baseline/search/playlist/import/tests/workflows; #286–298 shared audit-workflow ancestry.
 - Key reconciliation: Favorites now contains only actual favorites; completed offline downloads remain independent. «Моё» uses Favorites DisclosureGroup plus dedicated Downloads and Recent screens. Repeat One is a regression check, not a confirmed P0 defect. Manual seek-to-end remains distinct from natural-end evidence.
 - Open work is runtime/device verification and the task register in ROADMAP.md §27; it is not missing commit history.
