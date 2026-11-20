@@ -1645,7 +1645,7 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Никакие исходники приложения не менялись. Не запускались сборки, симулятор, Codemagic или IPA packaging. Дальнейший порядок: P0 duration/end → P1 search/cancellation/network/queue → P2 Recent/import/playlist tests → отдельное согласование device build → Musike backlog.
 
 
-### #094 — Итоговая сверка истории и финализация трёх таблиц плана
+### #095 — Итоговая сверка истории и финализация трёх таблиц плана
 
 - **Дата:** 20.11.2026.
 - Проверен полный индекс из 298 SHA в Pleer1-Lab, branch `feature/youtubei-js-ios-fallback-2026-11-19`; каждый SHA индивидуально запрошен для metadata/diff, история просмотрена в правильном порядке — от новых коммитов к старым — и сведена по функциональным кластерам.
@@ -1653,5 +1653,5 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Reconciliation сведен в три обязательных таблицы ROADMAP §27: **что уже сделали**, **что мы сделаем для стабилизации**, **что обязательно должны сделать из возможностей Musike**. В третью таблицу явно включены albums, artists/discography, genres, live autocomplete, direct watch URL, batch search, per-track radio/getUpNext, official video matching, Audio/Video mode, multi-select, persistent queue и backup/export/restore.
 - Ключевые выводы: YTM + InnerTube + HTML search присутствуют в source; offline downloads отделены от Favorites; «Любимое» остаётся DisclosureGroup, «Скачанные» и «Недавние» — отдельные экраны; Recent ограничен 40 metadata-only entries; resolver cancellation и SearchModel race остаются задачами; duration mismatch — P0; seek completion provenance отсутствует в текущем Player; Repeat One — regression test, не отдельный подтверждённый P0-дефект.
 - Source history review не равен device verification. Build #5 остаётся последней подтверждённой успешной IPA контрольной точкой на более раннем commit; текущий HEAD не собран/не установлен в этой проверке. Никакие builds, simulator runs или workflows не запускались. Source code не изменён.
-- **Нумерация журнала:** в исторических записях обнаружен повторный заголовок `#085`; записи не перенумеровывались, чтобы не менять ссылки/историю задним числом. Настоящая запись использует следующий свободный номер #094.
+- **Нумерация журнала:** предыдущая запись #094 уже существовала; эта итоговая запись использует следующий номер #095. Исторические записи не перенумеровывались.
 - Следующий этап — реализация согласованных P0/P1 задач по acceptance criteria из ROADMAP §27. Новые builds — только с отдельного явного разрешения пользователя.
