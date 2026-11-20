@@ -1144,3 +1144,46 @@ Source HEAD после повторного аудита Musike: 6f53515f8974a60
 - Source implemented: metadata-first duration selection, duration boundary guard, watchdog, completion guard, Repeat One plannedNext, stale-seek identity guard, diagnostic fields.
 - Not verified: actual audible duration semantics; whether AVPlayer clock and expected metadata converge; natural end vs manual seek provenance; Repeat One downloaded/streaming; seek race on device.
 - P0 next: restore event provenance, then run duration test with complete raw log; next Repeat One tests. Не запускать сборку до явного разрешения пользователя.
+
+
+## 19. Source audit продолжение: YouTube Music catalog, youtubei.js resolver и WebKit lifecycle — 20 ноября 2026
+
+Проверены текущие файлы активной feature-ветки, без сборки и запуска на iPhone:
+- YouTubeEngine.swift blob 991981227581763fe7ceedd93c5b02a4e88ad1c6.
+- YouTubeJSResolver.swift blob b9b8572a5e28e05feaf784f2f61d5308e824ebee.
+- YouTubeSearchIntent.swift blob 126d6feadda120224c15c78e3f386293825f22e4.
+- YouTubeHTMLSearch.swift blob c09945bbbde82ba9f4cf7c8ddd48f3e933575d64.
+- youtubei-bridge.js blob 0b7277cad1f0fd884cc7b894772438b11ed1c033.
+- prepare-youtubei.sh blob 0fe92480f5203d7723087bb49a04d5a924ace676; project.yml blob 804e9ebbab633ea76459a2829e65bab8d170992b.
+
+### Catalog/search
+
+- YouTubeEngine.search запускает три независимых источника конкурентно: embedded youtubei.js catalog, native InnerTube JSON и HTML search. Объединяет catalog first, затем InnerTube/HTML, дедуплицирует по ID и ранжирует через YouTubeSearchIntent. Это исправляет первоначальную последовательную реализацию YTM-before-YouTube из commit edecb21249; текущий HEAD уже запускает источники конкурентно.
+- YTM catalog запрашивает songs, music videos и ordinary YouTube videos через Promise.allSettled. Парсер учитывает convenience shelves и result.contents sections; извлекает ID/title/artist/art/duration и присваивает kind song/musicVideo/video. Есть diagnostics для формы ответа и количества результатов.
+- Suggestions запрашиваются только если исходные YTM song и music-video полки пусты. Если YTM вернул непустые, но нерелевантные результаты, suggestion retry не выполняется. Это совпадает с открытой задачей улучшения relevance/retry при непустой выдаче.
+- YouTubeSearchIntent ставит song/musicVideo выше обычного video по умолчанию; явные playlist/mix запросы поднимают соответствующий тип. Релевантность рассчитывается по токенам title/artist, но нет отдельного порога, определяющего, что непустой набор нерелевантен.
+- SearchView вызывает model.run из Task при submit. Реализация SearchModel в просмотренных файлах не найдена; поэтому request identity/cancellation guard старых запросов пока нельзя подтвердить. Нужно найти и проверить SearchModel отдельно, прежде чем объявлять search-race закрытым.
+
+### JS resolver / WebKit
+
+- YouTubeJSResolver имеет pending resolution/search continuations и timeout tasks. Resolver request использует withTaskCancellationHandler и удаляет continuation при отмене.
+- searchCatalogOnce также имеет cancellation handler, но внешний searchCatalog создаёт unstructured workTask внутри withCheckedContinuation и не связывает отмену вызывающей задачи с deadline.finish(cancelWork:true). При отмене внешнего поиска работа может продолжаться до 15-секундного Swift deadline/внутреннего JS 12-секундного deadline. Это подтверждённый source-level cancellation gap.
+- ensureReady использует массив readyWaiters и 30-секундный timeout, но не имеет cancellation handler. Если resolve/search отменяется пока WKWebView ещё загружается, waiter остаётся до готовности или общего timeout. Это потенциальное накопление stale waiters при повторных быстрых запросах во время инициализации/перезагрузки.
+- WebKit process termination закрывает pending resolver/catalog continuations, отменяет timeout tasks, помечает runtime not ready и перезагружает WebView. didFinish дополнительно проверяет наличие window.PleerYouTube, а не полагается только на завершение навигации.
+- Catalog deadline в JS bridge — 12 секунд; Swift wrapper — 15 секунд. Resolver request timeout — 120 секунд; ready initialization/reload timeout — 30 секунд. End-to-end budgets нужно согласовать и проверить на медленной сети/VPN.
+- JS nativeFetch использует native bridge; скрытый WKWebView прикрепляется к окну приложения, так как detached WebView может приостанавливать таймеры/загрузчики. Ресурсы грузятся из локального bundle.
+
+### Stream resolver / ограничения
+
+- JS directAudio использует client list из remote config с default [IOS, VISIONOS], создаёт youtubei.js Innertube session с retrieve_player=false и in-memory cache, без импорта Safari/WKWebView аккаунтных cookies.
+- Для iOS выбираются только audio-only AAC/MP4 форматы; WebM намеренно не возвращается. Это соответствует текущему AVPlayer/offline pipeline, но не означает поддержку всех кодеков.
+- Playability status, включая LOGIN_REQUIRED, записывается как отказ клиента и перебираются другие клиенты. Нет доказательства, что это решает возрастные ограничения или авторизованные видео; PO Token/authenticated session не подтверждены. Не объявлять age restriction solved.
+- withClient пересоздаёт session и повторяет запрос один раз только при thrown exception; распознанный playability refusal не повторяется на том же клиенте, а переходит к следующему клиенту.
+- JS stream cache ограничен 64 элементами и 60-секундным expiry margin; in-flight resolve дедуплицируется по video ID; generation guards не дают устаревшему результату после invalidation попасть в cache. Route invalidation очищает cache/inflight по ID.
+- prepare-youtubei.sh скачивает pinned youtubei.js 18.3.0 и esbuild 0.28.0, проверяет SHA-512, создаёт standalone browser bundle и проверяет его наличие/размер/отсутствие top-level ESM. Это build-time dependency preparation, а не runtime CDN загрузка. Но compile/build current HEAD отдельно не запускался.
+
+### Статус
+
+- **Реализовано в исходниках:** concurrent three-source search; catalog parser + diagnostics; song/musicVideo classification and ranking; suggestions retry for empty YTM shelves; JS resolver cache/inflight generation guard; native fetch bridge; WebKit ready check/reload; AAC/MP4-only stream path; pinned/integrity-checked bundle preparation.
+- **Требует проверки/исправления:** SearchModel request identity; отмена outer searchCatalog task; cleanup readyWaiters при отмене; end-to-end timeout budgets; non-empty but irrelevant YTM results; real YTM search/playback on iPhone; age-restricted/authenticated/PO Token scenarios; network/VPN handoff.
+- **Сборка/устройство:** в этой проверке не запускались. Не считать интеграцию завершённой.
