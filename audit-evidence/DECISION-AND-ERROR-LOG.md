@@ -1449,3 +1449,17 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - **Resolver limits:** clients default IOS/VISIONOS, remote config may update list; youtubei.js uses retrieve_player=false and memory cache, no Safari cookies. directAudio only returns audio-only AAC/MP4. LOGIN_REQUIRED tries other clients but no authenticated session/PO Token evidence. Age restriction not solved/proven. WebM unsupported by design.
 - **Cache:** 64 stream entries, 60s refresh margin, in-flight dedupe, generation guard on invalidation. Build script pins youtubei.js 18.3.0 + esbuild 0.28.0 and verifies SHA-512 before generating bundle.
 - **Статусы:** source implemented for current mechanisms; no fresh build/compile/device verification. Open: SearchModel race guard, outer search cancellation, readyWaiters cleanup, non-empty relevance retry, timeout budgets, end-to-end iPhone tests, age-restricted/PO Token, VPN handoff.
+
+
+### #079 — Revert reconciliation against current HEAD
+
+- **Дата:** 20.11.2026.
+- Сверены diff commits dd9f7ca09b, 5ec6207cce, 96b54c5e7d с текущими Player.swift, Store.swift и Views.swift.
+- **dd9f7ca09b:** удалённые lastSeekTarget/lastSeekRequestedAt и finish trigger/origin в текущем Player.swift не восстановлены. Этот revert оставил актуальный diagnostic gap: manual seek-to-end нельзя однозначно отличить от natural end по finish event. P0.
+- **5ec6207cce:** revert возвращал cached offline tracks в FavoritesView. Текущий Store.library снова объединяет files+favorites, а downloadedLibrary отдельно объединяет downloadedTracks+files; inline Favorites использует только store.favorites. Смешение completed downloads с Favorites не наблюдается в текущей реализации.
+- **96b54c5e7d:** revert удалял deduplication Store.library; текущая реализация снова дедуплицирует по ID. Регрессия не присутствует в текущем source.
+- **b8aafeec5b:** текущий RootView сохраняет root tabs Search/My/Settings; старые Favorites/Downloads root tabs не вернулись.
+- **87c620a5e5:** Section Playlists остаётся ниже media library.
+- **68422d712a:** отдельные Favorites/Downloads root tabs — исторический вариант, не current.
+- **3f088b0a9c:** current inline Favorites DisclosureGroup и cellular overlay присутствуют, но Favorites может быть collapsed; approved My page UX ещё не реализован.
+- Итог: из проверенных revert-ов актуально сохранилось удаление seek provenance из dd9f7ca09b; data separation и library dedup в current source есть. UI mismatch — отдельная незавершённая задача.
