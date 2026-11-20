@@ -1425,3 +1425,11 @@ Current active feature branch source reviewed: Store.swift `c2dad1b067ad1e33f79b
 - Therefore these failures must not be interpreted as source compile/test failures. They are execution/runner/dispatch failures with exact cause not exposed by the returned job metadata. Do not claim runner exhaustion or a code error without logs.
 - The GitHub manual IPA workflow is workflow_dispatch-only; its presence does not establish a successful run. Codemagic Build #5 remains a separate, confirmed successful unsigned device IPA build on commit 7eabcbc.
 - No retry/re-run was triggered. Do not spend CI minutes or start another build without the user's explicit approval.
+
+
+### Bounded auto-skip source reconciliation
+
+- Current Player.loadYouTube() classifies resolver failures with explicit availability markers: unavailable/unplayable, age restriction/confirm age, private/removed, and no direct audio format. Generic bridge/network errors are not in this list and remain transient failures; they do not advance the queue.
+- AVPlayer YouTube item failure receives one bounded fresh-resolve retry after invalidating the failed URL; after that, a definitive availability reason may be skipped. Other transient failures are shown to the user, not silently skipped.
+- Skip loop records distinct IDs, attempts at most six consecutive unavailable tracks, avoids retrying the same failed IDs in the same run, and ignores Repeat One while searching for another candidate. A successful readyToPlay resets the streak.
+- This is source-implemented, not yet confirmed on the latest iPhone build. Test matrix: deleted/private/age-restricted/no-direct-AAC track; temporary DNS/HTTP/bridge failure; AVPlayer CDN failure then successful retry; six consecutive unavailable tracks; queue exhausted; Repeat One enabled; mixed local + YouTube queue. Verify no transient error is silently skipped.
