@@ -1563,3 +1563,13 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Store.addHistory() does not refresh the top entry if the same ID is already first, so HistoryEntry.listenedAt does not update on replay of the current most-recent track. Current HistoryEntry also does not store duration. It stores metadata and references only; no audio copy and no YouTube watch URL.
 - After commit audit, decide expected semantics and add tests for failed resolve, same-track replay, metadata update, and missing local file. Preserve metadata-only storage.
 - Source unchanged; no build.
+
+
+### #088 — GitHub Actions execution status audited read-only
+
+- **Дата:** 20.11.2026.
+- Queried the latest 100 workflow runs for the active feature branch: 10 source-validation runs, 9 simulator smoke runs and 81 companion-audit runs; all are marked failure.
+- Latest source-validation run 44702566334 (HEAD a69ddc5a7421a5346ed6a5009f749c2186a5d956) ended in 4 seconds; latest simulator run 44702566384 on the same HEAD ended in 11 seconds. Job metadata contains no steps and no logs URL; job log fetch returns 404.
+- **Conclusion:** no evidence that source parser, Xcode build, simulator or UI tests executed for these runs. The failures are not evidence of a source defect; exact dispatch/runner cause is not exposed. Do not speculate beyond this.
+- Manual GitHub IPA workflow is dispatch-only; its presence is not a successful build. Codemagic Build #5 is separate and remains the last confirmed successful device IPA build.
+- No workflow retry, rerun, simulator build or Codemagic build was initiated. Await explicit approval before spending build minutes.
