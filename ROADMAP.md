@@ -1263,3 +1263,43 @@ Current active branch files inspected: Providers.swift blob `10c400475c35b4afffc
 - Confirmed source defect: SearchModel stale-result race (P1).
 - Open: YTM relevance threshold/retry for non-empty irrelevant results; SearchModel race fix and test; more modern Mix `/next` renderer coverage; end-to-end YTM search/stream playback on the identified Codemagic Build #5; full device tests for ordinary YouTube/playlist/Mix.
 - No code changes/build/device tests in this audit pass.
+
+
+## 24. Source audit: imports/Telegram, local-file deletion, persistence, diagnostics, artwork — 20 Nov 2026
+
+Current active feature branch source reviewed: Store.swift `c2dad1b067ad1e33f79b53c233a2d0a7b6b25ec7`; PleiApp.swift `8189947e6325b951ae75d42f0568b647a0c23dfa`; Player.swift `00385aa9cfdaeb11b08570cbd5a5ec7cc5863384`; Media.swift `e37ea4e4d9d5e08f8fff0d63d319c61646e66e8d`; YouTubeDiagnostics.swift `e106b8037473c2d083df2a2f0f4fa0e77c32617d`.
+
+### Imports / Telegram handoff
+
+- PleiApp `.onOpenURL` logs incoming URL metadata and calls `store.importFiles([url])`; app becoming active calls `store.importInbox()`. Store init also scans and imports Inbox.
+- Direct external file URL is copied into Documents/Music under a collision-safe unique filename; security-scoped resource access is started/stopped. Inbox files are moved into Documents/Music. Supported extensions: mp3/m4a/aac/wav/flac/aif/aiff/caf/opus.
+- Imported files are automatically inserted into Favorites. Metadata title/artist/artwork is read asynchronously through AVURLAsset commonMetadata; scan runs again after metadata extraction. This implements the current Telegram/share handoff path at source level.
+- Source risk: `place(url, move:true)` removes an Inbox item when its extension is unsupported. `importInboxNames()` applies this to every item in Inbox, so a non-audio item delivered through share/import can be silently deleted rather than left untouched/rejected with a user-visible explanation. Needs explicit policy and test.
+- No content-hash dedupe: repeated import of same audio under different filenames can create multiple library entries; only filename collisions are renamed. Need decide whether content dedupe is desirable; test same file imported twice.
+
+### Local file deletion / library references
+
+- `Store.deleteFile` removes the audio file, artwork file, overrides and metadata, then rescans files. It does NOT remove the matching imported Track from `favorites`, `playlists`, or `historyEntries`.
+- Imported files are auto-favorited, so after deleting one from Downloads, a stale Favorite with `file` pointing to the deleted filename can remain. `Store.library` includes `favorites`, and Player.localURL returns the file URL without verifying existence unless offlineOnly guard runs. In online mode, Player can attempt AVPlayer on the missing file. Recent also can retain the stale file reference. This is a stronger source-level referential-integrity issue than Recent alone.
+- `deleteFile` has no defer-if-current behavior. In contrast YouTube cached file deletion has deferred deletion for currently playing audio. Test deletion while local file is playing, then replay from Favorites/Recent after deletion and after relaunch.
+- This requires a product decision: deleting the physical imported audio could remove its Favorites entry and playlist/history references, or preserve metadata but clear local file pointer and present a missing-file state. Do not silently choose before design/behavior is agreed.
+
+### Persistence and app lifecycle
+
+- Favorites, playlists, history.v2, overrides and metadata use UserDefaults with 700ms debounced saves. `flushPendingSaves` cancels pending tasks and writes all keys when app becomes inactive/background. Current history max is 40; diagnostics ring buffer is 1200 entries.
+- PleiApp calls `store.importInbox()` on active; Store init also imports Inbox. No test in this source audit proves crash/relaunch behavior or atomicity of metadata/artwork writes.
+- Generic `AudioCache` is under Caches/Audio and trims to 40 files at Player init. YouTube FavoritesAudioCache is separate and persists completed audio. OfflineOnly checks local imported files, YouTube favorite cache, or generic AudioCache as appropriate.
+- Diagnostics are local UserDefaults lines, max 1200, exported as one text block and cleared explicitly. A separate external test-log journal is still needed for complete exports; the app's rolling buffer can drop oldest entries after capacity.
+
+### Artwork
+
+- YouTubeThumbnail chooses the highest declared pixel-area source; i.ytimg.com is rewritten toward hq720; googleusercontent/ggpht URL size suffix is scaled to max 1080 while retaining ratio.
+- ImageStore tries multiple i.ytimg.com rendition names and unmodified googleusercontent fallback, caches images in NSCache. Cover preserves YouTube aspect ratio, except it detects centered square album art embedded in a wide thumbnail using side-fill sampling. Imported local artwork is read from metadata and stored in Application Support/Art.
+- This is source-level logic; no image fixture suite or broad device visual verification was found. Existing commits show several successive reversals between square crop, 16:9 frame, aspect-ratio preservation and centered-square detection. Current implementation must be treated as final candidate, not device-verified. Test square album art in wide canvas, genuine wide video thumbnail, missing hq720 fallback, playlist/Mix art, local metadata artwork, portrait/odd ratio.
+- Potential housekeeping: rewriting metadata artwork for an already-imported filename uses the same `<filename>.img`; old art for a changed filename or deleted/missing source may become orphaned. Audit cleanup before changing artwork storage.
+
+### Status
+
+- Source implemented: direct share URL import, Inbox move/Telegram path, auto-Favorites, metadata extraction, app lifecycle flush, 40-item Recent cap, 1200-line diagnostics ring, thumbnail optimization and aspect-ratio/pillarbox handling.
+- Source-level issues/open decisions: unsupported Inbox item deletion; duplicate imports by content; deleting local audio leaves stale Favorite/playlist/Recent references and has no active-playback deferral; migration/relaunch/crash tests; artwork fixture/device tests; orphan artwork cleanup.
+- No source edit/build/device test in this pass.
