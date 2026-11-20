@@ -1594,3 +1594,14 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - 500 MiB per-track and 64 MiB free reserve are hard guards; 1 GiB total is only a soft budget with no silent eviction.
 - Next: agree intended download trigger (on like / after first play / manual / combination), and cancellation/pause policy; then test cellular, background, skip and duplicate traffic.
 - Source unchanged.
+
+
+### #091 — Resolver timeout and cancellation audit deepened
+
+- **Дата:** 20.11.2026.
+- Native Swift resolve uses an ephemeral requestSession but post() sets no explicit request timeout; resolveUncoordinated() has no overall deadline across visitor data, client attempts and JS fallback.
+- JS stream resolve timeout is 120s; WebView readiness timeout is 30s; catalog inner timeout is 75s and outer deadline is 15s.
+- resolveOnce()/searchCatalogOnce() cancellation handlers finish the Swift continuation but do not send a cancellation message to JS. ensureReady() has no cancellation handler for readyWaiters.
+- Native fetch uses URLSession.shared.data(for:) with 30s (6s for raw GitHub) but no requestID→URLSessionTask registry or abort channel. Cancellation/timeout/WebKit termination can leave underlying native requests running until they finish.
+- This is a confirmed source-level cleanup/timeout gap. No fix yet; after full commit audit define one end-to-end budget and propagate cancellation across Swift→JS→native URLSession.
+- Source unchanged.
