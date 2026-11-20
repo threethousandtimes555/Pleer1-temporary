@@ -1323,7 +1323,7 @@ Current active feature branch source reviewed: Store.swift `c2dad1b067ad1e33f79b
 | Очередь / auto-advance / stale seek / auto-skip | Основная логика присутствует, отдельные изменения после Build #5 | Частично исторические тесты; точный актуальный commit/build требуется | Не закрыто полным набором сценариев | Проверить естественный конец, удалённый трек, временную сеть, лимит skip и seek race |
 | Downloads / FavoritesAudioCache / offline-only / cellular consent | Есть в source | Build #5 покрывает только состояние на 7eabcbc...; более поздний HEAD отдельно не подтверждён | Нужна повторная проверка на актуальном билде | Проверить Wi-Fi↔cellular/VPN, согласие, отмену/повтор, лимиты, файлы и отсутствие дублей трафика |
 | Telegram/import/local audio | Путь импорта реализован | Полная актуальная проверка не подтверждена | Нет свежего полного теста | Сначала определить безопасную политику неподдерживаемых файлов, дублей и удаления |
-| Favorites / Downloads / Recent UX | Favorites DisclosureGroup сохранён; Recent metadata-only; Downloads отдельная модель/экран частично в source | Recent commits после Build #5 не собраны | UI-контракт утверждён, но новая навигация Downloads/Recent не подтверждена на iPhone | Не менять «Любимое»; после аудита спроектировать отдельные переходы на полные экраны «Скачанные» и «Недавние» |
+| Favorites / Downloads / Recent UX | Реализовано в source: «Любимое» остаётся DisclosureGroup; «Скачанные» и «Недавние» — отдельные NavigationLink на собственные экраны с полными списками | Изменения после Build #5 не собраны на точном HEAD | Последняя версия этих экранов на iPhone не подтверждена | Сохранить текущую структуру; проверить обе страницы на устройстве после аудита; не добавлять dropdown/segmented switcher |
 | Search: YTM + InnerTube + HTML | Реализовано в source; SearchModel race найден | Отдельный полный актуальный build/test не подтверждён | Нет end-to-end подтверждения текущей YTM ветки | Проверить SearchModel race, relevance retry, catalog cancellation, обычный поиск и выдачу |
 | Playlist / Mix / radio | Парсеры и pagination реализованы | Есть отдельные source tests; broad modern Mix matrix не подтверждена | Нет полного iPhone сценария | Добавить fixtures современных /next renderer форм и проверить продолжение Mix |
 | Artwork | Реализованы варианты выбора размера, fallback и ratio logic | Fixture matrix не подтверждена | Полная визуальная проверка не подтверждена | Проверить square-in-wide, genuine wide, fallback, Mix/playlist, local metadata, portrait |
@@ -1333,9 +1333,67 @@ Current active feature branch source reviewed: Store.swift `c2dad1b067ad1e33f79b
 **Правило определения правильного поведения до исправления:** изучить текущую реализацию и её call sites; восстановить историю соответствующих commits/reverts; найти утверждённое пользовательское требование и существующие тесты; описать текущее фактическое поведение и варианты; определить безопасное ожидаемое поведение и согласовать его с пользователем, если это продуктовый выбор; записать решение; только затем менять source и добавлять тест. Для очевидного технического дефекта без продуктовой неоднозначности всё равно сначала зафиксировать причинную цепочку и критерий исправления. Никаких правок наугад.
 
 **Плановые статусы backlog:**
-- **P0 сейчас:** duration mismatch; доказательство natural end; Repeat One.
+- **P0 сейчас:** duration mismatch и достоверное определение natural end. Repeat One/Play One пользователь сейчас считает, вероятно, работающим нормально; отдельный дефект не фиксировать без воспроизведения. Оставить Repeat One как обязательную регрессионную проверку после исправления длительности.
 - **Следующий блок:** auto-advance/seek/queue; resolver и JS cancellation/readiness cleanup; VPN/network handoff; timeout budgets; SearchModel stale request race; search relevance; Mix parser fixtures.
 - **После ядра:** import/Telegram policy, local file delete consistency, deduplication, persistence migration/relaunch, artwork fixture suite, Favorites/Downloads/Recent navigation and visual system.
 - **Отдельный будущий этап (не считать реализованным):** Musike mechanics — albums/discographies/artists/genres, live autocomplete, batch search, direct watch URL, per-track radio/getUpNext, official video matching, audio/video switch preserving position, bulk selection/actions. Это backlog, не текущая задача и не часть критериев стабилизации.
 
 **Гейт:** пока все 298 commits не reconciled с HEAD, source fixes не начинаем. После завершения commit audit — сверяем весь план, закрываем уже выполненное, переносим оставшееся в конкретные задачи с критериями проверки. Сборки Codemagic без отдельного разрешения не запускаем.
+
+
+## 26. Повторная сверка плана и конкретизация будущих механик — 20 ноября 2026
+
+Этот раздел — актуальная сверка старых пунктов ROADMAP с текущим HEAD и решениями пользователя. Он имеет приоритет над историческими снимками статуса в разделах 12–24; старые разделы не удаляются, поскольку сохраняют историю решений и состояния на дату записи.
+
+### Что уже сделано в исходниках (не означает device verification)
+
+| Направление | Что уже реализовано в текущем HEAD | Что остаётся |
+|---|---|---|
+| «Моё» / библиотека | «Любимое» сохранено в раскрываемом DisclosureGroup; «Скачанные» и «Недавние» — отдельные пункты навигации, открывающие собственные экраны со списками | Проверить на iPhone точную навигацию, содержимое и playback; никаких dropdown в Downloads/Recent и никаких segmented switcher |
+| Recent history | Компактная metadata-only модель; лимит 40; нормализация/дедупликация при загрузке; migration со старого ключа в his.v2; stream URLs не сохраняются | Проверить миграцию старой истории, 40 unique entries, relaunch и playback на iPhone; известная длительность в HistoryEntry ещё не гарантирована |
+| Offline library | Завершённые YouTube audio downloads отделены от Favorites; local imported audio включены в Downloads; воспроизведение скачанного YouTube-файла не требует лайка | Проверить каталог, relaunch, снятие лайка, удаление и offlineOnly на устройстве |
+| Cellular/downloads | NWPathMonitor, явное согласие на cellular, Wi-Fi-only до возврата Wi-Fi, последовательная очередь, capped download, MIME/signature validation, retry и storage safeguards присутствуют в source | Проверить реальные Wi-Fi↔cellular/VPN handoffs, prompt, отмену/повтор, storage pressure и расход трафика на iPhone |
+| Resolver/cache | Native Swift + youtubei.js fallback, expiry-aware cache, общая in-flight координация, AAC/MP4-only iOS fallback, MIME boundary checks | Закрыть catalog cancellation gap; отдельно проверить сетевые переходы и end-to-end timeout на устройстве |
+| Search/catalog | YTM song/music-video/ordinary-video catalog, InnerTube и HTML transports, merge/dedupe/ranking и suggestion retry при пустых Music shelves реализованы | SearchModel race, слабая непустая выдача, реальный релевантный поиск и parser fixtures |
+| Seek | Track ID/loadToken guard, seek source diagnostics, lock-screen identity snapshot | Проверить быстрый seek/Next/Previous и stale command на актуальной сборке |
+| Artwork | High-resolution source selection, rendition fallback, aspect ratio, centered-square detection, local metadata artwork | Полная fixture matrix и визуальная проверка на iPhone |
+| Build / validation | Codemagic unsigned IPA, GitHub manual IPA, simulator UI test workflow, lightweight JS/shell/Swift syntax validation | Успешный запуск workflow относится только к конкретному run/commit; syntax validation не заменяет Xcode build |
+
+### Активные задачи стабилизации — в порядке выполнения
+
+1. **P0 — длительность и естественное завершение.** Текущий HEAD использует resolver YouTube duration как authoritative для UI/watchdog, а AVPlayerItem duration оставляет fallback. При известном логе 218.00 s vs 435.12 s watchdog и playback.youtube_duration_end могут сработать около resolver duration, пока AVPlayer item ещё длиннее. Сначала восстановить семантику источника duration и поведение реального аудио, затем выбрать корректную модель и добавить тесты. Не подменять AVPlayer duration метаданными без проверки и не подгонять только UI.
+2. **Natural end / auto-advance.** Сценарий считается проверенным только если трек сам дошёл до естественного конца без ручного seek; сохранить полный лог до нескольких секунд после конца. Различать AVPlayerItemDidPlayToEndTime, watchdog completion и ручной seek.
+3. **Repeat One / Play One — регрессионная проверка, не подтверждённый отдельный P0-дефект.** Пользователь сообщил, что режим, похоже, работает нормально. В source planNext() для .one выставляет plannedNext на текущий index; после корректного natural-end вызвать advance(auto:true) и проверить цикл. Не менять режим/логику, пока воспроизводимый тест не покажет проблему. Обязательно включить локальный скачанный YouTube-файл и «Только скачанные».
+4. **P1 — поиск.** Исправить/проверить SearchModel request identity/cancellation; доказать, что старый запрос не перезаписывает новый и не сбрасывает loading. Затем проверить релевантность, suggestion retry для слабой, но непустой выдачи и поисковые запросы пользователя.
+5. **P1 — JS/WebKit cancellation.** Связать отмену Swift caller → catalog request → JS Promise → nativeFetch URLSessionTask; обеспечить очистку pendingFetch, pendingCatalogSearches, таймеров и late callbacks при timeout, cancellation и WebKit termination.
+6. **P1 — route handoff / resolver timeout.** Проверить, как приложение распознаёт смену реального VPN egress IP (NWPathMonitor не гарантирует обнаружение каждого изменения маршрута), определить сквозной timeout budget для visitor/player/client attempts/JS fallback, затем проверить на устройстве.
+7. **P1 — Mix/playlist.** Добавить fixture matrix для актуальных renderer shapes в search и /next, включая continuation, duplicate IDs/tokens, empty page, playlistPanelVideoRenderer, wrapper/modern renderer и верхние пределы pagination.
+8. **P1 — импорт/удаление.** До изменений определить согласованное поведение: неподдерживаемый Inbox share не должен незаметно удаляться; повторный импорт того же содержимого должен иметь предсказуемую dedupe policy; удаление local audio должно корректно обновлять Favorites/playlists/Recent и playback, включая файл, который сейчас открыт AVPlayer.
+9. **P2 — traffic/persistence/artwork.** Измерить одновременный streaming + full-file download и его сетевую/энергетическую стоимость; проверить flush/migration/relaunch; выполнить artwork fixture suite.
+
+### Будущие механики Musike — конкретный план, не текущая стабилизация
+
+Все пункты ниже — **не реализованы как законченные функции**, но превращены в отдельные проектные задачи с зависимостями и критериями готовности. Начинать только после стабилизации playback/search/resolver и отдельного UX-обсуждения.
+
+| Будущая задача | Конкретные этапы | Критерий готовности |
+|---|---|---|
+| Albums | Исследовать YTM album result models/IDs; добавить typed model/parser; открыть album detail; загрузить все tracks с pagination; добавить экран альбома | Поиск альбома → открытие → полный список → воспроизведение/добавление без потери исходного порядка |
+| Artists / discography | Получать artist browse ID из YTM results; изучить browse endpoint и continuation; сделать экран исполнителя с albums/singles; связать с album detail | Переход от песни к исполнителю и просмотр полной дискографии с корректными IDs и pagination |
+| Genres | Проверить доступные YTM browse endpoints/categories; определить taxonomy и навигацию; добавить typed genre model и genre pages | Пользователь выбирает жанр и получает воспроизводимую выдачу без искусственных поисковых запросов |
+| Live autocomplete | Подключить suggestions endpoint с debounce, отменой старого запроса и UI списка; сохранить submit search как fallback | Подсказки обновляются по вводу, старый ответ не перезаписывает новый, выбор запускает точный поиск |
+| Direct YouTube watch URL | Добавить URL parser для youtu.be/watch/shorts и валидировать 11-char video ID; преобразовать в единичный Track и отобразить в UI | Вставка watch URL открывает правильный трек; не путает video URL, playlist и Mix |
+| Batch search | Спроектировать ввод списка запросов; ограничить параллелизм; дедуплицировать по YouTube ID; показывать частичные результаты/ошибки | Несколько запросов завершаются с предсказуемым порядком, без SearchModel race и перегрузки сети |
+| Per-track radio / getUpNext | Изучить YTM getUpNext response; определить seed/playlist continuation; адаптировать Track/queue без потери исходной очереди | Запуск радио от конкретного трека создаёт очередь похожих треков и корректно продолжает её |
+| Official video matching + Audio/Video mode | Исследовать matching official artist channel/video; хранить связь audio/video IDs; спроектировать переключатель; синхронизировать позицию и состояние очереди | Переключение audio↔video сохраняет позицию, не создаёт дубли и не ломает фон/audio session |
+| Multi-select / bulk actions | Добавить selection state и native selection UI; массовые favorite/add-to-playlist/play; определить отмену и accessibility | Выбранные элементы отображаются однозначно; действия выполняются только над выбранными IDs |
+| Persistent queue | Определить формат snapshot (track IDs/metadata, index, repeat/shuffle, position); восстановление через resolver, без сохранения expiring stream URLs | После relaunch очередь восстанавливается, недоступные треки обрабатываются безопасно, stale URLs не используются |
+| Backup / export / restore | Спроектировать versioned archive; экспорт metadata + optional local files; preview перед импортом; merge/replace policy; collision handling | Пользователь видит preview и явно выбирает merge/replace; нет молчаливой потери/перезаписи данных |
+
+**Не переносить:** Musike server/desktop/web stack, yt-dlp/FFmpeg server paths, proxy delivery, обход ограничений доступа, а также WebM playback без отдельного нативного codec/player pipeline.
+
+### Гейт аудита и разработки
+
+- Все 298 commits перечислены и индивидуально запрошены; текущая семантическая сверка по группам продолжается. Этот этап не закрыт, пока каждый diff не сопоставлен с текущим HEAD/revert/superseding commit и evidence.
+- До завершения commit reconciliation source fixes не начинаем.
+- После завершения аудита — обновляем эту матрицу по каждому направлению, удаляем из активного плана уже выполненные задачи, фиксируем остаток с acceptance criteria.
+- Новые Codemagic builds, simulator runs, IPA packaging и установка — только после отдельного явного разрешения пользователя.
