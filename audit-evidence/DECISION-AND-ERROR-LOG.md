@@ -1319,3 +1319,15 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - **Deferred by decision:** autocomplete UI, album/artist/genre browse, per-track getUpNext radio, official-video matching, batch search and yt-dlp server/desktop. No WebM until separate native support.
 - **Validation boundary:** Codemagic confirmed Release app compilation and IPA packaging; it did not run XCTest. JS bundle was built but not executed in WKWebView. GitHub Actions attempts had no runner (`runner_id=0`). No real-device tests for YTM search, resolver, queue, background/Siri, natural auto-advance, VPN handoff or offline downloads. Build #5 remains last device-verified version; stable checkpoint unchanged.
 - **No source code was changed by this audit.** Findings are queued for isolated patches and subsequent build/device validation; no Codemagic minutes consumed.
+
+
+### #069 — Дополнительная инвентаризация возможностей Musike и дефект Play One
+
+- **Дата:** 20.11.2026.
+- **Musike version:** официальный GitHub Releases page помечает `v1.5.1` как Latest на дату проверки.
+- **Дополнительно выявленные механики, отсутствующие в текущем Pleer1 iOS source/UI:** YTM albums, artist/discography pages, genre browse, live autocomplete, direct single-video URL input, search-a-list, multi-select/bulk actions, library backup/export + merge/replace import with preview, queue persistence across relaunch, audio/video switching with position retention, official music video matching, per-track `getUpNext` radio.
+- **Подтверждённые текущие различия:** SearchView only submits text search; `playlistTrack(from:)` supports playlist URLs but not full single-watch URL flow; no queue persistence found in Player/Store; no video mode in PlayerView; no bulk selection or backup/restore UI. Keep as future roadmap, do not mix into current stability patch.
+- **Play One report:** user says issue occurred twice and reappeared after relaunch. Current code has no named `Play One` handler; tapping a TrackRow calls `player.play(list, at: selectedIndex)`, which queues the source list from selected track onward. Need user clarification whether this is the action meant.
+- **Log analysis:** visible excerpt contains no explicit action/start/failure event. It shows successful prefetch for next item via Swift/VISIONOS and current item `item=1`, `control=2`, buffer not empty, likelyToKeepUp=true, waiting=none, clock progressing 215→236s. It does show `expected=218.00` vs `assetDuration=435.12` (~2x), an existing duration mismatch. The excerpt alone does not identify Play One root cause.
+- **Next diagnostic improvement:** add explicit action-origin events for TrackRow single tap / list play / queue jump / remote or Siri action and capture full log around a reproducible failure. Do not change single-track semantics until confirmed.
+- **No app source changes or Codemagic build were made in this inventory pass.**
