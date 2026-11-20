@@ -4,7 +4,7 @@
 - Branch: `feature/youtubei-js-ios-fallback-2026-11-19`
 - Inventory snapshot: 20 November 2026
 - Commits in branch history returned by GitHub API: **298** (pages: 100 + 100 + 98).
-- Every commit SHA below has been individually requested through the GitHub commit endpoint for its metadata and diff. The full semantic reconciliation against current HEAD is **in progress**; this index is not a claim that all 298 changes have already been exhaustively interpreted or device-verified.
+- Every commit SHA below has been individually requested through the GitHub commit endpoint for metadata and diff and reviewed in functional clusters against current HEAD. Source/history review is summarized in ROADMAP §27; this is not device/runtime verification. The index is a complete inventory, while the roadmap records retained, superseded, reverted and still-open behavior.
 - Dates are Git author timestamps in UTC. Full SHA is retained for traceability.
 
 ## Complete commit inventory
@@ -367,3 +367,12 @@ Runtime/device verification remains open; no source changes and no new build are
 - Key reconciliation: Favorites now contains only actual favorites; completed offline downloads remain independent. «Моё» uses Favorites DisclosureGroup plus dedicated Downloads and Recent screens. Repeat One is a regression check, not a confirmed P0 defect. Manual seek-to-end remains distinct from natural-end evidence.
 - Open work is runtime/device verification and the task register in ROADMAP.md §27; it is not missing commit history.
 - No application source changes, builds, simulator runs, Codemagic runs or IPA packaging were performed.
+
+
+## Reconciliation note — 20 November 2026
+
+- Reviewed inventory: 298 commit entries; each SHA was individually fetched for metadata/diff and the history was read newest-to-oldest in functional batches.
+- Current feature HEAD: `a69ddc5a7421a5346ed6a5009f749c2186a5d956`.
+- Comparison against `main`: merge base `6de22da8ebd089e71cf6b9df34edeb915b636063`, feature branch ahead 285, behind 0. The 298-entry reachable-history inventory must not be explained as commits 286–298 being common commits with main.
+- Functional dispositions and the three project task matrices are recorded in `ROADMAP.md` §27. Major revert/restore chains and open technical risks remain explicitly documented there and in the decision log.
+- This audit is source/history review only. It does not prove current-head compilation, CI success, installation, or iPhone runtime. No source code or build workflow was changed/run during this pass.
