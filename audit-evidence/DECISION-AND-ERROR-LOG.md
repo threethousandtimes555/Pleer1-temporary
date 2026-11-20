@@ -1617,7 +1617,7 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - No source changes.
 
 
-### #085 — Network/download cluster semantic audit (partial)
+### #093 — Network/download cluster semantic audit (reviewed; source reconciliation closed)
 
 - Reviewed commit segment: 08b07cf, 6a5fd56, f5344f0, 56031eb, 4195aae, 0f3ee45, da9bd55, 3a74010, be3bfb2, e00b1ae, b83253b, f3b2e2e, 2a6250c, 60020f3, 972f1fb. Reconciled relevant behavior against current YouTubeEngine.swift, FavoritesAudioCache.swift, YouTubeJSResolver.swift.
 - Resolver invalidation decision in code history: an earlier change cancelled in-flight jobs; later f5344f0 intentionally changed this to detach stale jobs from cache while allowing existing consumers to finish, to avoid breaking active playback. Generation checks prevent stale results being cached after route change. Deliberate behavior; requires race tests.
@@ -1627,3 +1627,19 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - VPN caveat: NWPathMonitor interface type/satisfaction may remain unchanged when VPN egress IP changes; current source cannot guarantee detection of every VPN route change.
 - Tests still required: resolver old/new generation race; route changes including rapid transitions; VPN egress same interface; cancellation before/after URLSession task creation; cap overflow cleanup; remove active download; 403/410 one-retry; cellular prompt and permission enforcement; low storage; deletion while playback active.
 - No source changes/build/device tests in this audit segment.
+
+
+### #094 — Закрытие source-level аудита 298 коммитов и итоговый реестр задач
+
+- Дата: 20.11.2026.
+- Рабочая ветка: feature/youtubei-js-ios-fallback-2026-11-19.
+- HEAD: a69ddc5a7421a5346ed6a5009f749c2186a5d956.
+- В COMMIT-AUDIT-INDEX.md учтены все 298 коммитов. Сравнение main...feature показывает 285 коммитов вперёд и 2 позади; merge-base — 6de22da8ebd089e71cf6b9df34edeb915b636063 (#286). Следовательно, 285 коммитов — изменения рабочей ветки, а 13 записей #286–#298 — общая предшествующая история. Два коммита main не переносились и не сливались.
+- Функциональные диапазоны сверены с текущими исходниками: #1–47 — YouTube Music/catalog и первичная интеграция; #48–77 — seek/artwork/library/revert chains; #78–162 — навигация, офлайн-загрузки, cellular/network handoff, resolver coordination и auto-skip; #163–224 — offline cache, artwork, duration, search ranking, persistence/diagnostics и runtime build integration; #225–254 — WKWebView bridge, перенос ресурсов, client profiles и JS fallback; #255–285 — импорт исходного YouTube-модуля, playlist/Mix/search parser, tests и build workflows; #286–298 — общая история workflow/companion audit.
+- Revert/restore цепочки сверены с текущим HEAD. Механические правки и перемещения generated resources сгруппированы по функциональному изменению; текущий итоговый статус функций записан в разделе 27 ROADMAP.md.
+- Подтверждённые source-level gaps: duration/end provenance; SearchModel stale-request race; отсутствие полного abort канала JS → native URLSession; отдельный полный download transfer поверх playback stream; Recent semantics; неполная детекция VPN egress при неизменном интерфейсе.
+- Repeat One по текущей логике планирует тот же индекс при auto-advance; отдельным P0 не считается. После исправления duration/end включить его в регрессионный набор.
+- «Недавние» ограничены 40 записями; Favorites/Downloads/Recent navigation и Favorites DisclosureGroup соответствуют текущему решению. Завершённые offline downloads остаются независимыми от Favorites.
+- Возможности Musike сохранены в backlog таблицы 3 раздела 27 ROADMAP.md: albums, artists/discography, genres, live autocomplete, direct watch URL, batch search, per-track radio/getUpNext, official video matching/audio-video mode, multi-select, persistent queue, backup/export/restore.
+- Runtime/device verification не закрыта: последний подтверждённый Codemagic Build #5 относится к старому checkpoint; GitHub Actions failures на HEAD не содержат доступных steps/logs и не доказывают source/build failure.
+- Никакие исходники приложения не менялись. Не запускались сборки, симулятор, Codemagic или IPA packaging. Дальнейший порядок: P0 duration/end → P1 search/cancellation/network/queue → P2 Recent/import/playlist tests → отдельное согласование device build → Musike backlog.
