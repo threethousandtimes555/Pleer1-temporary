@@ -343,3 +343,10 @@ Still open: exhaustive semantic reconciliation of all remaining commits and all 
 - RecentView is a direct list screen.
 - Player.load() records history before resolver/AVPlayer readiness; failed tracks may appear in Recent. Store.addHistory() does not refresh listenedAt when the same ID is already first. HistoryEntry does not store duration and retains only metadata/local filename reference, not audio bytes or YouTube watch URL.
 - Expected semantics (“attempted/selected” vs “actually started playing”) remain a product decision. No source change.
+
+
+### GitHub Actions run evidence — 20 November 2026
+
+- Latest 100 branch runs: 10/10 source-validation failures, 9/9 simulator smoke failures, 81/81 companion-audit failures.
+- Latest validation/simulator runs on HEAD a69ddc5 ended in 4s/11s; job metadata has no steps/log URL and job log fetch returns 404. No evidence tests or builds executed. Cause is not exposed; do not label as source failure or assume runner exhaustion.
+- No rerun/build was triggered. Codemagic Build #5 remains separate successful IPA evidence.
