@@ -328,3 +328,11 @@ Still open: exhaustive semantic reconciliation of all remaining commits and all 
 **New source-level conclusions:** (1) current duration policy is resolver-metadata authoritative and can finish UI/watchdog near 218 s while AVPlayer item duration is ~435 s; actual audible EOF remains unproven; (2) Repeat One source path sets plannedNext to current index and user reports it likely works, so treat as regression test, not known P0 defect; (3) «Моё» navigation is already source-implemented as Favorites DisclosureGroup + dedicated Downloads/Recent screens; (4) offline download/cellular/route logic is present but latest HEAD lacks full device evidence; (5) local import/delete policy gaps remain; (6) current build preparation is explicit workflow step and project.yml has no duplicate prebuild script.
 
 **Next audit focus:** finish one-to-one reconciliation for every commit and compare the old Roadmap checklists against current HEAD, with particular attention to early baseline features, pre-YTM offline/import/search work, revert chains, and actual CI run evidence. No source edits or builds until the audit gate is satisfied.
+
+
+### Revert chain status — 20 November 2026
+
+- Commit 96b54c5 reverted combined library deduplication; later 1bef38f and a623bce reintroduced it, and current Store.library deduplicates by Track.id.
+- Commit 5ec6207 reverted Favorites-only display and temporarily merged downloadedTracks into Favorites; later 9313815 and 6dc1ee6 restored Favorites-only content, and current FavoritesView uses store.favorites.
+- Commit dd9f7ca reverted recent-seek-to-end classification fields and typed completion trigger. Commit 1cd735 resets the YouTube watchdog baseline after seek but does not restore the classification. Current Player has seek source diagnostics but no lastSeekTarget/lastSeekRequestedAt correlation; finishCurrentItem has no trigger/source argument.
+- **Current source gap:** manual seek to end may flow into the same completion/advance path as natural AVPlayer EOF. This does not make manual seek a valid natural-end test. Expected behavior for manual seek-to-end must be decided before a fix.
