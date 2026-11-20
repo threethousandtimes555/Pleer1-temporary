@@ -1397,3 +1397,13 @@ Current active feature branch source reviewed: Store.swift `c2dad1b067ad1e33f79b
 - До завершения commit reconciliation source fixes не начинаем.
 - После завершения аудита — обновляем эту матрицу по каждому направлению, удаляем из активного плана уже выполненные задачи, фиксируем остаток с acceptance criteria.
 - Новые Codemagic builds, simulator runs, IPA packaging и установка — только после отдельного явного разрешения пользователя.
+
+
+### Revert reconciliation addendum — manual seek vs natural end
+
+- Commits 96b54c5, 5ec6207 and dd9f7ca are true revert commits, not permanent removals of every preceding feature.
+- Store library deduplication reverted in 96b54c5, then was reintroduced by 1bef38f and a623bce; current Store.library deduplicates by stable Track.id.
+- Favorites was temporarily changed back to include completed downloaded tracks by 5ec6207, then 9313815 and 6dc1ee6 restored Favorites-only contents; current FavoritesView uses store.favorites only.
+- dd9f7ca reverted the attempted manual-seek-to-end classification: removed lastSeekTarget/lastSeekRequestedAt, removed finish trigger provenance, and returned finishCurrentItem to a single untyped completion handler. Commit 1cd735 later reset the watchdog baseline after seek but did not restore seek-to-end provenance.
+- Current Player.swift confirms seek(source:) logs the source and finishCurrentItem logs position/duration/repeat/queue but has no correlated recent-seek state or trigger field. Both AVPlayerItemDidPlayToEndTime and watchdog/duration completion can call finishCurrentItem. Therefore a manual seek to the end can be mistaken for natural completion in current diagnostics and may enter auto-advance. A test that manually drags to the end must never be counted as proof of natural EOF.
+- **Next step after duration audit:** determine and document desired behavior for manual seek-to-end (advance immediately or remain at end), then add an explicit completion origin/provenance model and tests for manual seek vs AVPlayer natural end vs watchdog. This is a source-confirmed gap; do not patch before the full commit audit gate.
