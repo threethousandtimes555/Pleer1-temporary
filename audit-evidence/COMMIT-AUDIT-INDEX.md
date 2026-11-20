@@ -350,3 +350,8 @@ Still open: exhaustive semantic reconciliation of all remaining commits and all 
 - Latest 100 branch runs: 10/10 source-validation failures, 9/9 simulator smoke failures, 81/81 companion-audit failures.
 - Latest validation/simulator runs on HEAD a69ddc5 ended in 4s/11s; job metadata has no steps/log URL and job log fetch returns 404. No evidence tests or builds executed. Cause is not exposed; do not label as source failure or assume runner exhaustion.
 - No rerun/build was triggered. Codemagic Build #5 remains separate successful IPA evidence.
+
+
+### Bounded auto-skip reviewed — 20 November 2026
+
+- Current source has definitive availability markers, one fresh-resolve retry for AVPlayer YouTube item failures, max six consecutive distinct unavailable tracks, and no skip for generic network/bridge failures. This is source-only evidence; latest iPhone verification remains open.
