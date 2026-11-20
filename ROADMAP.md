@@ -1202,3 +1202,20 @@ Source HEAD после повторного аудита Musike: 6f53515f8974a60
 - **68422d712a:** historical separate Favorites/Downloads root tabs не являются текущей архитектурой.
 
 Вывод: не все revert commits означают, что соответствующий старый код сохранился до HEAD. В текущем source из перечисленных revert-ов явно сохранилось удаление manual-seek provenance из dd9f7ca09b; deduplication и Favorites/Downloads data separation сейчас присутствуют. UI navigation remains separate task.
+
+
+## 21. Correction: approved «Моё» UX + Codemagic Build #5 identity — 20 ноября 2026
+
+**Correction to §17 and earlier UI summaries:** the prior statement that «Любимое» must become an always-expanded upper content block and that «Скачанные / Недавние» should become a segmented switcher on the same page was an incorrect interpretation. Do not implement that proposal.
+
+- «Любимое» stays exactly as it currently works. No redesign/collapse behavior change requested.
+- The user does NOT want dropdown/expandable track lists inside «Скачанные» or «Недавние».
+- The proposed lower segmented switcher / content toggle was not approved and the user dislikes it. Treat it as rejected, not as a design decision.
+- Preferred direction for now: keep «Скачанные» and «Недавние» as separate clear navigation destinations (e.g. rows/cards), each opens its own full track list screen directly; no nested dropdown list and no segmented toggle. This is a design direction to validate later, not an implemented change. Do not alter source until the full audit and later UI design discussion.
+- Preserve existing behavior of «Любимое»; the current source's DisclosureGroup must not be changed solely because of the previous mistaken interpretation.
+
+**Codemagic Build #5 identity confirmed from the user-provided build overview:** ID `6afee60816a4e9e15494d532`, Index 5, workflow `Pleer1 — unsigned iOS device IPA`, status finished, started 19 Nov 2026 17:10 +05, duration 1m 26s, machine Mac mini M2, branch `feature/youtubei-js-ios-fallback-2026-11-19`, commit short SHA `7eabcbc` (full SHA previously identified as `7eabcbcbb83fe1aa402dc2831dbac29f8f507989`). User reports this is the build currently installed on their iPhone. This Codemagic Build #5 is distinct from GitHub Actions Build #5; never conflate their evidence.
+
+**Audit process reaffirmed:** finish the commit-by-commit review, not only selected commits and current source files. For each commit record SHA/date/message, changed files, functional intent, whether the change remains in current HEAD, whether later commits superseded/reverted it, current implementation evidence, and status (source / build / iPhone / open). Then reconcile all findings into ROADMAP and DECISION-AND-ERROR-LOG before starting fixes. No Codemagic build unless user explicitly approves.
+
+**Visual design:** the user wants to replace the app's system-default iOS appearance with Pleer1's own visual design based on a previously shared mockup screenshot. This is a later design-system task; do not interpret the user's stray “SF” as a specific technical request or make assumptions about SF Symbols/fonts. Reuse the actual previously supplied mockup when available; if it cannot be retrieved, ask for it when the visual-design phase begins.
