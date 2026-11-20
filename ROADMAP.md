@@ -1105,3 +1105,42 @@ Source HEAD после повторного аудита Musike: 6f53515f8974a60
 - **Сборка/статическая проверка подтверждена:** для этих конкретных текущих blobs в рамках данного source audit не выполнялась новая Swift compile/build. Ранее успешные сборки не переносить автоматически на текущий HEAD.
 - **Подтверждено на iPhone:** только те тесты, для которых будет предоставлен лог/точный build identity; в этом source audit новых device tests нет.
 - **Требует исправления/проверки:** My layout; default/collapsed Favorites; Recent timestamp refresh; stale Recent entry after local file deletion; migration against real legacy defaults; local file deletion while playing; Wi-Fi/cellular/VPN handoff; download cancellation/retry/relaunch; storage pressure; duplicate traffic and file preservation.
+
+
+## 18. P0 source audit: duration, natural end, Repeat One и seek provenance — 20 ноября 2026
+
+Проверен Player.swift активной feature-ветки, blob 00385aa9cfdaeb11b08570cbd5a5ec7cc5863384. Это source review, не runtime diagnosis.
+
+### Duration mismatch
+
+- resolverYouTubeDuration задаётся из YouTubeEngine.Stream.duration; knownYouTubeDuration первоначально равен resolver metadata.
+- adoptYouTubeItemDuration выбирает resolver metadata как приоритетный источник. AVPlayer item duration используется только если resolver duration отсутствует/невалидна. В коде есть явный комментарий, что AVPlayer asset может иметь padded timeline примерно вдвое длиннее.
+- tick ограничивает отображаемую позицию значением knownYouTubeDuration и вызывает finishCurrentItem, когда реальный AVPlayer clock достигает expected duration минус 0.5 секунды при readyToPlay и отсутствии user pause/interruption.
+- Дополнительный watchdog вызывает finishCurrentItem, если playback stalls в пределах последних 3 секунд ожидаемой длительности на 5 секунд; пользовательская пауза/прерывание блокируют auto-advance.
+- Следовательно, наблюдение expected=218.00 и assetDuration=435.12 само по себе не говорит, что нужно заменить expected на asset duration. Нужно определить, является ли asset timeline padded/duplicated, сколько аудио реально слышно и приходит ли tick/finish event на ожидаемом конце. Нельзя менять authority/обрезку без полного лога и теста естественного завершения.
+
+### Natural end vs manual seek
+
+- Current finishCurrentItem проверяет load token, identity AVPlayerItem и completionHandledToken, пишет позицию, duration, repeatMode, plannedNext, queueCount, index, loadToken и assetDuration, затем вызывает advance(auto: true).
+- В текущем Player.swift отсутствуют lastSeekTarget и lastSeekRequestedAt; finishCurrentItem не принимает trigger/origin. Commit dd9f7ca09b явно удалил прежнюю диагностику, которая пыталась различать manual_seek_to_end и AVPlayer natural end.
+- seek() пишет source и target в playback.seek.request, но finish event не связывает завершение с последним seek. Поэтому лог может потребовать ручной корреляции; одного playback.finish_event недостаточно, чтобы автоматически доказать естественный конец.
+- Перед следующей серией тестов нужно восстановить надёжную event provenance: manual seek, AVPlayer end notification, YouTube duration boundary и watchdog stall должны иметь разные origin labels; correlation должна включать track ID/load token и timestamp. Не считать ручной seek-to-end подтверждением natural end.
+
+### Repeat One / queue
+
+- planNext для repeatMode.one задаёт plannedNext=current index, включая очередь из одного трека.
+- advance(auto:true) использует plannedNext, в том числе при repeatMode.one, затем вызывает load(). Статически путь повторного запуска того же трека выглядит согласованным.
+- cycleRepeat сохраняет режим, пересчитывает plannedNext/prefetch и пишет playback.repeat_mode_changed с from/to, ID, queue count, index, plannedNext, offlineOnly и loadToken.
+- finishCurrentItem пишет repeatMode/plannedNext и вызывает advance(auto:true). Это даёт полезную диагностику, но не заменяет проверку фактического повтора.
+- Статус: source logic present; не compile/build verified на текущем blob и не device verified. Требуются два отдельных теста: (1) downloaded/local YouTube audio при включённом «Только скачанные», Repeat One, естественный конец; (2) streaming YouTube audio, Repeat One, естественный конец. Дополнительно проверить repeat off/all, очередь из одного и нескольких треков, повтор после перехода к следующему.
+
+### Stale seek
+
+- seek() отклоняет запрос, если expectedTrackID или expectedLoadToken не совпадает с текущим track/load token; UI SeekBar передаёт snapshot ID/token на старте перетаскивания.
+- Это source-level guard. Нужен runtime тест: начать drag на треке A, пока палец удерживается переключить очередь/трек на B, завершить drag и убедиться, что позиция B не меняется; проверить быстрые последовательные seeks.
+
+### Статусы и следующий порядок
+
+- Source implemented: metadata-first duration selection, duration boundary guard, watchdog, completion guard, Repeat One plannedNext, stale-seek identity guard, diagnostic fields.
+- Not verified: actual audible duration semantics; whether AVPlayer clock and expected metadata converge; natural end vs manual seek provenance; Repeat One downloaded/streaming; seek race on device.
+- P0 next: restore event provenance, then run duration test with complete raw log; next Repeat One tests. Не запускать сборку до явного разрешения пользователя.
