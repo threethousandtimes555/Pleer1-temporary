@@ -1463,3 +1463,13 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - **68422d712a:** отдельные Favorites/Downloads root tabs — исторический вариант, не current.
 - **3f088b0a9c:** current inline Favorites DisclosureGroup и cellular overlay присутствуют, но Favorites может быть collapsed; approved My page UX ещё не реализован.
 - Итог: из проверенных revert-ов актуально сохранилось удаление seek provenance из dd9f7ca09b; data separation и library dedup в current source есть. UI mismatch — отдельная незавершённая задача.
+
+
+### #080 — Correction: «Моё» UI decision and Codemagic Build #5 identity
+
+- Previous §076 / §079 language proposing permanently expanded Favorites plus a lower segmented Downloads/Recent switcher was a misinterpretation and is explicitly withdrawn. Do not implement it.
+- «Любимое» remains exactly as it currently works. No change requested.
+- Downloads and Recent must not contain dropdown/expandable track lists. The segmented switcher/content toggle proposal is rejected by the user. Preferred current direction: separate visible navigation rows/cards «Скачанные» and «Недавние», each opens a dedicated full track list screen; no dropdown, no segmented toggle. This is not a source implementation decision yet; validate design after the full audit.
+- Codemagic Build #5: ID `6afee60816a4e9e15494d532`; Index 5; finished; workflow `Pleer1 — unsigned iOS device IPA`; started 2026-11-19 17:10 +05; duration 1m26s; Mac mini M2; branch `feature/youtubei-js-ios-fallback-2026-11-19`; commit `7eabcbc` / full SHA `7eabcbcbb83fe1aa402dc2831dbac29f8f507989`. User reports this is the build installed on iPhone. Distinct from GitHub Actions Build #5.
+- Continue complete commit-by-commit audit: each commit SHA/date/message/files/intent; determine whether current HEAD retains, supersedes, or reverts it; link source evidence and four-level status. Do not start fixes before audit completion; no Codemagic without explicit approval.
+- Visual direction: replace system-default iOS UI with Pleer1's own custom visual language based on user's previously shared mockup screenshot. “SF” was not a technical preference and must not be treated as one. Reuse the mockup if retrievable; otherwise ask for it only when visual phase starts.
