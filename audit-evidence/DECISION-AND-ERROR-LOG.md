@@ -1495,3 +1495,16 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - **Playlist/Mix:** direct URLs, RD separation, playlist browse pagination max 20 pages/1000 items, Mix `/next` pagination max 20/500, continuation dedupe. Mix parser currently recognizes playlistPanelVideoRenderer/wrapper. Modern alternate `/next` renderer coverage remains open.
 - **Tests:** ranking and parser fixtures, direct URL recognition, standalone search UI test, playlist second-track + seek UI test. Missing SearchModel race test, broad modern Mix `/next` fixture matrix, JS catalog parsing fixtures, and on-device YTM end-to-end playback evidence.
 - **Статусы:** source implemented for current search/playlist/Mix paths; SearchModel race confirmed in source; no new compile/build/device tests. Open: race fix, relevance retry/threshold, renderer matrix, device end-to-end checks.
+
+
+### #083 — Imports/Telegram, local-file deletion, persistence, diagnostics and artwork audit
+
+- **Дата:** 20.11.2026. Current blobs: Store.swift `c2dad1b067ad1e33f79b53c233a2d0a7b6b25ec7`; PleiApp.swift `8189947e6325b951ae75d42f0568b647a0c23dfa`; Player.swift `00385aa9cfdaeb11b08570cbd5a5ec7cc5863384`; Media.swift `e37ea4e4d9d5e08f8fff0d63d319c61646e66e8d`; YouTubeDiagnostics.swift `e106b8037473c2d083df2a2f0f4fa0e77c32617d`.
+- **Telegram/import:** onOpenURL copies supported audio into Documents/Music; Inbox files are moved on launch/active; supported formats mp3/m4a/aac/wav/flac/aif/aiff/caf/opus; imported tracks auto-favorite and metadata is extracted asynchronously. Source path present; no fresh device test.
+- **Potential destructive import:** `place(move:true)` deletes unsupported files from Inbox. This can silently delete non-audio files delivered via share. Decide policy and test.
+- **Duplicate import:** collision-safe filename creates a second copy for repeated same content; no content hash dedupe. Decide/test.
+- **Local deletion:** Store.deleteFile removes bytes/art/overrides/meta and rescans, but does not remove or update same imported Track in Favorites, playlists or Recent. Since imports are auto-favorited, stale Favorite remains. Player.localURL returns file URL without existence check; online playback can attempt missing file. No defer-if-current for local file deletion. This is a confirmed source-level referential-integrity issue; behavior decision needed before fix.
+- **Persistence:** UserDefaults debounced 700ms; app inactive/background flush; History max 40; diagnostic rolling log max 1200. No crash/relaunch atomicity test in this audit.
+- **Artwork:** high-res YouTube thumbnail selection/URL rewrite, multiple rendition fallback, image NSCache, YouTube aspect ratio preservation and centered-square detection, local metadata art. No fixture matrix or comprehensive device visual test found. Earlier commit history includes several reversals of artwork ratio behavior; current source only source-implemented.
+- **Diagnostics:** rolling local UserDefaults export can discard oldest lines after 1200; preserve complete user-provided exports externally in the test journal.
+- **Статусы:** source implemented for import/lifecycle/artwork paths; open defects/decisions above; no new build or iPhone verification.
