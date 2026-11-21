@@ -387,7 +387,7 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 - Для YouTube Music catalog уже заданы вложенные ограничения: 12 секунд в JS и 15 секунд на стороне Swift; отдельный 75-секундный timeout continuation остаётся защитным внутренним пределом. WebView readiness имеет общий 30-секундный предел.
 - Для JS stream resolver есть 120-секундный Swift timeout; native fetch внутри JS ограничен 30 секундами на запрос (6 секунд для загрузки remote client config).
 - Native Swift resolver выполняет visitor-data запрос и до трёх последовательных player-client попыток через URLSession без явно заданного request timeout и без общего end-to-end deadline. После них может запускаться JS fallback; повтор после WebKit termination может добавить ещё один цикл readiness/resolve.
-- InnerTube search также использует общий native post без явного request timeout; HTML search имеет 20 секунд. Для всей операции YouTubeEngine.search единого end-to-end deadline нет.
+- InnerTube search также использует общий native post без явного request timeout; HTML search имеет 20 секунд. Для всей операции YouTubeEngine.search единого end-to-end deadline нет. Загрузка playlist/Mix ограничена 25 секундами на отдельный HTTP page request и максимум 20 страницами, но отдельного общего deadline на всю последовательность страниц нет.
 - Статус: source-аудит таймеров завершён; бюджеты разных уровней не сведены к единой согласованной модели. Следующий шаг — определить отдельные общие пределы для playback resolve и catalog search, затем менять код только после согласования. Не сокращать вложенные таймеры механически.
 
 ### P1 — Network/VPN handoff
@@ -396,6 +396,13 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 - Монитор сравнивает только доступность и тип интерфейса. Смена внешнего VPN egress IP при неизменном интерфейсе может остаться незамеченной.
 - Для активного AVPlayer streaming отдельного NWPathMonitor handoff нет: новый URL получается при ошибке item или после подтверждённого stall/recovery; watchdog не должен завершать трек только из-за неподвижных часов.
 - Статус: source review подтверждает раздельную политику downloads и streaming recovery; поведение при Wi‑Fi/cellular/unsatisfied и VPN egress transitions требует device/runtime проверки. Не добавлять второй сетевой монитор или принудительный resolver refresh без воспроизводимого дефекта.
+
+### P1 — Playlist/Mix
+
+- Source parser различает обычные playlist IDs и RD Mix IDs; поддерживает legacy playlist/radio renderers и часть современных lockupViewModel форм. Playlist и Mix загружаются отдельными путями: browse и /next соответственно.
+- Для обеих последовательностей есть дедупликация video IDs и continuation tokens; установлен предел до 20 страниц, а также до 1000 playlist tracks / 500 Mix tracks. Пустой результат завершается явной ошибкой; пустая промежуточная страница может продолжить pagination, если сервер вернул новый token.
+- В существующих тестах есть parser fixtures для базовых playlist/Mix search renderers, RD playlistRenderer, direct playlist/Mix URL и один UI сценарий открытия playlist/воспроизведения второго трека. Fixtures реальных /browse и /next pages, continuation, duplicate IDs/tokens, empty page и pagination limits отсутствуют.
+- Статус: source review выполнен; parser не менять без реальных payload/fixtures. Следующий шаг — собрать fixture matrix для legacy/modern и смешанных renderer shapes, проверить continuation и caps; runtime playlist/Mix на iPhone остаётся открытым.
 
 ### Ограничения
 
