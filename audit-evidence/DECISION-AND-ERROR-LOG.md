@@ -3513,3 +3513,30 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 - P1 timeout budget дополнен замечанием: page request ограничен 25 секундами, но общего deadline на всю playlist/Mix pagination нет.
 - ROADMAP §29 дополнен статусом parser, текущими caps и отсутствующим fixture coverage.
 - Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
+
+### №124 — source review удаления YouTube offline-файлов и границы общего import/delete
+
+- **Дата:** 21 ноября 2026 года.
+- **Ветка исходников:** Pleer1-Lab, fix/youtube-resolver-cancellation-2026-11-21, HEAD 59bba3a3802968f7072fcdf960a0e51d1b776c8f.
+- **Проверены:** FavoritesAudioCache.removeDownloaded, finishDeferredDeletions, Player.load/hasOfflineCopy/loadYouTube, Downloads screen action и YouTube Track construction.
+
+#### Подтверждённое поведение YouTube offline library
+
+- Удаление завершённой YouTube-загрузки удаляет файл из FavoritesAudioCache и запись из downloadedTracks. Метаданные YouTube-трека в Favorites, playlist и Recent не удаляются автоматически.
+- Эти записи не содержат прямой ссылки на локальный cache-файл как обязательный ресурс: YouTube track остаётся идентифицирован стабильным YouTube ID и может быть заново разрешён при online playback. В offlineOnly Player проверяет наличие полного локального файла и пропускает трек, если его больше нет.
+- Если удаляется трек, который сейчас играет, UI передаёт deferIfCurrent=true. Cache сохраняет ID отложенного удаления и убирает трек из списка Downloads, но не удаляет файл во время текущего воспроизведения.
+- Player.load вызывает finishDeferredDeletions для треков, которые больше не являются текущими. Deferred IDs сохраняются в UserDefaults и при следующем запуске приложения очищаются в init FavoritesAudioCache.
+- При удалении неактивной загрузки снимаются pending queue entry, preferred stream и failure state; активная загрузка того же ID отменяется.
+
+#### Оставшийся lifecycle-риск
+
+- finishDeferredDeletions вызывается в начале Player.load, до синхронной установки нового AVPlayerItem. Это происходит в одном main-actor пути смены трека, но точное поведение файлового ресурса AVPlayer при удалении предыдущего активного файла требует проверки на устройстве; по одному чтению исходника объявлять это дефектом нельзя.
+- Обязательная проверка: удалить текущий скачанный YouTube-трек во время воспроизведения; убедиться, что он доигрывает до смены; перейти на следующий трек; проверить, что файл удалён, новый item запускается, а Favorites/playlists/Recent не теряют метаданные. Отдельно проверить закрытие приложения с deferred deletion и очистку при следующем запуске.
+
+#### Граница текущей работы
+
+- В рамках текущего аудита проверена только YouTube offline-cache deletion и её взаимодействие с YouTube playback.
+- Общий Inbox share/Telegram import и удаление произвольных локальных файлов относятся к общей библиотеке Pleer1, а не к интеграции YouTube-модуля из Musike. Их source behavior не расширялся и не менялся; они остаются отдельной задачей общей матрицы.
+- Доказанного source-дефекта в YouTube offline deletion не найдено. Новых source changes не требуется до device evidence.
+- ROADMAP §29 дополнен этим выводом и явной границей scope.
+- Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
