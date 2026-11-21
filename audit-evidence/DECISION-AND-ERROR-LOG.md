@@ -1882,3 +1882,135 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - **Изменения исходников:** не вносились. HEAD cancellation branch не менялся. Build/compile/tests/simulator/IPA/Codemagic/install не запускались.
 - **Следующий шаг:** вернуться к утверждённой Таблице 2. P0 source implementation присутствует, но device acceptance остаётся открытым; затем продолжать оставшиеся P1 в исходной очередности. Runtime cancellation matrix выполнить при согласованной сборке.
 
+### #116 — Перенос технических разделов 29–32 из ROADMAP в журнал
+
+- **Дата:** 21.11.2026.
+- **Причина:** ROADMAP должен содержать план, матрицу, критерии приёмки и краткий актуальный статус; подробные source-review записи и история решений относятся к этому журналу.
+- **Способ переноса:** разделы 29–32 перенесены ниже целиком, без удаления фактов, гипотез, ограничений, SHA, критериев и исторических формулировок. Старые выводы сохраняются как исторические записи; при расхождении приоритет имеет более поздняя проверка и явно указанный актуальный статус.
+- **Что осталось в ROADMAP:** утверждённая Таблица 2, раздел 28 с общей матрицей проверок/нагрузки и короткая сводка актуального состояния P0/P1. Никакие исходники не менялись.
+
+#### Архив перенесённых разделов ROADMAP
+
+## 29. Уточнение статуса P0 и следующая задача — 21 ноября 2026
+
+Проверка текущей feature-линии и 63 коммитов после snapshot `a69ddc5a7421a5346ed6a5009f749c2186a5d956` уточнила порядок работ, записанный в §28.
+
+### P0 duration / natural-end — реализовано в исходниках
+
+В текущем HEAD `fdce383e3be8095d86c99d63bd73a3221bd3fc55` уже присутствуют:
+
+- YouTube video metadata как основной источник длительности; длительность выбранного audio format принимается только при согласовании с YouTube metadata и AVPlayerItem.
+- AVPlayer-only duration остаётся fallback для отображения, но не используется для принудительного естественного завершения.
+- Естественный `AVPlayerItemDidPlayToEndTime`, ручной seek-to-end и принудительное завершение по подтверждённой YouTube duration имеют разные диагностические source labels.
+- Watchdog near-end только записывает диагностику; зависание часов само по себе не вызывает advance.
+- Длительность скачанного файла измеряется отдельно и сохраняется как диагностическое свидетельство.
+
+**Статус:** source implementation present; source review completed for this pass; device/runtime confirmation pending. Не начинать повторную реализацию P0 без воспроизводимого теста или нового доказанного дефекта. Обязательные проверки из §28 остаются обязательными.
+
+### Следующая незакрытая задача — P1 JS/WebKit/native fetch cancellation
+
+Создана отдельная ветка `Pleer1-Lab/fix/youtube-resolver-cancellation-2026-11-21` от feature HEAD `fdce383e3be8095d86c99d63bd73a3221bd3fc55`.
+
+Подтверждённый source gap:
+
+- Swift cancellation handler в `YouTubeJSResolver.resolveOnce` завершает native continuation, но не отправляет JS-команду отмены для соответствующего resolver job.
+- JS `nativeFetch` хранит только resolve/reject в `pendingFetch`; не обрабатывает `AbortSignal` и не отправляет native cancel.
+- Swift `performNativeFetch` не хранит активные запросы по request ID и не предоставляет отдельный cancel path для уже начатого `URLSession.shared.data(for:)`.
+- `forgetVideo` инвалидирует generation/cache/inflight mapping, но сам по себе не abort-ит выполняющиеся native fetch. Поздние ответы могут быть проигнорированы, но уже потраченный сетевой трафик не обязательно останавливается.
+- JS `searchCatalog` использует `Promise.race` с deadline; проигравшие endpoint promises не обязательно физически прекращают свои fetch после истечения времени.
+- Swift catalog deadline отменяет work task, однако необходимо проверить, доходит ли отмена до JS promises и native URLSession.
+
+### План реализации cancellation
+
+1. Составить карту владения задачами и общих consumers: нельзя отменять общий resolver job, пока он нужен активному playback/download consumer.
+2. Проверить поддержку `AbortSignal` в реальном bundled youtubei.js пути и то, как сигнал передаётся в custom `nativeFetch`.
+3. Добавить request-ID-bound native task registry и cancel message с идемпотентной очисткой на success, failure, timeout, cancellation и WebKit termination.
+4. Развести cancellation отдельного consumer и отмену общей операции, используя безопасное владение/ref-count или иной проверяемый механизм; не ломать resolver deduplication.
+5. Связать отмену JS catalog deadline с прекращением endpoint requests, если библиотека предоставляет корректный cancellation path.
+6. Проверить отсутствие зависших continuation, pending maps, timers и поздних callback; проверить, что активное воспроизведение не отменяется из-за отмены постороннего consumer.
+
+Критерий закрытия: отменённый и больше никому не нужный запрос прекращает native network work; общая операция остаётся доступной другим действующим consumers; повторный запрос после invalidation получает свежий результат; все maps/tasks очищаются ровно один раз. Никакой отмены по одному только факту `forgetVideo`, если есть активный consumer, без проверки ownership.
+
+### Изоляция веток
+
+- `fix/youtube-duration-natural-end-2026-11-21` создана как отдельная контрольная ветка для аудита P0 duration; исходники в ней не менялись.
+- `fix/youtube-resolver-cancellation-2026-11-21` — рабочая ветка для следующего P1 cancellation.
+- Обе ветки ответвлены от одного проверенного feature HEAD. Не объединять их автоматически и не переносить изменения между ними без проверки diff.
+- Feature branch остаётся контрольной линией; сборки и установки по-прежнему запрещены без отдельного явного разрешения.
+
+
+### Дополнение к P1 cancellation — уточнения по владению задачами
+
+- Swift `YouTubeResolveCoordinator` делит один unstructured resolver Task между callers, но пока не считает активных consumers. Нельзя отменять общий Task при отмене одного caller; отменять его можно только после ухода последнего consumer.
+- JS `withClient` повторяет запрос после любого exception, а `directAudio` продолжает перебор clients после ошибки. Abort/cancellation должны распознаваться отдельно и немедленно пробрасываться, иначе отмена сама породит retry и дополнительный трафик.
+- JS catalog использует `Promise.allSettled`: после abort нужно явно завершить общий operation как cancelled, а не преобразовать все отменённые endpoints в пустую выдачу.
+- `SearchModel` сейчас защищён request token, но не хранит/cancel-ит предыдущую операцию. Новый запрос не должен ждать завершения старых источников; cancellation должна проходить через task group и сетевые клиенты.
+- В youtubei.js 18.3.0 custom fetch получает `Request`; его HTTPClient создаёт Request из исходного input/init. Публичный `GetVideoInfoOptions` не предоставляет signal, поэтому нужно отдельно спроектировать operation-bound signal injection в custom fetch. Не считать простого добавления `AbortSignal` в `nativeFetch` достаточным без доказанного пути передачи сигнала от верхней операции.
+- Не связывать отмену с одним только videoID/cache invalidation: тот же resolver job может обслуживать активное воспроизведение, предзагрузку или offline download. Использовать consumer ownership/lease identity и проверять, что отменяемая работа больше никому не нужна.
+
+
+## 30. Уточнение очередности P1 и обязательная проверка нагрузки — 21 ноября 2026
+
+Этот раздел уточняет §28–29 после повторной сверки с активной таблицей задач §27 и исходной последовательностью стабилизации §26.
+
+### Очерёдность задач
+
+- P0 duration/natural-end уже присутствует в текущих исходниках и прошёл source review; фактическое совпадение audible end, UI clock и natural auto-advance на iPhone остаётся обязательным device/runtime gate. Не начинать повторную реализацию без воспроизводимого дефекта.
+- Следующий незакрытый блок по исходному порядку — **P1 auto-advance / seek / queue**, включая раздельную проверку natural EOF, ручного seek-to-end, stale seek/remote commands и очереди. Source-level guards для ряда гонок уже добавлены, но это не заменяет проверку всех call paths и тестов.
+- **P1 SearchModel race** частично закрыт защитой request token: старый результат не должен перезаписывать новый. Физическая отмена старых запросов пока не гарантирована.
+- **P1 JS/WebKit/native URLSession cancellation** — реальная задача из первоначальной таблицы §27, а не выдуманная новая функция. Пользователь подтвердил, что её также следует решить. Она остаётся отдельной следующей задачей после сверки оставшихся auto-advance/seek/queue пунктов; при реализации обязательны ownership/consumer leases, чтобы не отменить shared resolver, нужный playback/download/prefetch. Не считать cancellation исправлением duration или уже доказанным источником пользовательского дефекта.
+- Timeout budgets, route/VPN handoff и Mix/playlist fixtures остаются последующими P1 пунктами по порядку и зависимостям §27. Не перескакивать к Musike backlog.
+
+### Нагрузка и регрессии
+
+- К обязательной device matrix §28 добавлен отдельный сравнительный тест baseline vs candidate: CPU, память/рост/освобождение, Energy Impact, сетевые запросы/байты/длительность, resolver concurrency, retries и pending tasks/maps.
+- Измерения проводить на одном устройстве и при одинаковых условиях; не выдавать оценку по чтению исходников за измерение. Baseline и candidate фиксировать точными commit/build IDs.
+- Новые build, simulator, IPA, Codemagic и установка по-прежнему запрещены без отдельного явного разрешения пользователя.
+
+### Ветки
+
+- Не удалять и не переименовывать дополнительные ветки в рамках этой сверки. fix/youtube-duration-natural-end-2026-11-21 и fix/youtube-resolver-cancellation-2026-11-21 остаются указателями на тот же исходный HEAD, без самостоятельных source changes; feature branch не затрагивать. Их наличие само по себе не меняет код, сборку или поведение приложения.
+- Новые ветки не создавать без необходимости; прежде чем менять или удалять любую ветку, сверить её tip и назначение.
+
+
+## 31. Source review P1 auto-advance / seek / queue — 21 ноября 2026
+
+Read-only review of Player.swift on Pleer1-Lab/feature/youtubei-js-ios-fallback-2026-11-19 (file blob 86eb780894ddfeb15b98fea547519da421f9fa73; feature HEAD fdce383e3be8095d86c99d63bd73a3221bd3fc55).
+
+### Что подтверждено в текущем source
+
+- planNext() явно вычисляет следующий индекс для Repeat One, Repeat All, Shuffle и Off; для Shuffle при очереди из одного элемента отдельная ветка исключает бесконечный random loop.
+- finishCurrentItem() защищён текущим loadToken, идентичностью AVPlayerItem и completionHandledToken; один token не должен обработать completion повторно.
+- Текущий HEAD уже содержит manualSeekToEndToken: seek к последним 0,5 секунды известной YouTube duration помечается как ручной seek-to-end; при seek назад метка снимается; при смене load она очищается. AVPlayer EOF и duration-boundary diagnostics различают manual_seek_to_end, natural_avplayer_eof и forced_video_duration.
+- duration-boundary completion в tick требует активного воспроизведения, отсутствия user pause/interruption, readyToPlay и playing state. Watchdog near-end остаётся диагностическим и сам не вызывает advance.
+- seek проверяет ожидаемые trackID/loadToken, ограничивает позицию timeline, логирует requested/actual и проверяет актуальность после async completion. Remote Next/Previous и lock-screen seek захватывают identity snapshot до Task hop и отклоняют устаревшие команды.
+- Repeat One в multi-track queue планирует текущий индекс; ручной Next по-прежнему может перейти к следующему треку. Для одиночной очереди repeat one планирует текущий элемент.
+
+### Исправление устаревшей формулировки и оставшиеся проверки
+
+- Историческая заметка в старом audit text о том, что manual-seek provenance отсутствует/не восстановлена, не соответствует текущему HEAD: соответствующая логика уже присутствует. Не реализовывать её повторно.
+- Это только source review. Не доказаны на устройстве: реальный natural EOF, отсутствие двойного advance, поведение seek-to-end в paused/interrupted состояниях, rapid seek + Next/Previous race, переходы Repeat One/All/Shuffle и очередь из одного элемента.
+- Отдельный targeted test: поставить трек на паузу или вызвать audio interruption около конца; выполнить seek-to-end отдельно; проверить, когда именно AVPlayer присылает EOF и не происходит ли нежелательный переход. Не менять finishCurrentItem() без воспроизводимого подтверждения и согласованного ожидаемого поведения.
+- Следующий read-only шаг: сверить call sites и существующие tests для очереди/remote commands, затем определить, остался ли source defect. После этого переходить к согласованной P1 cancellation работе. Никакие исходники не менялись; сборка и simulator не запускались.
+
+
+## 32. Проверка текущего automated test coverage для playback queue — 21 ноября 2026
+
+В дереве текущей feature-ветки найден один Swift test file: plei/UITests/SearchSmokeTests.swift. Он содержит проверки SearchIntent/parser/ranking и один UI-сценарий YouTube playlist → выбор второго трека → seek в середину → продолжение playback clock. В нём нет автоматических тестов для natural EOF/auto-advance, manual seek-to-end provenance, Repeat One/All/Shuffle, одиночной очереди, быстрого Next/Previous или stale remote command. Это пробел покрытия, а не доказательство ошибки runtime.
+
+**Решение:** не менять Player.swift только ради закрытия строки backlog. Сначала cancellation implementation design и независимая source review; затем, когда пользователь разрешит build/test, добавить или выполнить отдельные playback regression scenarios из §28 и §31. Если для какого-либо сценария будет нужен новый тестовый код, сначала согласовать конкретный тест и его исполнимость в доступном workflow. До разрешения пользователя никаких сборок и simulator runs.
+
+### Статус P0 — source review и граница подтверждения
+
+- **Длительность YouTube:** изменения для сопоставления YouTube metadata, audio-format metadata и AVPlayerItem, а также естественного завершения присутствуют в исходниках. Источник завершения различает natural AVPlayer EOF, manual seek-to-end и forced duration boundary.
+- **Repeat One:** логика планирования повторного текущего трека присутствует; отдельного source-дефекта в проверенном Player.swift не найдено. Обязательна проверка после duration fix как на streaming YouTube, так и на локальном скачанном файле.
+- **Итог P0:** source implementation и статический разбор выполнены; критерии фактического подтверждения на iPhone не закрыты. Нужны разрешённая сборка и device regression scenarios: natural EOF, ровно один переход/повтор, manual seek отдельно, pause/interruption near EOF, streaming/offline. Не объявлять P0 полностью подтверждёнными до этих проверок.
+
+## Актуальный статус P1 cancellation — 21 ноября 2026
+
+- **Основание:** задача JS/WebKit cancellation уже присутствует в Таблице 2 как P1; SearchModel race указан отдельным пунктом. Это не новая задача, придуманная в ходе реализации.
+- **Исходники:** YouTube cancellation реализована в отдельной ветке `fix/youtube-resolver-cancellation-2026-11-21`, HEAD `59bba3a3802968f7072fcdf960a0e51d1b776c8f`. Относительно feature base `fdce383e3be8095d86c99d63bd73a3221bd3fc55`: 46 коммитов вперёд, 0 позади; изменено 8 исходных файлов.
+- **Объём:** SearchModel/SearchView cancellation, shared YouTube resolver consumer leases, operation-scoped JS AbortController, native URLSession request cancellation, WebKit cleanup, YouTube playlist/Mix expansion и bounded YouTube retry. Общие механизмы других провайдеров и Archive.org в итоговую реализацию не включены.
+- **Source-only lifecycle review:** завершён; в проверенных путях не найдено доказанного дефекта, требующего дополнительного source patch. Runtime race/load verification остаётся открытой.
+- **Граница доказательств:** изменения присутствуют в исходниках и прошли статический разбор, но не компилировались и не проверялись на устройстве. Build, simulator, IPA, Codemagic и install не запускались. Сборка — только после отдельного явного разрешения пользователя.
+- **Подробная хронология, решения, ошибки, коммиты и этапы реализации:** журнал `audit-evidence/DECISION-AND-ERROR-LOG.md`, записи №105–115. ROADMAP остаётся планом, а не журналом разработки.
