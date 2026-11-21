@@ -390,6 +390,13 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 - InnerTube search также использует общий native post без явного request timeout; HTML search имеет 20 секунд. Для всей операции YouTubeEngine.search единого end-to-end deadline нет.
 - Статус: source-аудит таймеров завершён; бюджеты разных уровней не сведены к единой согласованной модели. Следующий шаг — определить отдельные общие пределы для playback resolve и catalog search, затем менять код только после согласования. Не сокращать вложенные таймеры механически.
 
+### P1 — Network/VPN handoff
+
+- YouTube offline-download queue использует NWPathMonitor: отслеживает status и смену интерфейса Wi‑Fi/cellular, ставит активную загрузку обратно в начало очереди, отменяет transfer, инвалидирует resolver layers и ждёт завершения invalidation перед перезапуском. Cellular transfer блокируется до разрешения пользователя; разрешение действует в пределах app session.
+- Монитор сравнивает только доступность и тип интерфейса. Смена внешнего VPN egress IP при неизменном интерфейсе может остаться незамеченной.
+- Для активного AVPlayer streaming отдельного NWPathMonitor handoff нет: новый URL получается при ошибке item или после подтверждённого stall/recovery; watchdog не должен завершать трек только из-за неподвижных часов.
+- Статус: source review подтверждает раздельную политику downloads и streaming recovery; поведение при Wi‑Fi/cellular/unsatisfied и VPN egress transitions требует device/runtime проверки. Не добавлять второй сетевой монитор или принудительный resolver refresh без воспроизводимого дефекта.
+
 ### Ограничения
 
 Сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались. Не запускать их без отдельного явного разрешения пользователя. Следующая работа после документационной сверки — вернуться к утверждённой Таблице 2 и продолжать в её порядке.
