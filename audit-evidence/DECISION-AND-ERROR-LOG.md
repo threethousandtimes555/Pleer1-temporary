@@ -3949,3 +3949,45 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 - **Коммиты Pleer1-Lab:** `e9f1628500e11e547b4260e3702b8cf541efc463` (общий fallback deadline); `6927b1bc2735ecccbb646568d72401665f0cc44f` (HTML selector); `67be340b760f51ce7673715314500dc9903fd038` (Swift YTM selection); `ece1e98421f31a049d2bf28419649407fe01ce50` (YTM dimensions); `c6a47f800862afd9c0c5f1a6336a0a65f7d8d136` (playlist dimensions).
 - **Ограничения:** fixtures для shuffled dimensions и реальных YTM payload не добавлялись; build, compile, tests, simulator, IPA, Codemagic и install не запускались. Нужно проверить на iPhone genuine 16:9, square-in-wide, native square, YTM result, playlist/Mix, fallback при отсутствующем hq720 и lock screen. В частности, подтвердить, что реальная горизонтальная картинка не попадает под centered-square heuristic.
 - **Статус:** source fixes внесены и повторно прочитаны; runtime-приёмка не выполнена. Не объявлять качество YTM гарантированным, если ответ не содержит размеров.
+
+### №142 — сверка актуального HEAD cancellation-ветки с утверждённой матрицей
+
+- **Дата:** 21 ноября 2026 года.
+- **Исходный репозиторий:** `threethousandtimes555/Pleer1-Lab`.
+- **Актуальная ветка:** `fix/youtube-resolver-cancellation-2026-11-21`.
+- **Проверенный HEAD:** `c6a47f800862afd9c0c5f1a6336a0a65f7d8d136`.
+- **Контрольная точка:** `4edd6da89053a074ea3b1ff82f035022add1bc25`.
+- Сравнение контрольной точки с HEAD: 126 commits ahead, 0 behind; merge base совпадает с контрольной точкой.
+- Предыдущий индекс из 298 SHA заканчивается на `a69ddc5a7421a5346ed6a5009f749c2186a5d956`. От этого snapshot до актуального HEAD — 121 commit: 63 до `fdce383e3be8095d86c99d63bd73a3221bd3fc55` и 58 до `c6a47f800862afd9c0c5f1a6336a0a65f7d8d136`.
+- Ветки `feature/youtubei-js-ios-fallback-2026-11-19` и `fix/youtube-duration-natural-end-2026-11-21` обе указывают на `fdce383e3be8095d86c99d63bd73a3221bd3fc55`. Cancellation-ветка на 58 коммитов впереди. Её HEAD на 12 коммитов новее промежуточного HEAD `59bba3a3802968f7072fcdf960a0e51d1b776c8f`, ранее указанного в §29 ROADMAP.
+
+#### Сверка с матрицей
+
+- **P0 duration/natural EOF:** актуальный Player содержит provenance длительности, выбор audio-format duration только при согласии с YouTube metadata и AVPlayerItem, запрет завершать нормальное воспроизведение только по AVPlayer fallback, отдельные источники `natural_avplayer_eof`, `manual_seek_to_end` и `forced_video_duration`, а также защиту `completionHandledToken`. P0 остаётся открытым до проверки реального слышимого конца, UI clock и однократного перехода на iPhone.
+- **P0 Repeat One:** отдельный source-дефект не подтверждён; остаётся регрессионной проверкой streaming/offline.
+- **P1 queue/seek/remote:** source review мест вызова и identity guards выполнен. Автоматических тестов natural EOF, seek-to-end, repeat modes, одиночной очереди и stale remote commands нет; runtime acceptance открыта.
+- **P1 SearchModel race:** SearchView отменяет предыдущую задачу при новом submit и при уходе с экрана; SearchModel использует request token и cancellation guard; YouTube transports пробрасывают отмену. Реальный сценарий позднего ответа старого запроса не запускался.
+- **P1 cancellation:** source содержит resolver per-consumer leases; общая resolver task отменяется после ухода последнего потребителя; JS operation использует AbortController; operation ID проходит до native bridge; Swift отменяет URLSession fetch по request ID; поздние операции блокируются tombstone; WebKit termination очищает native tasks и pending continuations. Source review не выявил доказанного нового дефекта. Runtime/stress/load verification не выполнялись.
+- **P1 search quality:** YTM остаётся приоритетным по merge/ranking; InnerTube и HTML запускаются параллельно; suggestions fallback запускается только при пустых YTM song и music-video shelves. Слабая непустая выдача не вызывает suggestions. Реальный контрольный набор запросов не прогонялся.
+- **P1 timeout:** отдельные таймеры существуют, но общего end-to-end deadline для native resolve, полного YouTube search и playlist/Mix pagination нет. Не сокращать вложенные таймеры без отдельного бюджета.
+- **P1 network/VPN:** offline queue реагирует на NWPath status/interface; активный stream восстанавливается по ошибке или подтверждённому stall. VPN egress при неизменном интерфейсе может не обнаруживаться. Device test открыт.
+- **P1 Playlist/Mix:** continuation lookup scoped по ожидаемому renderer для Playlist (/browse) и Mix (/next); добавлены три синтетических теста. Старое замечание о глобальном выборе первого continuation token superseded. Реальные payload и полная pagination acceptance открыты.
+- **P1 offline deletion:** удаление failure-safe, deferred IDs сохраняются при неудаче; безопасная итерация выполняется по копии набора. Нет файловых автотестов и device acceptance.
+- **P2 offline policy:** сохранена согласованная политика auto-download избранного YouTube-трека после успешного resolve/playback; stream и полная загрузка — отдельные передачи. Ручная кнопка и новый coordinator не добавлялись.
+- **P2 Recent:** YouTube запись выполняется только после фактического `.playing` при readyToPlay/current item; повтор первого элемента обновляет timestamp без дубликата. Нет тестов Recent/migration.
+- **P2 artwork:** HTML, YTM и playlist lockup используют общий selector с сохранением width/height; общий fallback budget 24 секунды, индивидуальная попытка не более 12 секунд. UI-пропорции и square detector не менялись. Нужна визуальная приёмка 16:9, square-in-wide, native square, playlist/Mix и lock screen.
+
+#### Тесты и фактическая проверка
+
+- В актуальном `SearchSmokeTests.swift` обнаружено 12 test methods: search intent/ranking/parser; Playlist/Mix URL; три synthetic continuation fixtures; standalone YouTube search; UI сценарий Playlist second track + seek.
+- В файле нет тестов cancellation races, natural EOF/Repeat, Recent, offline deletion, artwork, VPN handoff и performance/load.
+- Ни один тест не запускался. Compile, simulator, IPA, Codemagic и install не запускались. На HEAD не опубликованы commit status entries.
+- В ходе этой сверки код, ветки, workflows и настройки GitHub не менялись.
+
+#### Документационные расхождения
+
+- §28 ROADMAP отражает feature HEAD `fdce383`; §29 отражал cancellation HEAD `59bba3a`. Актуальный HEAD — `c6a47f80`; текущая сверка записана в §30 ROADMAP.
+- Старое замечание об отсутствии seek provenance superseded записями №118–119 и текущим Player source.
+- Старое замечание о глобальном continuation lookup superseded scoped lookup и fixture tests.
+- Индекс коммитов остаётся 298-entry snapshot на `a69ddc5`. 121 последующий commit ещё не добавлен в отдельный one-to-one commit inventory; не считать его уже индексированным.
+- Ни один P0 не закрывать без device acceptance. Следующая работа — продолжение утверждённой матрицы после появления разрешённой среды проверки.
