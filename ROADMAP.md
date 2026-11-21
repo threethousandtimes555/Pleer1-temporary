@@ -1729,3 +1729,24 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 
 - Не удалять и не переименовывать дополнительные ветки в рамках этой сверки. fix/youtube-duration-natural-end-2026-11-21 и fix/youtube-resolver-cancellation-2026-11-21 остаются указателями на тот же исходный HEAD, без самостоятельных source changes; feature branch не затрагивать. Их наличие само по себе не меняет код, сборку или поведение приложения.
 - Новые ветки не создавать без необходимости; прежде чем менять или удалять любую ветку, сверить её tip и назначение.
+
+
+## 31. Source review P1 auto-advance / seek / queue — 21 ноября 2026
+
+Read-only review of Player.swift on Pleer1-Lab/feature/youtubei-js-ios-fallback-2026-11-19 (file blob 86eb780894ddfeb15b98fea547519da421f9fa73; feature HEAD fdce383e3be8095d86c99d63bd73a3221bd3fc55).
+
+### Что подтверждено в текущем source
+
+- planNext() явно вычисляет следующий индекс для Repeat One, Repeat All, Shuffle и Off; для Shuffle при очереди из одного элемента отдельная ветка исключает бесконечный random loop.
+- finishCurrentItem() защищён текущим loadToken, идентичностью AVPlayerItem и completionHandledToken; один token не должен обработать completion повторно.
+- Текущий HEAD уже содержит manualSeekToEndToken: seek к последним 0,5 секунды известной YouTube duration помечается как ручной seek-to-end; при seek назад метка снимается; при смене load она очищается. AVPlayer EOF и duration-boundary diagnostics различают manual_seek_to_end, natural_avplayer_eof и forced_video_duration.
+- duration-boundary completion в tick требует активного воспроизведения, отсутствия user pause/interruption, readyToPlay и playing state. Watchdog near-end остаётся диагностическим и сам не вызывает advance.
+- seek проверяет ожидаемые trackID/loadToken, ограничивает позицию timeline, логирует requested/actual и проверяет актуальность после async completion. Remote Next/Previous и lock-screen seek захватывают identity snapshot до Task hop и отклоняют устаревшие команды.
+- Repeat One в multi-track queue планирует текущий индекс; ручной Next по-прежнему может перейти к следующему треку. Для одиночной очереди repeat one планирует текущий элемент.
+
+### Исправление устаревшей формулировки и оставшиеся проверки
+
+- Историческая заметка в старом audit text о том, что manual-seek provenance отсутствует/не восстановлена, не соответствует текущему HEAD: соответствующая логика уже присутствует. Не реализовывать её повторно.
+- Это только source review. Не доказаны на устройстве: реальный natural EOF, отсутствие двойного advance, поведение seek-to-end в paused/interrupted состояниях, rapid seek + Next/Previous race, переходы Repeat One/All/Shuffle и очередь из одного элемента.
+- Отдельный targeted test: поставить трек на паузу или вызвать audio interruption около конца; выполнить seek-to-end отдельно; проверить, когда именно AVPlayer присылает EOF и не происходит ли нежелательный переход. Не менять finishCurrentItem() без воспроизводимого подтверждения и согласованного ожидаемого поведения.
+- Следующий read-only шаг: сверить call sites и существующие tests для очереди/remote commands, затем определить, остался ли source defect. После этого переходить к согласованной P1 cancellation работе. Никакие исходники не менялись; сборка и simulator не запускались.
