@@ -1758,6 +1758,12 @@ Read-only review of Player.swift on Pleer1-Lab/feature/youtubei-js-ios-fallback-
 
 **Решение:** не менять Player.swift только ради закрытия строки backlog. Сначала cancellation implementation design и независимая source review; затем, когда пользователь разрешит build/test, добавить или выполнить отдельные playback regression scenarios из §28 и §31. Если для какого-либо сценария будет нужен новый тестовый код, сначала согласовать конкретный тест и его исполнимость в доступном workflow. До разрешения пользователя никаких сборок и simulator runs.
 
+### Статус P0 — source review и граница подтверждения
+
+- **Длительность YouTube:** изменения для сопоставления YouTube metadata, audio-format metadata и AVPlayerItem, а также естественного завершения присутствуют в исходниках. Источник завершения различает natural AVPlayer EOF, manual seek-to-end и forced duration boundary.
+- **Repeat One:** логика планирования повторного текущего трека присутствует; отдельного source-дефекта в проверенном Player.swift не найдено. Обязательна проверка после duration fix как на streaming YouTube, так и на локальном скачанном файле.
+- **Итог P0:** source implementation и статический разбор выполнены; критерии фактического подтверждения на iPhone не закрыты. Нужны разрешённая сборка и device regression scenarios: natural EOF, ровно один переход/повтор, manual seek отдельно, pause/interruption near EOF, streaming/offline. Не объявлять P0 полностью подтверждёнными до этих проверок.
+
 ## Актуальный статус P1 cancellation — 21 ноября 2026
 
 - **Основание:** задача JS/WebKit cancellation уже присутствует в Таблице 2 как P1; SearchModel race указан отдельным пунктом. Это не новая задача, придуманная в ходе реализации.
