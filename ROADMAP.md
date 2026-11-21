@@ -1919,3 +1919,20 @@ The YouTube JS/native bridge had a narrow cancellation race: Swift cancelled all
 - This closes the source-level ordering gap without changing search/playback behavior or fetch routing. Runtime WebKit message-order and cancellation-race validation remains mandatory.
 
 Current source branch tip: `75ab1582b0ce96064dde29c791408713c17c3018`. Feature branch remains at `fdce383e3be8095d86c99d63bd73a3221bd3fc55`. No build or runtime validation.
+
+
+## 42. YouTube bridge cancellation — tombstone abort and WebKit process-loss operations — 21 ноября 2026
+
+**Source branch:** `fix/youtube-resolver-cancellation-2026-11-21`, updated from `75ab1582b0ce96064dde29c791408713c17c3018` to the follow-up commits below. Feature branch remains based on `fdce383e3be8095d86c99d63bd73a3221bd3fc55`.
+
+A further source review found that tombstones were recorded for Swift-initiated cancellation, but not for JS-internal aborts (including the 12-second YouTube Music catalog deadline) or WebKit process termination. A delayed `youtubeFetch` message from those operations could theoretically arrive after the per-request cancellation sweep.
+
+- The JS native-fetch abort message now carries both its exact fetch request ID and parent operation ID.
+- Swift records the parent operation tombstone before cancelling that native request. Subsequent queued fetch messages for the same operation are rejected by the existing `startNativeFetch` guard.
+- On WebKit content-process termination, Swift tombstones all known pending resolve/catalog operation IDs and parent IDs represented by registered native fetch tasks before cancelling the native-task registry and resuming pending continuations with the process-termination error.
+- This also covers JS-originated abort paths that do not call Swift's `cancelJavaScriptOperation`, while preserving the existing 512-entry bounded tombstone store.
+- No resolver order, YouTube Music catalog ranking, YouTube/YouTube Music search composition, stream selection, queue, or playback behavior was intentionally changed.
+
+**Commits:** `dc364479730c9ff2ba4abcf01e673a9c50335ba6` (Swift) and `7379a49635130f39f29226703b5956ad76fd40a0` (JS bridge).
+
+This is source-level race mitigation only. No build, compile, unit/UI test, simulator, device, IPA, Codemagic, or install validation has been run. Runtime verification must still exercise JS catalog deadline abort, caller cancellation, queued fetch/cancel ordering, and WebKit process termination while resolve/search operations are active.
