@@ -1899,3 +1899,10 @@ A deeper Player Task sweep found two remaining network-capable Tasks that had st
 - This change does not alter retry limits, recovery eligibility, fallback selection, queue behavior or cache semantics. Add device race tests: switch tracks during a generic recovery download and during the failed-item invalidation/re-resolve interval; verify both requests stop and cannot install stale media.
 
 Current cancellation branch tip: `8483db41b68a236764ac8a0ff1e64829373a2289`. Feature branch remains unchanged at `fdce383e3be8095d86c99d63bd73a3221bd3fc55`. Source-only; no build/runtime validation.
+
+
+## 40. Scope correction — YouTube module integration only — 21 ноября 2026
+
+The user clarified that this work is limited to integrating the YouTube module from Musike. Archive.org is an unrelated external archive and is outside scope. The Archive.org collection-task ownership added in §38 has been reverted from Player.swift; the original Archive.org loading behavior is restored. The generic non-YouTube `AudioCache.download` recovery task ownership added in §39 has also been reverted. Do not include Archive.org or generic non-YouTube recovery in this cancellation task or its completion criteria.
+
+Retained YouTube-specific work from §35–37 and the bounded failed-item YouTube retry ownership from §39. Current source branch tip after scope correction: `539eac69ffe3c78f5170280fbd68f54676457b36`. Feature branch remains at `fdce383e3be8095d86c99d63bd73a3221bd3fc55`. No build or runtime validation.
