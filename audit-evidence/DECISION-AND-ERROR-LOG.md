@@ -3395,3 +3395,33 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 - ROADMAP §29 обновлён: source review и сверка call sites завершены; device/runtime acceptance остаётся открытой.
 
 **Итог:** P1 auto-advance/seek/queue закрыт на уровне read-only source review, но не закрыт по критериям приёмки. Никакие исходники не менялись; компиляция, тесты, симулятор, сборка, IPA и установка не запускались.
+
+### №120 — source review SearchModel race и качества поиска YouTube/YTM
+
+- **Дата:** 21 ноября 2026 года.
+- **Ветка исходников:** Pleer1-Lab, fix/youtube-resolver-cancellation-2026-11-21, HEAD 59bba3a3802968f7072fcdf960a0e51d1b776c8f.
+- **Проверены:** Providers.swift, Views.swift, YouTubeEngine.swift, YouTubeHTMLSearch.swift, YouTubeSearchIntent.swift и searchCatalogInternal в youtubei-bridge.js.
+
+#### SearchModel race
+
+- SearchView отменяет предыдущий searchTask при новом submit и отменяет текущий task при уходе с экрана.
+- SearchModel.run использует request token и перед публикацией результата повторно проверяет token и Task cancellation. Старый запрос не должен заменить результаты нового; отменённая текущая операция снимает loading, а старая операция не сбрасывает loading более нового запроса.
+- YouTubeEngine.search, InnerTube POST и HTML transport содержат проверки cancellation; отмена пробрасывается вместо преобразования в обычную ошибку или запуска fallback после отмены.
+- Sources.run классифицирует CancellationError отдельно. Общий Sources.json намеренно оставлен без дополнительных provider-specific checks: он общий для нескольких источников; его URLSession async request вызывается внутри отменяемой дочерней задачи.
+- **Вывод:** source implementation и source review присутствуют. Отдельного доказанного source-дефекта не найдено. Runtime-сценарий «медленный старый запрос → быстрый новый запрос → позднее завершение старого» остаётся обязательной проверкой на устройстве/в разрешённом тестовом окружении.
+
+#### Качество поиска YouTube/YTM
+
+- Поиск запускает параллельно три каталожных направления: YouTube Music songs, YouTube Music music videos и обычные YouTube videos. Отдельно выполняются InnerTube и HTML transports; итоговая выдача объединяется в порядке catalog → InnerTube → HTML, дедуплицируется по Track ID и затем ранжируется.
+- YouTubeSearchIntent сначала учитывает тип результата: обычный музыкальный запрос — song, musicVideo, video, playlist, Mix; явные playlist/mix слова поднимают соответствующую коллекцию. Внутри типа применяется детерминированная оценка совпадения названия/исполнителя, затем сохраняется исходный порядок как tie-break.
+- Suggestions fallback в JS catalog запускается только когда исходные YTM song и music-video shelves оба пусты. Обычные YouTube video results сохраняются и не заменяются вариантом из suggestions.
+- Следствие: слабая, но непустая YTM выдача сама по себе не запускает suggestions retry. Это подтверждённое ограничение текущей политики fallback, но не доказанный дефект: автоматическая замена непустой выдачи может ухудшить точность или изменить намерение запроса.
+- Существующие unit tests проверяют типовой порядок выдачи, exact-title ranking, parser filtering и распознавание playlist/Mix. Они не доказывают релевантность на реальных пользовательских запросах и не содержат concurrency-теста SearchModel.
+
+#### Вывод и дальнейшие действия
+
+- Код поиска и ranking не менялся. Не найдено достаточных доказательств, чтобы менять порядок источников, score или запускать suggestions при любой слабой непустой выдаче.
+- P1 SearchModel race: source review завершён, runtime verification открыта.
+- P1 качество поиска: требуется контрольный набор репрезентативных русских и английских запросов с ожидаемыми треками/исполнителями и разбором фактической выдачи. Изменения ranking/fallback — только после таких примеров и согласования критерия.
+- ROADMAP §29 дополнен статусом SearchModel race; в Таблице 2 сохранён отдельный пункт качества поиска YouTube/YTM.
+- Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
