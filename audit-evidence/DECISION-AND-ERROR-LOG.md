@@ -1808,3 +1808,13 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Added Task cancellation checks at entry and around URLSession response handling in YouTubePlaylistEngine load/loadRadio/post. Shared URLSession is retained; only the per-request data task is cancelled.
 - Added required device race test for switching away during multi-page playlist/Mix expansion; verify no stale queue replacement and normal continuation paging remains intact.
 - Current cancellation branch tip `48f4b9da61b47e378e37d694aa8528f9c0093442`; feature branch remains `fdce383e3be8095d86c99d63bd73a3221bd3fc55`. No build or runtime validation.
+
+
+### #110 — Cancellation coverage extended to Archive.org expansion
+
+- Дата: 21.11.2026.
+- Final Player async-task sweep found Archive.org expansion was still launched as an unowned Task. Its loadToken guard prevented stale queue replacement, but did not cancel the in-flight metadata request after track replacement.
+- Routed Archive.org expansion through the existing youtubeCollectionLoadTask owner, which is cancelled on every replacement load. Added a post-request Task.isCancelled check and archive.load.cancelled diagnostic; retained the load-token/track-identity guard.
+- Sources.archiveTracks uses Sources.json and URLSession async transport, so cancellation of the owning Task propagates to the metadata request. Existing nonthrowing API, parsing and queue behavior are unchanged.
+- Added device race test: switch away during Archive.org expansion; confirm request cancellation and no stale queue replacement, then confirm normal archive expansion.
+- Source branch tip 4477f6e0fd88aacf47ac143d64ebd10c20e4d7d3; feature branch remains fdce383e3be8095d86c99d63bd73a3221bd3fc55. No build, compile, tests, simulator, device, IPA, Codemagic or install validation.
