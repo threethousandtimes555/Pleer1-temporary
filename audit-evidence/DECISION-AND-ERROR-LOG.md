@@ -3626,3 +3626,36 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 - Описательные формулировки в новых записях №118–127 приведены к русскому языку. Названия API, классов, методов, переменных, веток, событий и диагностических меток оставлены в оригинальном написании, чтобы их можно было точно найти в исходниках.
 - Исторические фрагменты, перенесённые дословно записями №116 и №117, не переписывались: они сохранены как архивные свидетельства. Их актуальный смысл изложен по-русски в записях №118–127.
 - **Правило дальше:** новые записи, выводы и пояснения — на русском; английский сохраняется только для точных технических идентификаторов и исходных названий.
+
+### №129 — дополнительная смысловая сверка архива: auto-skip, клиентская конфигурация, загрузки и UX
+
+- **Дата:** 21 ноября 2026 года.
+- **Основание:** повторно сопоставлены исторические разделы 12–26, действующие Таблицы 1–3 и разделы 27–29 ROADMAP. Проверены Player.swift, FavoritesAudioCache.swift и youtubei-bridge.js на актуальной cancellation-ветке.
+
+#### Требования, которые возвращены или явно закреплены в активном плане
+
+1. **Ограниченный пропуск недоступных треков.** В Таблицу 2 и статус автоперехода добавлены обязательные проверки: пропускать только окончательно недоступные элементы; временные network/HTTP/bridge ошибки не пропускать; не более шести разных недоступных ID за серию; не зацикливаться на Repeat One; сбрасывать серию после успешного readyToPlay. Возрастные ограничения YouTube не обходить.
+2. **Приоритет YouTube Music.** В активной задаче качества поиска закреплено, что YTM catalog остаётся первым и приоритетным источником, InnerTube и HTML — дополнительные. Текущий merge order catalog → InnerTube → HTML сохранён; менять ranking или порядок источников без контрольных запросов нельзя.
+3. **Профили клиентов и live config.** Native Swift использует VISIONOS → ANDROID_VR → IOS. JS bridge получает iOS client list из Musike raw GitHub streaming.json, затем использует localStorage/default fallback. Проверка списка ограничена форматом и уникальностью; revision/signature и строгий верхний предел списка не закреплены. Это намеренная внешняя зависимость, а не сервер Pleer1; решение pin vs live update остаётся отдельным.
+4. **Изоляция сессий.** В актуальной cancellation-ветке Innertube session создаётся на каждую верхнеуровневую операцию; locale-keyed cache остаётся общим. Это устраняет прежнее совместное использование одного session object между параллельными операциями. Реальные CPU/память/latency и конкурентные сбои ещё не измерены.
+5. **Граница доступа YouTube.** Прямой iOS resolver остаётся анонимным: нет Google sign-in/cookie import и нет серверного Musike yt-dlp/Deno пути. LOGIN_REQUIRED/age restriction не обходить; auto-skip должен реагировать только на подтверждённую окончательную недоступность, а bot-check/временные ошибки не превращать в молчаливый skip.
+6. **Stream cache и offline cache — разные слои.** JS stream cache ограничен 64 записями и обновляет истекающие URL с запасом 60 секунд; это краткоживущий in-memory cache, не аудиофайлы FavoritesAudioCache.
+7. **Storage policy.** Подтверждены 500 МиБ жёсткого лимита на один файл и 64 МиБ резерва свободного места. Общий лимит 1 ГиБ — мягкий: trimIfNeeded только пишет диагностику и не удаляет завершённые файлы автоматически. Эти условия добавлены в активный статус и P2 download policy.
+8. **Сохранение пользовательских логов.** В активные ограничения ROADMAP добавлено правило: исходные пользовательские raw logs сохранять дословно и неизменно; аналитические заметки вести отдельно; не восстанавливать отсутствующие строки; credentials/cookies/tokens не архивировать.
+9. **Контракт экрана «Моё».** Архив содержит ранний вариант с сегментным переключателем в одной странице (§16), но более поздние решения §25–26 и Таблица 1 оставляют «Любимое» и отдельные экраны «Скачанные»/«Недавние», без dropdown и без segmented switcher. В ROADMAP явно отмечено, что ранний вариант superseded; общий UI не включается в текущую YouTube стабилизацию.
+10. **Будущий Musike backlog.** Сверка подтвердила, что Albums, Artists/discography, Genres, live autocomplete, direct watch URL, batch search, Play Next/queue editing, per-track radio, autoplay radio, official video matching, audio/video mode, native video, multi-select, persistent queue, backup/export/restore, themes, localization и configurable library/home sections находятся в Таблице 3 как будущие задачи, не как текущие blockers.
+
+#### Дополнительная проверка CappedAudioDownload
+
+- CappedAudioDownload.run устанавливает cancellation handler; если отмена приходит до создания URLSessionDownloadTask, после создания и resume выполняется повторная проверка Task.isCancelled и task.cancel().
+- cancel() читает task под lock и вызывает cancel; повторные cancel безопасны на уровне URLSessionTask. didCompleteWithError извлекает continuation и обнуляет её под lock до resume, что защищает от повторного resume.
+- didWriteData отмечает превышение лимита и отменяет task; didCompleteWithError удаляет уже перемещённый временный файл при превышении размера, completion error или cancellation. При успешном возврате вызывающий код сразу проверяет Task cancellation и удаляет временный файл, если отмена пришла на границе завершения.
+- Не найдено очевидного double-resume дефекта по статическому чтению. Но нет автоматических тестов для отмены до task creation, конкурентных cancel, отмены после didFinishDownloadingTo до обработки результата, byte-cap abort и queue consistency.
+- Дополнительный риск: download delegate перемещает URLSession temp file в системный temporaryDirectory под именем pleer1-audio-<UUID>.tmp. cleanupTemporaryFiles очищает .part только в постоянном каталоге FavoritesAudioCache; отдельная очистка этих custom .tmp при запуске не найдена. Это потенциальный orphan-temp сценарий после принудительного завершения приложения, но не подтверждённая утечка: проверить forced termination/relaunch и поведение iOS temporary storage прежде чем добавлять cleanup.
+
+#### Сверка актуальности и корректировки
+
+- В Таблице 2 уточнены критерии bounded auto-skip, приоритет YTM, область Import/delete и лимиты offline storage.
+- В разделе 29 добавлены клиентские профили/live config, анонимная граница доступа, bounded stream cache, raw-log policy, актуальный UI contract и остаточные риски CappedAudioDownload.
+- Ранние утверждения о том, что seek provenance отсутствует, и ранний UX-вариант с segmented switcher сохранены в архиве как исторические, но явно помечены в актуальном плане как superseded более поздними решениями/проверками.
+- Никакие исходники не менялись. Компиляция, тесты, симулятор, сборка, IPA, Codemagic и установка не запускались.
