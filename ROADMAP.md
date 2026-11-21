@@ -1875,3 +1875,15 @@ The final call-site sweep also found untracked Player Tasks for expanding select
 - This broadens cancellation to the YouTube collection-loading path without changing playlist parsing, queue order, Mix semantics or playback resolver ownership.
 
 Current cancellation branch tip after this addition: `48f4b9da61b47e378e37d694aa8528f9c0093442`; feature branch remains `fdce383e3be8095d86c99d63bd73a3221bd3fc55`.
+
+
+## 38. P1 cancellation — Archive.org collection expansion included — 21 ноября 2026
+
+The next source-only call-site sweep found one remaining unowned asynchronous collection load in Player.load(): Archive.org item expansion. It already checked loadToken before replacing the queue, so stale results could not overwrite a newer track, but the metadata request itself continued after track replacement.
+
+- Archive expansion now uses the existing youtubeCollectionLoadTask owner, so starting another track cancels the in-flight Archive.org expansion just like YouTube playlist/Mix expansion.
+- expandArchive checks Task.isCancelled immediately after the metadata request and records archive.load.cancelled before returning. The existing load-token and track-identity guard remains as a second stale-result defense.
+- Sources.archiveTracks uses the shared async Sources.json URLSession request; cancelling its owning Task propagates to the URLSession async request. Its existing nonthrowing API and parsing/queue behavior are unchanged.
+- No archive parsing, track ordering, or queue semantics changed. Add a device test: begin Archive.org expansion, switch tracks before metadata returns, verify the request stops and the new queue remains untouched; also verify normal archive expansion still works.
+
+Current cancellation branch tip: 4477f6e0fd88aacf47ac143d64ebd10c20e4d7d3. Feature branch remains unchanged at fdce383e3be8095d86c99d63bd73a3221bd3fc55. This is source-only work; no build or runtime validation.
