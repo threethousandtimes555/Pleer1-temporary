@@ -1842,3 +1842,24 @@ Target source branch: `fix/youtube-resolver-cancellation-2026-11-21`, initially 
 - Operation-scoped Innertube sessions are necessary to bind each custom fetch closure to the correct AbortSignal without cross-cancelling concurrent searches/resolves. This means session objects are no longer reused globally between independent operations. The in-memory session cache and native URLSession connection pool remain shared. Measure session creation CPU/memory and search latency in the mandatory baseline/candidate load tests; do not assume this has zero overhead.
 - The implementation has not been compiled or executed. Next source-only review must check cancellation/completion races, task-map cleanup, exact branch diff, and every retry/catch path. Pay particular attention to cancellation arriving around `youtubeFetch` / `youtubeFetchCancel` message delivery and response completion.
 - No build, compile, unit/UI test, simulator, IPA, Codemagic or install has been run. Do not claim end-to-end cancellation is runtime-verified until the authorized device test matrix passes.
+
+
+## 36. P1 cancellation — source-level closeout and verification boundary — 21 ноября 2026
+
+**Cancellation branch HEAD:** `5c57c58bc55ad3c53bd7ccde70292e757c1c0438` (31 commits ahead of base). **Feature branch remains unchanged:** `fdce383e3be8095d86c99d63bd73a3221bd3fc55`.
+
+### Final source-level coverage review
+
+- Enumerated all direct `YouTubeEngine.resolve(videoID:)` call sites in the source tree: Player playback load, Player stream recovery, Player prefetch, and FavoritesAudioCache worker paths. All are owned by cancellable Tasks; coordinator waiter leases prevent one caller from cancelling another.
+- Added early Task cancellation checks before search work starts in SearchModel, YouTubeEngine search/InnerTube POST, YouTube HTML search and shared Sources JSON requests. URLSession async calls remain in the cancelling Task; FavoritesAudioCache retains its existing download-task cancellation and temp-file cleanup.
+- Reviewed exactly-once completion ownership: Swift continuation dictionaries remove before resume; native fetch registry removes before callback/cancel; JS pendingFetch uses a settled guard and removes its abort listener; late callbacks are ignored; JS active operation and inflight entries are cleaned on cancellation/completion. Cancellation of one coordinator waiter does not cancel the underlying Task while another waiter remains.
+- JS AbortError is terminal through client retry/fallback and both catalog Promise.allSettled batches. A JS-internal AbortError that reaches Swift while its continuation is still pending is retained as a resolver/provider error, not misclassified as caller cancellation; actual caller cancellation already finishes the Swift continuation through its cancellation handler.
+- Swift catalog 15s timeout cancels the structured child operation; JS catalog 12s deadline aborts its controller and returns the intentional empty catalog result after native requests are cancelled. Resolve timeout sends the same full cancellation chain.
+- Corrected one pre-existing malformed escaped interpolation in the Swift catalog bridge call; current resolve/catalog/forget/cancel calls now all interpolate JSON arguments consistently.
+
+### Remaining risks / not yet proven
+
+- Operation-scoped Innertube sessions change session-object reuse. The locale memory cache and URLSession.shared connection pool are retained, but CPU/memory/latency impact is unknown until measured.
+- WKScriptMessage ordering at the exact fetch-start/cancel boundary and URLSession cancellation timing require runtime race tests. Source logic is idempotent, but it is not proof of runtime scheduling behavior.
+- No compiler, unit/UI test, simulator, device, IPA, Codemagic or install validation has been run. The cancellation work is **implemented in source and reviewed**, not yet build-verified or runtime-proven.
+- Next safe step is a final diff-only audit of all 7 changed files, then wait for the user's explicit authorization before any build. Device tests must include shared-consumer cancellation, cancel-last-consumer, rapid search A→B, track replacement, prefetch-to-playback handoff, download/playback overlap, invalidation generations, WebKit termination and response/cancel boundary races.
