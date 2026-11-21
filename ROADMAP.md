@@ -236,15 +236,15 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 | P0 | Длительность YouTube | Проследить duration от YTM/video metadata и resolver stream до AVPlayerItem, clock, watchdog и end callbacks. Сопоставить streaming playback и локально скачанный файл. Не считать метаданные доказательством фактической длительности аудио | На нескольких треках UI, реальный звук и естественный конец согласованы; нет преждевременного завершения/лишнего времени |
 | P0 | Источник завершения | Сверить и проверить уже реализованное различение natural AVPlayer EOF, ручного seek-to-end и forced duration boundary; watchdog near-end оставить диагностическим событием, а не самостоятельным основанием для advance | Логи и тесты однозначно различают три источника; ручной seek не засчитывается как natural-end тест; поведение подтверждено на iPhone |
 | P0 regression | Repeat One / Play One | Не объявлять отдельным дефектом: пользователь сообщил, что режим, вероятно, работает. Проверить после duration fix на YouTube stream и offline file | Естественное завершение повторяет текущий трек один раз за раз, без зависания и двойного перехода |
-| P1 | Auto-advance / seek / queue | Проверить естественный конец, Next/Previous, быстрый seek, lock-screen seek identity, stale load token, удалённый трек и mixed local/YouTube queue | Каждый сценарий имеет отдельный воспроизводимый тест и диагностическое подтверждение |
+| P1 | Auto-advance / seek / queue | Проверить естественный конец, Next/Previous, быстрый seek, lock-screen seek identity, stale load token, удалённый трек, mixed local/YouTube queue и bounded auto-skip: только окончательно недоступные треки, максимум 6 подряд; временные сетевые/bridge ошибки не пропускать | Каждый сценарий имеет отдельный воспроизводимый тест и диагностическое подтверждение; недоступные ID не повторяются в одной серии, серия сбрасывается после успешного readyToPlay, Repeat One не зацикливает недоступный трек |
 | P1 | SearchModel race | Проверить request identity, отмену предыдущего поиска, loading state и защиту от позднего ответа старого запроса | Медленный старый запрос не перезаписывает результаты нового и не сбрасывает его loading |
-| P1 | Качество поиска YouTube/YTM | Проверить релевантность выдачи на репрезентативных запросах, слабую непустую выдачу и поведение fallback/suggestions; не менять ranking без воспроизводимых примеров | По контрольному набору запросов релевантные треки находятся; fallback не ухудшает корректную выдачу и не создаёт дубли |
+| P1 | Качество поиска YouTube/YTM | Проверить релевантность выдачи на репрезентативных запросах, слабую непустую выдачу и поведение fallback/suggestions; сохранять приоритет YTM catalog над дополнительными InnerTube/HTML источниками; не менять ranking или порядок источников без воспроизводимых примеров | По контрольному набору запросов релевантные треки находятся; YTM остаётся приоритетным, fallback не ухудшает корректную выдачу и не создаёт дубли |
 | P1 | JS/WebKit cancellation | Протянуть cancellation от Swift caller через catalog/resolve к JS Promise и native URLSessionTask; очищать pending maps, timers и late callbacks | После cancel/timeout/WebKit termination нет зависших continuation и продолжающихся ненужных fetch |
 | P1 | Timeout budget | Определить сквозные бюджеты для WebView readiness, visitor/player/client attempts, JS fallback и native fetch; не путать внутренние и внешние таймеры | Для каждого пути есть ограниченное время завершения и тесты timeout/retry |
 | P1 | Network/VPN handoff | Проверить Wi-Fi/cellular/unsatisfied и VPN egress change; учесть, что NWPathMonitor не гарантирует обнаружение смены внешнего IP при неизменном интерфейсе | Смена маршрута не приводит к застрявшему старому URL/загрузке; ограничения обнаружения задокументированы |
 | P1 | Playlist/Mix | Добавить fixtures для современных search и /next renderer, continuation, duplicate IDs/tokens, empty page и pagination limits | Плейлист и Mix загружаются полностью и не дублируют/теряют треки |
-| P1 | Import/delete | Согласовать политику неподдерживаемого Inbox share, повторного импорта, удаления файла и stale references в Favorites/playlists/Recent; учитывать текущий AVPlayer item | Импорт/удаление не приводит к незаметной потере файла или «висячим» элементам |
-| P2 | Download policy / трафик | Решить, должна ли загрузка быть после первого play, по нажатию Download или по отдельной настройке. Сейчас stream и полный offline download — отдельные передачи | Пользователь понимает, когда и сколько данных скачивается; skip/background/cancel ведут себя предсказуемо |
+| P1 | Import/delete | В текущем YouTube-аудите проверить только удаление YouTube offline-файла, deferred deletion и ссылки на YouTube-трек в Favorites/playlists/Recent. Общие Inbox share/Telegram import и удаление произвольных local files оставить отдельной задачей общей библиотеки | Удаление YouTube offline-файла не прерывает текущий трек и не создаёт недоступных ссылок; общая политика импорта/удаления согласована отдельно |
+| P2 | Download policy / трафик | Решить, сохраняем ли play-triggered auto-download избранного или вводим ручную кнопку/настройку; учитывать отдельные streaming и full-download transfers, поведение при skip/background и cellular consent. Сохранить ограничения: 500 МиБ на трек, резерв 64 МиБ, общий предел 1 ГиБ — мягкий, без тихого удаления завершённых файлов | Пользователь понимает, когда и сколько данных скачивается; skip/background/cancel предсказуемы; лимиты и сохранность готовых файлов подтверждены |
 | P2 | Persistence / Recent | Решить, означает ли Recent «выбранные» или «успешно начавшие играть»; проверить повтор того же первого трека, migration и relaunch | Семантика Recent документирована; 40 уникальных записей и миграция проверены |
 | P2 | Artwork / custom UI | Прогнать fixtures square-in-wide, genuine-wide, missing/high-res fallback, Mix/playlist и local metadata; после стабилизации перейти к отдельному дизайну Pleer1 | Нет обрезанных/искажённых обложек; UX согласован до визуального рефакторинга |
 
@@ -362,6 +362,7 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 
 - Source review `Player.swift` выполнен: `planNext()`, `finishCurrentItem()`, `loadToken`, `completionHandledToken`, `manualSeekToEndToken`, seek identity и remote Next/Previous guards проверены. Доказанного source-дефекта в проверенном участке не найдено.
 - Отдельный automated test coverage для natural EOF/auto-advance, seek-to-end, Repeat One/All/Shuffle, одиночной очереди и stale remote command отсутствует. Это пробел тестового покрытия, а не доказательство runtime-ошибки.
+- Bounded auto-skip уже реализован: только явные признаки окончательной недоступности (LOGIN_REQUIRED/age gate, private/removed, unplayable/no direct audio); временные network/HTTP/bridge ошибки не должны пропускать трек. Лимит — 6 разных недоступных ID за серию; серия сбрасывается после успешного readyToPlay, Repeat One не должен зацикливать недоступный элемент. Эти сценарии пока не подтверждены на iPhone.
 - Статус: source review и сверка call sites завершены; дополнительного source-дефекта не найдено. Автоматическое покрытие ключевых сценариев отсутствует, device/runtime acceptance остаётся открытой. Код не менять без воспроизводимого дефекта.
 
 ### P1 — SearchModel race
@@ -373,6 +374,7 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 ### P1 — качество поиска YouTube/YTM
 
 - Этот пункт восстановлен в активной матрице по итогам смысловой сверки архивной записи №117 (бывший §26): ранее отдельно отмечались слабая непустая выдача, релевантность результатов и fallback/suggestions.
+- Порядок объединения сохраняет YTM catalog первым, затем InnerTube и HTML; это действующий приоритет YouTube Music. Suggestions fallback запускается только при пустых YTM song и music-video shelves, а не при любой слабой непустой выдаче.
 - Статус: отдельная проверка контрольного набора запросов ещё не закрыта; ranking и search algorithm не менять без конкретных примеров и согласованного критерия.
 
 ### P1 — cancellation
@@ -381,6 +383,14 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 - YouTube-specific source changes находятся в ветке `fix/youtube-resolver-cancellation-2026-11-21`, HEAD `59bba3a3802968f7072fcdf960a0e51d1b776c8f`.
 - Source-only lifecycle review завершён; доказанного дефекта, требующего дополнительного source patch, не найдено. Runtime race/load verification остаётся открытой.
 - Область ограничена YouTube-модулем. Archive.org и общие механизмы других провайдеров в изменения не входят.
+
+### P1 — клиентские профили, live config и границы доступа
+
+- Native Swift resolver использует фиксированные профили VISIONOS → ANDROID_VR → IOS; JS resolver загружает список iOS-клиентов из Musike raw GitHub streaming.json, использует localStorage fallback и defaults IOS/VISIONOS. Remote config — намеренная внешняя зависимость, не сервер/прокси Pleer1.
+- Текущий валидатор проверяет формат и уникальность имён, но не закрепляет revision/signature и не задаёт строгий максимум длины списка. Не менять это молча: сначала решить, сохраняем ли live-update или фиксируем проверенную ревизию.
+- JS Innertube session теперь создаётся отдельно для каждой верхнеуровневой операции; locale-keyed memory cache и URLSession connection pool остаются общими. Это изолирует AbortSignal между параллельными операциями и устраняет старый риск общего session object; нагрузку и churn нужно измерить.
+- Stream cache — отдельный in-memory слой: максимум 64 записи, refresh margin 60 секунд; это не offline audio cache FavoritesAudioCache.
+- Извлечение остаётся анонимным прямым iOS resolver path. Нет Google sign-in/cookie import и нет Musike server-side yt-dlp/Deno пути. Не обходить age gate: окончательный LOGIN_REQUIRED/age restriction классифицировать корректно, временные сетевые ошибки не пропускать автоматически.
 
 ### P1 — timeout budget
 
@@ -395,6 +405,7 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 - YouTube offline-download queue использует NWPathMonitor: отслеживает status и смену интерфейса Wi‑Fi/cellular, ставит активную загрузку обратно в начало очереди, отменяет transfer, инвалидирует resolver layers и ждёт завершения invalidation перед перезапуском. Cellular transfer блокируется до разрешения пользователя; разрешение действует в пределах app session.
 - Монитор сравнивает только доступность и тип интерфейса. Смена внешнего VPN egress IP при неизменном интерфейсе может остаться незамеченной.
 - Для активного AVPlayer streaming отдельного NWPathMonitor handoff нет: новый URL получается при ошибке item или после подтверждённого stall/recovery; watchdog не должен завершать трек только из-за неподвижных часов.
+- Отдельно проверить CappedAudioDownload: отмена до создания URLSessionDownloadTask, конкурентные cancel, callback didComplete, byte-cap abort, удаление временного файла и отсутствие двойного resume continuation; также отмену worker при удалении загрузки.
 - Статус: source review подтверждает раздельную политику downloads и streaming recovery; поведение при Wi‑Fi/cellular/unsatisfied и VPN egress transitions требует device/runtime проверки. Не добавлять второй сетевой монитор или принудительный resolver refresh без воспроизводимого дефекта.
 
 ### P1 — Playlist/Mix
@@ -415,6 +426,7 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 - Сейчас скачивание не запускается по одному только лайку и не имеет отдельной ручной кнопки: YouTube-трек из Favorites ставится в offline queue после первого успешного resolve/playback.
 - AVPlayer stream и полный offline-файл загружаются разными сетевыми передачами; во время первого воспроизведения избранного трека возможен параллельный streaming + full download. При повторном воспроизведении уже скачанный файл используется локально; повторная enqueue блокируется для готового, активного и уже ожидающего трека.
 - Пропуск трека не отменяет самостоятельную download queue; удаление из Favorites отменяет незавершённую загрузку. Cellular требует согласия; очередь последовательная.
+- Storage guards: 500 МиБ на файл и 64 МиБ минимального свободного резерва — жёсткие ограничения; 1 ГиБ общего кэша — мягкий бюджет, превышение логируется, завершённые файлы автоматически не вытесняются.
 - Статус: source behavior подтверждён; продуктовое решение о сохранении play-triggered auto-download или переходе к ручной/настраиваемой загрузке не принято. Реальный трафик, энергия и поведение в фоне требуют измерения на устройстве; код не менять до решения пользователя.
 
 ### P2 — Recent / история YouTube
@@ -430,6 +442,12 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 - В текущих unit/UI tests не найдено artwork fixtures. Не подтверждены визуально: square-in-wide, genuine wide, portrait/нестандартный ratio, отсутствующий high-res fallback, Mix/playlist renderer и local metadata artwork.
 - Статус: source review выполнен; изменения алгоритма не требуются без fixture evidence. Нужна визуальная проверка на iPhone; полный custom UI redesign остаётся отдельным этапом и не входит в текущую YouTube стабилизацию.
 
+### Отдельный UI-контракт «Моё» — вне текущей YouTube стабилизации
+
+- Более позднее решение в архивных разделах 25–26 имеет приоритет над ранним вариантом из §16: корневые вкладки остаются «Поиск / Моё / Настройки»; внутри «Моё» сохраняются «Любимое» и отдельные экраны «Скачанные»/«Недавние». Не возвращать прежнее предложение с сегментным переключателем на одной странице и не делать выпадающее меню.
+- Недавние должны открывать трек по нажатию; история остаётся metadata-only. Полный визуальный редизайн Pleer1 — отдельная работа; до уточнения, что именно пользователь имел в виду под «SF», не заменять системные шрифты/символы механически.
+- Этот UI-контракт сохранён как отдельная общая задача приложения и не расширяет текущую работу над YouTube-модулем.
+
 ### Ограничения
 
-Сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались. Не запускать их без отдельного явного разрешения пользователя. Следующая работа после документационной сверки — вернуться к утверждённой Таблице 2 и продолжать в её порядке.
+Сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались. Пользовательские raw debug logs сохранять дословно и неизменно; аналитические выводы вести отдельно, не восстанавливать отсутствующие строки и не архивировать cookies/tokens/credentials. Не запускать их без отдельного явного разрешения пользователя. Следующая работа после документационной сверки — вернуться к утверждённой Таблице 2 и продолжать в её порядке.
