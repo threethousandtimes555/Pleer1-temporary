@@ -1757,3 +1757,47 @@ Read-only review of Player.swift on Pleer1-Lab/feature/youtubei-js-ios-fallback-
 В дереве текущей feature-ветки найден один Swift test file: plei/UITests/SearchSmokeTests.swift. Он содержит проверки SearchIntent/parser/ranking и один UI-сценарий YouTube playlist → выбор второго трека → seek в середину → продолжение playback clock. В нём нет автоматических тестов для natural EOF/auto-advance, manual seek-to-end provenance, Repeat One/All/Shuffle, одиночной очереди, быстрого Next/Previous или stale remote command. Это пробел покрытия, а не доказательство ошибки runtime.
 
 **Решение:** не менять Player.swift только ради закрытия строки backlog. Сначала cancellation implementation design и независимая source review; затем, когда пользователь разрешит build/test, добавить или выполнить отдельные playback regression scenarios из §28 и §31. Если для какого-либо сценария будет нужен новый тестовый код, сначала согласовать конкретный тест и его исполнимость в доступном workflow. До разрешения пользователя никаких сборок и simulator runs.
+
+
+## 33. P1 cancellation — implementation design before source edits — 21 ноября 2026
+
+Target source branch: `fix/youtube-resolver-cancellation-2026-11-21`, initially identical to feature HEAD `fdce383e3be8095d86c99d63bd73a3221bd3fc55`. Do not change the feature branch. No source edits are included in this design record.
+
+### Cancellation ownership model
+
+1. `YouTubeResolveCoordinator` becomes the authoritative owner of a shared resolve operation per video ID and generation. Every caller (playback, prefetch, FavoritesAudioCache/download, recovery) receives its own waiter/lease. Cancelling one waiter resumes only that caller with CancellationError. Cancel the underlying shared Task only when the last waiter releases it. Invalidation is separate: increment generation/remove cache visibility for new callers, but do not kill an operation still required by existing waiters.
+2. Store and cancel the actual playback resolve Task when a new load replaces it; store and cancel the stalled-stream recovery Task on load replacement. Prefetch and FavoritesAudioCache retain independent ownership. A prefetch that has become the current track must remain alive while playback consumes it.
+3. SearchView must retain the submitted search Task and cancel the previous task on a new submission and when leaving the view. SearchModel token remains as stale-result defense; it is not a substitute for cancellation.
+
+### JS and native network propagation
+
+4. Every top-level JS resolve/catalog operation gets its own AbortController keyed by the Swift request ID. Cancellation from Swift invokes the matching JS cancel method; it must never cancel by video ID alone because invalidated generations may overlap.
+5. `nativeFetch` must observe an operation-scoped AbortSignal, reject with AbortError, remove its pendingFetch entry, and send a native `youtubeFetchCancel` message containing the exact native request ID. Avoid a mutable global “current operation” signal: concurrent YTM searches/resolves can overlap.
+6. The youtubei.js 18.3.0 HTTPClient passes a Request to its injected fetch. Use an operation-scoped fetch closure when creating the Innertube session so each request receives the correct operation signal. This likely requires operation-scoped Innertube sessions while preserving shared native URLSession connection pooling and, if safe, shared in-memory session cache. Do not reuse a shared session with a mutable global signal; that would cross-cancel concurrent operations.
+7. Swift keeps a requestID → native URLSession Task map. Start/store the task before it can be cancelled; cancel by exact ID; suppress late resolve/reject callbacks after cancellation; clean the map on success, failure, cancellation and WebKit process termination. Handle cancellation arriving at the start/completion boundary idempotently.
+
+### Cancellation must not become a retry or a false success
+
+8. Propagate CancellationError/AbortError through `withClient`, `directAudio`, native Swift resolver catches, WebKit retry logic, and search's `Promise.allSettled` handling. Cancellation must not start another client attempt, fallback resolver, suggestion search, or be converted to an empty successful catalog result.
+9. The JS catalog 12-second deadline and Swift catalog 15-second deadline must abort the operation they time out, not merely return an empty result while network work continues.
+10. WebKit content-process termination must clear pending operation continuations and cancel any native fetch tasks that can no longer deliver a response.
+
+### Staged implementation and review gates
+
+- Stage A: add coordinator waiter ownership and task cancellation; wire playback/recovery/search task handles. Review all call sites and actor race paths before continuing.
+- Stage B: add JS operation IDs/controllers and operation-scoped fetch/session context; ensure no shared mutable signal.
+- Stage C: add native URLSession task registry/cancel message, idempotent cleanup, and WebKit termination cleanup.
+- Stage D: propagate cancellation errors and make deadlines abort; inspect every retry/fallback/catch boundary.
+- After each stage, inspect exact diff and update this record. No build, simulator, IPA, Codemagic or install until the user explicitly authorizes it.
+
+### Required race/regression scenarios
+
+- Two consumers share one video resolve; cancel consumer A; consumer B still receives the stream and playback starts.
+- Two consumers share one resolve; cancel both; underlying Swift task, JS operation, native fetches and pending maps all terminate.
+- Prefetch becomes current playback; no cancellation gap and no duplicate resolver request.
+- Playback changes track while resolve is active; old playback waiter cancels, new track resolves, stale old result cannot install.
+- FavoritesAudioCache download cancels while playback shares the resolver; playback continues. Inverse ordering also tested.
+- Route invalidation while an old consumer still awaits: old consumer may finish with its operation result, new consumer starts a new generation, old result is not cached for new requests.
+- Rapid search A → B: A's catalog/InnerTube/HTML tasks and native fetches cancel; B results remain; cancellation is not logged as a normal provider failure or empty success.
+- Abort during request body preparation, before native task registration, during URLSession transfer, at response completion, and after WebKit process termination; each continuation resumes at most once and no task/map leaks remain.
+- Normal resolver fallback, client retry on genuine network errors, Repeat One, stream recovery and Favorites offline download continue to work unchanged.
