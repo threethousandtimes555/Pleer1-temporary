@@ -421,9 +421,10 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 
 ### P1 — удаление YouTube offline-файлов
 
-- Удаление скачанного YouTube-файла очищает запись offline library и сам cache-файл, но не удаляет метаданные трека из Favorites, playlists или Recent. Это не dangling file reference: YouTube Track сохраняет source identity и при обычном online playback может быть заново разрешён; в offline-only без файла он пропускается.
-- Если пользователь удаляет текущий YouTube-трек, файл помечается для отложенного удаления; после смены трека Player вызывает finishDeferredDeletions. Требуется device-проверка перехода с активного локального YouTube item и relaunch с сохранённой deferred deletion.
-- Статус: source review YouTube offline-cache deletion выполнен; доказанного дефекта удаления не найдено. Общий Inbox share/import и удаление произвольных локальных файлов не расширяются в рамках текущего аудита YouTube-модуля и остаются отдельной задачей общей библиотеки.
+- Офлайн-библиотека YouTube независима от Favorites: удаление из Favorites отменяет незавершённую загрузку, но не удаляет готовую копию. Удаление скачанной копии не удаляет метаданные трека из Favorites, playlists или Recent; online playback может разрешить поток заново, offline-only без файла пропускает трек.
+- Удаление текущего играющего YouTube-трека откладывается: запись сразу убирается из offline catalog, файл сохраняется до смены трека; при следующем Player.load deferred deletion завершается. При инициализации кэша сохранённые deferred IDs также обрабатываются.
+- Residual risk: deleteFiles подавляет ошибки FileManager.removeItem через try?, а finishDeferredDeletions очищает deferred ID до подтверждения удаления. При ошибке удаления файл может остаться без каталожной записи; это риск обработки ошибок, а не подтверждённый пользовательский сбой. Автотесты удаления не найдены.
+- Статус: основной lifecycle source-reviewed; device-приёмка и сценарии ошибок удаления обязательны. Подробная матрица из 8 проверок — журнал №134. Общий Inbox share/import и удаление произвольных локальных файлов остаются отдельной задачей общей библиотеки.
 
 ### P2 — текущая политика YouTube offline-download и трафик
 
