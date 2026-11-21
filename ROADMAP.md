@@ -1750,3 +1750,10 @@ Read-only review of Player.swift on Pleer1-Lab/feature/youtubei-js-ios-fallback-
 - Это только source review. Не доказаны на устройстве: реальный natural EOF, отсутствие двойного advance, поведение seek-to-end в paused/interrupted состояниях, rapid seek + Next/Previous race, переходы Repeat One/All/Shuffle и очередь из одного элемента.
 - Отдельный targeted test: поставить трек на паузу или вызвать audio interruption около конца; выполнить seek-to-end отдельно; проверить, когда именно AVPlayer присылает EOF и не происходит ли нежелательный переход. Не менять finishCurrentItem() без воспроизводимого подтверждения и согласованного ожидаемого поведения.
 - Следующий read-only шаг: сверить call sites и существующие tests для очереди/remote commands, затем определить, остался ли source defect. После этого переходить к согласованной P1 cancellation работе. Никакие исходники не менялись; сборка и simulator не запускались.
+
+
+## 32. Проверка текущего automated test coverage для playback queue — 21 ноября 2026
+
+В дереве текущей feature-ветки найден один Swift test file: plei/UITests/SearchSmokeTests.swift. Он содержит проверки SearchIntent/parser/ranking и один UI-сценарий YouTube playlist → выбор второго трека → seek в середину → продолжение playback clock. В нём нет автоматических тестов для natural EOF/auto-advance, manual seek-to-end provenance, Repeat One/All/Shuffle, одиночной очереди, быстрого Next/Previous или stale remote command. Это пробел покрытия, а не доказательство ошибки runtime.
+
+**Решение:** не менять Player.swift только ради закрытия строки backlog. Сначала cancellation implementation design и независимая source review; затем, когда пользователь разрешит build/test, добавить или выполнить отдельные playback regression scenarios из §28 и §31. Если для какого-либо сценария будет нужен новый тестовый код, сначала согласовать конкретный тест и его исполнимость в доступном workflow. До разрешения пользователя никаких сборок и simulator runs.
