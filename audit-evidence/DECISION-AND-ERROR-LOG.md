@@ -3592,3 +3592,30 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 - Продуктовую семантику Recent не менять без решения пользователя. Device/test acceptance для migration, relaunch и 40 entries остаётся открытой.
 - ROADMAP §29 дополнен текущим поведением и открытыми решениями.
 - Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
+
+### №127 — source review YouTube artwork selection и отображения
+
+- **Дата:** 21 ноября 2026 года.
+- **Ветка исходников:** Pleer1-Lab, fix/youtube-resolver-cancellation-2026-11-21, HEAD 59bba3a3802968f7072fcdf960a0e51d1b776c8f.
+- **Проверены:** Media.swift (YouTubeThumbnail, ImageStore, Cover), YouTubeEngine search/catalog parser, YouTubePlaylistEngine и доступный SearchSmokeTests.swift.
+
+#### Подтверждённая реализация
+
+- YouTubeThumbnail.bestURL выбирает source с наибольшей объявленной pixel area; при отсутствии dimensions использует последний доступный candidate. Для i.ytimg.com запрашивает hq720 rendition с fallback через maxres/sd/hq/mq/default; для googleusercontent/ggpht нормализует размеры к максимуму 1080 px с сохранением пропорций, если URL поддерживает соответствующий суффикс.
+- ImageStore проверяет HTTP 200, декодирование и минимальный размер 32×32; использует cache и ограничивает каждый image request 12 секундами.
+- Cover для YouTube сохраняет исходный aspect ratio genuine wide artwork вместо принудительного square crop. Для wide canvas с centered square artwork выполняется downsample/pixel sampling боковых областей; при уверенном обнаружении включается квадратное заполнение.
+- Parser использует общий thumbnail selector для YouTube Music song/video и playlist/Mix renderers; local artwork идёт через локальный ImageStore.
+
+#### Покрытие и ограничения
+
+- В доступном SearchSmokeTests.swift нет unit/UI fixtures для artwork selection или pixel classifier.
+- Не проверены на реальных изображениях: square-in-wide, genuine wide с однотонными боковыми областями, portrait/нестандартные пропорции, отсутствующий high-res fallback, Mix/playlist thumbnails и local metadata artwork.
+- Pixel classifier основан на эвристике боковых цветовых областей и дисперсии центра. Без fixture set нельзя утверждать, что ложных срабатываний нет для всех genuine wide thumbnails.
+- Полный custom UI redesign не относится к текущей YouTube artwork стабилизации и не должен смешиваться с этим пунктом.
+
+#### Вывод
+
+- Source review завершён; доказанного дефекта, требующего изменения selector или Cover, не найдено. Алгоритм не менять без визуальных fixtures и воспроизводимого ошибочного crop.
+- P2 artwork остаётся открытым по визуальной acceptance: проверить square-in-wide, genuine-wide, portrait, high-res fallback, playlist/Mix и local metadata на iPhone.
+- ROADMAP §29 дополнен текущей реализацией, пробелом fixtures и границей custom UI scope.
+- Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
