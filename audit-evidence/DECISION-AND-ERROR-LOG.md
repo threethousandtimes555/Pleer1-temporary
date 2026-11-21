@@ -3370,3 +3370,28 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 - Исходники Pleer1-Lab не менялись. Сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
 
 **Итог:** переносы структурно сохранены и теперь сопоставлены с активной матрицей по существу. Действующие задачи не потеряны; выявленный пропуск по качеству поиска возвращён в Таблицу 2; устаревшая формулировка о seek provenance исправлена. Дальше продолжаем по порядку Таблицы 2, не перескакивая через P1 auto-advance/seek/queue.
+
+### №119 — завершение read-only сверки call sites для auto-advance / seek / queue
+
+- **Дата:** 21 ноября 2026 года.
+- **Ветка исходников:** Pleer1-Lab, fix/youtube-resolver-cancellation-2026-11-21, HEAD 59bba3a3802968f7072fcdf960a0e51d1b776c8f.
+- **Проверены:** Player.play/jump, planNext, load, finishCurrentItem, advance, previous, seek, cycleRepeat, AVPlayerItemDidPlayToEndTime observer, tick/duration-boundary/watchdog, remote Next/Previous/lock-screen seek, offline-only пропуск отсутствующего файла и существующий SearchSmokeTests.swift.
+
+#### Результат сверки
+
+- Очередь пересчитывает plannedNext при загрузке нового элемента и смене repeat mode; сценарии Repeat One/All/Shuffle и очередь из одного элемента имеют явную source-логику.
+- Естественное завершение и duration-boundary проходят через finishCurrentItem с проверками текущего loadToken, идентичности AVPlayerItem и completionHandledToken. Повторная обработка одного load token блокируется.
+- Ручной seek-to-end помечается manualSeekToEndToken; при seek назад и смене load метка очищается. Источники manual seek, AVPlayer EOF и duration boundary диагностически различаются.
+- Seek ограничивается временной шкалой, проверяет ожидаемые Track ID/loadToken и после асинхронного завершения повторно проверяет идентичность текущей загрузки.
+- Remote Next/Previous и lock-screen seek захватывают identity snapshot до перехода в Task и отклоняют устаревшую команду, если текущий трек или loadToken уже изменился.
+- При offline-only пропуске отсутствующего файла очередь обновляется, индекс корректируется, затем load/planNext пересчитываются для следующего элемента.
+- В существующем SearchSmokeTests.swift есть проверки поиска/парсинга/ranking, открытия плейлиста, запуска второго трека и seek в середину. Автоматических тестов natural EOF/auto-advance, manual seek-to-end provenance, Repeat One/All/Shuffle, одиночной очереди и stale remote command нет.
+
+#### Вывод и статус
+
+- Дополнительного доказанного source-дефекта в проверенных call sites не найдено; новые изменения Player.swift не требуются.
+- Это не доказывает runtime-корректность. Остаются проверки на iPhone: natural EOF и ровно один переход; seek-to-end отдельно; пауза/audio interruption около конца; быстрые seek + Next/Previous; Repeat One/All/Shuffle; одиночная и смешанная local/YouTube очередь; offline-only.
+- Автоматическое тестовое покрытие этих сценариев остаётся пробелом. Добавление/запуск тестов и любая сборка — только после отдельного разрешения пользователя.
+- ROADMAP §29 обновлён: source review и сверка call sites завершены; device/runtime acceptance остаётся открытой.
+
+**Итог:** P1 auto-advance/seek/queue закрыт на уровне read-only source review, но не закрыт по критериям приёмки. Никакие исходники не менялись; компиляция, тесты, симулятор, сборка, IPA и установка не запускались.
