@@ -1906,3 +1906,16 @@ Current cancellation branch tip: `8483db41b68a236764ac8a0ff1e64829373a2289`. Fea
 The user clarified that this work is limited to integrating the YouTube module from Musike. Archive.org is an unrelated external archive and is outside scope. The Archive.org collection-task ownership added in §38 has been reverted from Player.swift; the original Archive.org loading behavior is restored. The generic non-YouTube `AudioCache.download` recovery task ownership added in §39 has also been reverted. Do not include Archive.org or generic non-YouTube recovery in this cancellation task or its completion criteria.
 
 Retained YouTube-specific work from §35–37 and the bounded failed-item YouTube retry ownership from §39. Current source branch tip after scope correction: `539eac69ffe3c78f5170280fbd68f54676457b36`. Feature branch remains at `fdce383e3be8095d86c99d63bd73a3221bd3fc55`. No build or runtime validation.
+
+
+## 41. YouTube cancellation boundary — reject late WebKit fetch messages — 21 ноября 2026
+
+The YouTube JS/native bridge had a narrow cancellation race: Swift cancelled all native URLSession tasks already registered for a parent JS operation, then asked the JS bridge to abort. A `youtubeFetch` message already queued by WebKit but not yet handled could theoretically arrive after the direct cancellation sweep and start a new native request.
+
+- Added a bounded set of cancelled parent operation IDs (last 512) in `YouTubeJSResolver`.
+- `cancelJavaScriptOperation` records the tombstone before cancelling registered native requests or invoking the JS abort method.
+- `startNativeFetch` rejects a late fetch message whose parent operation ID is already tombstoned, so a queued message cannot create new URLSession work after parent cancellation.
+- Tombstones are bounded to avoid unbounded memory growth in the long-lived hidden WebView. Operation IDs are UUIDs; ordinary new operations are unaffected.
+- This closes the source-level ordering gap without changing search/playback behavior or fetch routing. Runtime WebKit message-order and cancellation-race validation remains mandatory.
+
+Current source branch tip: `75ab1582b0ce96064dde29c791408713c17c3018`. Feature branch remains at `fdce383e3be8095d86c99d63bd73a3221bd3fc55`. No build or runtime validation.
