@@ -1887,3 +1887,15 @@ The next source-only call-site sweep found one remaining unowned asynchronous co
 - No archive parsing, track ordering, or queue semantics changed. Add a device test: begin Archive.org expansion, switch tracks before metadata returns, verify the request stops and the new queue remains untouched; also verify normal archive expansion still works.
 
 Current cancellation branch tip: 4477f6e0fd88aacf47ac143d64ebd10c20e4d7d3. Feature branch remains unchanged at fdce383e3be8095d86c99d63bd73a3221bd3fc55. This is source-only work; no build or runtime validation.
+
+
+## 39. P1 cancellation — fallback recovery and failed-item retry ownership — 21 ноября 2026
+
+A deeper Player Task sweep found two remaining network-capable Tasks that had stale-token guards but no retained cancellation owner: the generic streaming-to-file recovery (`AudioCache.download`) and the one bounded YouTube failed-item retry (including URL invalidation followed by another resolver load).
+
+- Added a dedicated `audioRecoveryTask`; replacement loads cancel it. Its URLSession `download(for:)` request therefore receives cancellation through the owning Swift Task.
+- The YouTube failed-item retry now runs under `youtubeLoadTask`, which is already cancelled by replacement loads. The existing token/track checks remain before and after awaited invalidation, and the task clears its handle only if its original load token is still current.
+- The YouTube playlist/Mix and Archive.org collection expansion tasks share `youtubeCollectionLoadTask`; the resolver and stalled-stream recovery retain their separate ownership. Prefetch and FavoritesAudioCache remain independent consumers.
+- This change does not alter retry limits, recovery eligibility, fallback selection, queue behavior or cache semantics. Add device race tests: switch tracks during a generic recovery download and during the failed-item invalidation/re-resolve interval; verify both requests stop and cannot install stale media.
+
+Current cancellation branch tip: `8483db41b68a236764ac8a0ff1e64829373a2289`. Feature branch remains unchanged at `fdce383e3be8095d86c99d63bd73a3221bd3fc55`. Source-only; no build/runtime validation.
