@@ -1801,3 +1801,22 @@ Target source branch: `fix/youtube-resolver-cancellation-2026-11-21`, initially 
 - Rapid search A → B: A's catalog/InnerTube/HTML tasks and native fetches cancel; B results remain; cancellation is not logged as a normal provider failure or empty success.
 - Abort during request body preparation, before native task registration, during URLSession transfer, at response completion, and after WebKit process termination; each continuation resumes at most once and no task/map leaks remain.
 - Normal resolver fallback, client retry on genuine network errors, Repeat One, stream recovery and Favorites offline download continue to work unchanged.
+
+
+## 34. P1 cancellation — Stage A implementation status — 21 ноября 2026
+
+**Target branch HEAD after Stage A:** `fix/youtube-resolver-cancellation-2026-11-21` at `062d443137655ca452b5b3c85a13de7c240a0f9b`. Base feature HEAD remains `fdce383e3be8095d86c99d63bd73a3221bd3fc55`; do not merge or update the feature branch during this task.
+
+### Implemented in Stage A (source only)
+
+- `YouTubeResolveCoordinator` now tracks independent consumer continuations/leases per shared operation and video ID/generation. One consumer cancellation resumes only that waiter; underlying resolver Task is cancelled only when no waiters remain.
+- Cache invalidation is separated from cancellation. Existing consumers can finish their old generation; a new generation can start independently; old results cannot populate the new cache.
+- Player now retains/cancels the current YouTube load Task and stalled-stream recovery Task when a replacement load begins. Prefetch and FavoritesAudioCache keep independent tasks/leases.
+- SearchView now retains the submitted search Task, cancels the previous search on a new submit, and cancels when leaving the view. SearchModel still uses request tokens and avoids publishing cancelled/stale results. YouTubeEngine search catches now rethrow cancellation instead of treating it as provider failure.
+
+### Stage A review caveats
+
+- This stage only propagates cancellation to the shared Swift resolver Task and makes caller ownership explicit. It does **not yet** cancel JavaScript work or native URLSession fetches. Until Stages B/C are complete, cancelling the last Swift consumer can still leave JS/native network activity running.
+- Source diff was reviewed for four files: Player.swift, Providers.swift, Views.swift, YouTubeEngine.swift. The branch is 5 commits ahead of the feature base. No source changes were made on feature branch.
+- Build/compile/test/simulator/IPA/Codemagic/install were not run; syntax and runtime remain unverified. Do not describe Stage A as full cancellation.
+- Next: Stage B operation-scoped JS AbortController and fetch/session context; Stage C exact requestID → URLSession task cancellation and WebKit termination cleanup.
