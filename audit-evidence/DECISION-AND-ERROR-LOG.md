@@ -3425,3 +3425,32 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 - P1 качество поиска: требуется контрольный набор репрезентативных русских и английских запросов с ожидаемыми треками/исполнителями и разбором фактической выдачи. Изменения ranking/fallback — только после таких примеров и согласования критерия.
 - ROADMAP §29 дополнен статусом SearchModel race; в Таблице 2 сохранён отдельный пункт качества поиска YouTube/YTM.
 - Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
+
+### №121 — source-аудит таймеров YouTube resolver и catalog search
+
+- **Дата:** 21 ноября 2026 года.
+- **Ветка исходников:** Pleer1-Lab, fix/youtube-resolver-cancellation-2026-11-21, HEAD 59bba3a3802968f7072fcdf960a0e51d1b776c8f.
+- **Проверены:** YouTubeEngine.swift, YouTubeJSResolver.swift и youtubei-bridge.js; точки ensureReady, native Swift visitor/player requests, JS resolver, catalog search, nativeFetch и WebKit termination retry.
+
+#### Подтверждённые таймеры
+
+- WebView readiness: общий предел 30 секунд; отдельные ожидающие callers отменяются независимо.
+- JS stream resolve: Swift continuation timeout 120 секунд. При WebKit process termination предусмотрен один retry; перед повтором runtime должен снова пройти readiness.
+- JS nativeFetch: URLRequest timeout 30 секунд на обычный YouTube/Google host и 6 секунд для raw.githubusercontent.com.
+- YouTube Music catalog: JS deadline 12 секунд с abort операции; внешний Swift task-group budget 15 секунд. Внутренний continuation timeout 75 секунд остаётся дополнительной страховкой и обычно не должен опережать внешний предел.
+- HTML search: URLRequest timeout 20 секунд.
+
+#### Найденные разрывы бюджета
+
+- Native Swift resolver использует один ephemeral URLSession и выполняет visitor-data запрос, затем до трёх последовательных player-client запросов. В YouTubeEngine.post URLRequest.timeoutInterval явно не задан; конфигурация requestSession также не задаёт собственный timeoutIntervalForRequest. Отдельного общего end-to-end deadline на цепочку visitor → client attempts → JS fallback нет.
+- При отсутствии свежего visitorData запрос может сначала ждать сетевой ответ/ошибку, и лишь затем использовать сохранённое значение, если оно есть. Это также входит в неограниченную общим бюджетом native-цепочку.
+- После неудачи трёх native client attempts вызывается JS fallback. Его 120-секундный предел начинается после подготовки WebView; WebKit termination retry может потребовать повторной подготовки и второй попытки. Единого общего срока для всей операции resolve нет.
+- InnerTube search использует тот же native post без явного request timeout. HTML search ограничен 20 секундами, а catalog search — 12/15 секундами, но вся YouTubeEngine.search не имеет собственного end-to-end deadline и ожидает результаты legacy transports.
+
+#### Вывод
+
+- Таймеры существуют и работают на разных уровнях, но они не образуют единую согласованную модель времени завершения. В частности, native Swift resolve и общий YouTube search не имеют явного общего deadline.
+- Не следует просто уменьшать 120/75/30 секунд или одновременно сокращать все вложенные таймеры: это может прервать рабочие client attempts, catalog fallback или WebView startup и изменить доступность треков.
+- До source changes нужно отдельно согласовать целевой общий бюджет playback resolve и catalog search, правила распределения времени между visitor/client attempts/JS fallback, а также поведение при истечении общего deadline. Внутренние таймеры должны быть подчинены общему сроку, а не продлевать его.
+- Таймеры уже реализованы как ограниченные задачи ожидания и сетевые request deadlines; дополнительный постоянный polling не требуется. Фактическое влияние на CPU/память/энергию всё равно измеряется только на устройстве.
+- ROADMAP §29 дополнен найденными таймерами и разрывами. Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
