@@ -1638,3 +1638,53 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 ### Ограничение сборки
 
 Никакие build, simulator, IPA packaging, Codemagic или установка не запускаются без отдельного явного разрешения пользователя. На текущем этапе продолжается только чтение/аудит исходников в новой изолированной ветке.
+
+
+---
+
+## 29. Уточнение статуса P0 и следующая задача — 21 ноября 2026
+
+Проверка текущей feature-линии и 63 коммитов после snapshot `a69ddc5a7421a5346ed6a5009f749c2186a5d956` уточнила порядок работ, записанный в §28.
+
+### P0 duration / natural-end — реализовано в исходниках
+
+В текущем HEAD `fdce383e3be8095d86c99d63bd73a3221bd3fc55` уже присутствуют:
+
+- YouTube video metadata как основной источник длительности; длительность выбранного audio format принимается только при согласовании с YouTube metadata и AVPlayerItem.
+- AVPlayer-only duration остаётся fallback для отображения, но не используется для принудительного естественного завершения.
+- Естественный `AVPlayerItemDidPlayToEndTime`, ручной seek-to-end и принудительное завершение по подтверждённой YouTube duration имеют разные диагностические source labels.
+- Watchdog near-end только записывает диагностику; зависание часов само по себе не вызывает advance.
+- Длительность скачанного файла измеряется отдельно и сохраняется как диагностическое свидетельство.
+
+**Статус:** source implementation present; source review completed for this pass; device/runtime confirmation pending. Не начинать повторную реализацию P0 без воспроизводимого теста или нового доказанного дефекта. Обязательные проверки из §28 остаются обязательными.
+
+### Следующая незакрытая задача — P1 JS/WebKit/native fetch cancellation
+
+Создана отдельная ветка `Pleer1-Lab/fix/youtube-resolver-cancellation-2026-11-21` от feature HEAD `fdce383e3be8095d86c99d63bd73a3221bd3fc55`.
+
+Подтверждённый source gap:
+
+- Swift cancellation handler в `YouTubeJSResolver.resolveOnce` завершает native continuation, но не отправляет JS-команду отмены для соответствующего resolver job.
+- JS `nativeFetch` хранит только resolve/reject в `pendingFetch`; не обрабатывает `AbortSignal` и не отправляет native cancel.
+- Swift `performNativeFetch` не хранит активные запросы по request ID и не предоставляет отдельный cancel path для уже начатого `URLSession.shared.data(for:)`.
+- `forgetVideo` инвалидирует generation/cache/inflight mapping, но сам по себе не abort-ит выполняющиеся native fetch. Поздние ответы могут быть проигнорированы, но уже потраченный сетевой трафик не обязательно останавливается.
+- JS `searchCatalog` использует `Promise.race` с deadline; проигравшие endpoint promises не обязательно физически прекращают свои fetch после истечения времени.
+- Swift catalog deadline отменяет work task, однако необходимо проверить, доходит ли отмена до JS promises и native URLSession.
+
+### План реализации cancellation
+
+1. Составить карту владения задачами и общих consumers: нельзя отменять общий resolver job, пока он нужен активному playback/download consumer.
+2. Проверить поддержку `AbortSignal` в реальном bundled youtubei.js пути и то, как сигнал передаётся в custom `nativeFetch`.
+3. Добавить request-ID-bound native task registry и cancel message с идемпотентной очисткой на success, failure, timeout, cancellation и WebKit termination.
+4. Развести cancellation отдельного consumer и отмену общей операции, используя безопасное владение/ref-count или иной проверяемый механизм; не ломать resolver deduplication.
+5. Связать отмену JS catalog deadline с прекращением endpoint requests, если библиотека предоставляет корректный cancellation path.
+6. Проверить отсутствие зависших continuation, pending maps, timers и поздних callback; проверить, что активное воспроизведение не отменяется из-за отмены постороннего consumer.
+
+Критерий закрытия: отменённый и больше никому не нужный запрос прекращает native network work; общая операция остаётся доступной другим действующим consumers; повторный запрос после invalidation получает свежий результат; все maps/tasks очищаются ровно один раз. Никакой отмены по одному только факту `forgetVideo`, если есть активный consumer, без проверки ownership.
+
+### Изоляция веток
+
+- `fix/youtube-duration-natural-end-2026-11-21` создана как отдельная контрольная ветка для аудита P0 duration; исходники в ней не менялись.
+- `fix/youtube-resolver-cancellation-2026-11-21` — рабочая ветка для следующего P1 cancellation.
+- Обе ветки ответвлены от одного проверенного feature HEAD. Не объединять их автоматически и не переносить изменения между ними без проверки diff.
+- Feature branch остаётся контрольной линией; сборки и установки по-прежнему запрещены без отдельного явного разрешения.
