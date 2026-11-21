@@ -1753,3 +1753,14 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Нет автоматических тестов для natural EOF/auto-advance, manual seek-to-end provenance, Repeat One/All/Shuffle, single-item queue, rapid Next/Previous или stale remote commands. Это coverage gap, не подтверждённый runtime defect.
 - Player.swift source review не выявил доказанного дефекта, который оправдывал бы немедленный патч очереди/seek. Не менять код наугад. Device tests остаются обязательными после разрешённой сборки.
 - Следующий source-level этап после этого read-only pass — аккуратно спроектировать P1 JS/WebKit/native URLSession cancellation; не создавать новую ветку, использовать уже существующую cancellation branch только после сверки её tip, не трогать feature control branch. Build/simulator/IPA/Codemagic/install не запускались.
+
+
+### #105 — P1 cancellation architecture and safety gates
+
+- **Дата:** 21.11.2026.
+- Проверена полная цепочка: SearchView creates untracked Task; SearchModel only token-guards stale results; YouTubeEngine.search catches provider failures around async-let tasks; YouTubeJSResolver cancellation handlers finish Swift continuations but do not cancel JS; JS pendingFetch has no AbortSignal handling; Swift native fetch uses URLSession.shared.data(for:) without a request-ID task registry.
+- Shared resolve: YouTubeResolveCoordinator deduplicates by video ID but has no waiter count/consumer ownership. Player playback load and recovery tasks are untracked; prefetch and FavoritesAudioCache already own cancellable Tasks. Coordinator must add per-caller leases and cancel underlying operation only when the last lease is released.
+- youtubei.js 18.3.0 HTTPClient source reviewed at `LuanRT/YouTube.js/v18.3.0/src/utils/HTTPClient.ts`: it constructs a Request and passes it to the injected fetch. To avoid a global mutable signal across concurrent calls, bind AbortSignal through an operation-scoped fetch closure/session. Preserve native URLSession pooling and assess safe reuse of memory cache.
+- JS `withClient`/`directAudio` currently retry/fallback on generic errors; `searchCatalogInternal` uses `Promise.allSettled`; both must treat AbortError as terminal cancellation. JS 12s and Swift 15s catalog deadlines currently can leave work running unless cancellation is propagated.
+- Stage plan and race matrix recorded in ROADMAP §33. Target branch `fix/youtube-resolver-cancellation-2026-11-21` is confirmed identical to feature HEAD before work; feature branch must remain untouched.
+- No source edits, builds, simulator, IPA, Codemagic or install performed in this stage.
