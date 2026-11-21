@@ -3347,11 +3347,11 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 #### Что подтверждено как действующее и оставлено в ROADMAP
 
 1. **P0 — длительность и источник завершения.** Реализация и проверка исходного кода присутствуют. Приёмка на iPhone не завершена: нужны естественный конец, совпадение слышимого конца с UI clock, отсутствие лишнего времени/раннего обрыва и корректный переход.
-2. **P0 — Repeat One / Play One.** Отдельный дефект в исходниках не подтверждён. Проверка на поток YouTube и локальном offline-файле остаётся обязательной регрессией.
-3. **P1 — автопереход / seek / queue.** Проверка исходного кода Player.swift подтверждает manualSeekToEndToken, completionHandledToken, защиту loadToken/идентичности AVPlayerItem, различение manual_seek_to_end, natural_avplayer_eof и forced_video_duration, а также guards для seek и remote-команд. Утверждение старых исторических фрагментов об отсутствии seek provenance устарело и superseded этой проверкой. Автоматического покрытия ключевых queue/EOF/seek сценариев недостаточно; проверка на устройстве остаётся открытой.
+2. **P0 — Repeat One / Play One.** Отдельный дефект в исходниках не подтверждён. Проверка на YouTube streaming и локальном offline-файле остаётся обязательной регрессией.
+3. **P1 — автопереход / seek / queue.** Проверка исходного кода Player.swift подтверждает manualSeekToEndToken, completionHandledToken, защиту loadToken/идентичности AVPlayerItem, различение manual_seek_to_end, natural_avplayer_eof и forced_video_duration, а также guards для seek и remote-команд. Утверждение старых исторических фрагментов об отсутствии seek provenance устарело и superseded этой проверкой. Автоматического покрытия ключевых queue/EOF/seek сценариев недостаточно; runtime-проверка остаётся открытой.
 4. **P1 — гонка запросов SearchModel и JS/WebKit cancellation.** Реализация находится в отдельной ветке fix/youtube-resolver-cancellation-2026-11-21, HEAD 59bba3a3802968f7072fcdf960a0e51d1b776c8f. Только по исходникам lifecycle review завершён; доказанного дополнительного дефекта для нового patch не найдено. Сборка и проверка гонок и нагрузки на устройстве не выполнялись.
-5. **P1 — качество поиска YouTube/YTM.** В историческом §26 отдельно отмечены релевантность, слабая непустая выдача и fallback/suggestions. В предыдущей активной Таблице 2 этот пункт не был выделен отдельно. Он добавлен в Таблицу 2 как самостоятельная проверка; ranking не менять без воспроизводимых запросов и примеров.
-6. **Остальные P1/P2 пункты** сохранены в Таблице 2: лимиты времени ожидания; network/VPN handoff; плейлист/Mix тестовые примеры; import/delete consistency; download policy/трафик; persistence/Recent; artwork и отдельный UI-этап.
+5. **P1 — качество поиска YouTube/YTM.** В историческом §26 отдельно отмечены релевантность, слабая непустая выдача и резервный путь/suggestions. В предыдущей активной Таблице 2 этот пункт не был выделен отдельно. Он добавлен в Таблицу 2 как самостоятельная проверка; ранжирование не менять без воспроизводимых запросов и примеров.
+6. **Остальные P1/P2 пункты** сохранены в Таблице 2: лимиты времени ожидания; network/VPN handoff; плейлист/Mix тестовые примеры; import/delete consistency; download policy/трафик; persistence/Recent; обложка и отдельный UI-этап.
 7. **Обязательные проверки и оценка нагрузки** остаются в разделе 28: результаты фиксировать как pass/fail/not tested с моделью устройства, iOS, commit/build ID и диагностикой; сравнение нагрузки делать на одном устройстве и в одинаковых условиях.
 8. **Будущий backlog Musike** остаётся отдельной Таблицей 3. Это не текущая стабилизация и не основание расширять текущую YouTube-задачу.
 
@@ -3371,7 +3371,7 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 
 **Итог:** переносы структурно сохранены и теперь сопоставлены с активной матрицей по существу. Действующие задачи не потеряны; выявленный пропуск по качеству поиска возвращён в Таблицу 2; устаревшая формулировка о seek provenance исправлена. Дальше продолжаем по порядку Таблицы 2, не перескакивая через P1 автопереход/seek/queue.
 
-### №119 — завершение сверки мест вызова без изменения исходников для автопереход / seek / queue
+### №119 — завершение сверки мест вызова для автоперехода, перемотки и очереди
 
 - **Дата:** 21 ноября 2026 года.
 - **Ветка исходников:** Pleer1-Lab, fix/youtube-resolver-cancellation-2026-11-21, HEAD 59bba3a3802968f7072fcdf960a0e51d1b776c8f.
@@ -3385,18 +3385,18 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 - Seek ограничивается временной шкалой, проверяет ожидаемые Track ID/loadToken и после асинхронного завершения повторно проверяет идентичность текущей загрузки.
 - Remote Next/Previous и lock-screen seek захватывают identity snapshot до перехода в Task и отклоняют устаревшую команду, если текущий трек или loadToken уже изменился.
 - При offline-only пропуске отсутствующего файла очередь обновляется, индекс корректируется, затем load/planNext пересчитываются для следующего элемента.
-- В существующем SearchSmokeTests.swift есть проверки поиска/парсинга/ranking, открытия плейлиста, запуска второго трека и seek в середину. Автоматических тестов natural EOF/автопереход, manual seek-to-end provenance, Repeat One/All/Shuffle, одиночной очереди и stale remote command нет.
+- В существующем SearchSmokeTests.swift есть проверки поиска/парсинга/ранжирование, открытия плейлиста, запуска второго трека и seek в середину. Автоматических тестов natural EOF/автопереход, manual seek-to-end provenance, Repeat One/All/Shuffle, одиночной очереди и stale remote command нет.
 
 #### Вывод и статус
 
 - Дополнительного доказанного дефект в исходникаха в проверенных места вызова не найдено; новые изменения Player.swift не требуются.
-- Это не доказывает выполнение-корректность. Остаются проверки на iPhone: natural EOF и ровно один переход; seek-to-end отдельно; пауза/audio interruption около конца; быстрые seek + Next/Previous; Repeat One/All/Shuffle; одиночная и смешанная local/YouTube очередь; offline-only.
+- Это не доказывает runtime-корректность. Остаются проверки на iPhone: natural EOF и ровно один переход; seek-to-end отдельно; пауза/audio interruption около конца; быстрые seek + Next/Previous; Repeat One/All/Shuffle; одиночная и смешанная local/YouTube очередь; offline-only.
 - Автоматическое тестовое покрытие этих сценариев остаётся пробелом. Добавление/запуск тестов и любая сборка — только после отдельного разрешения пользователя.
-- ROADMAP §29 обновлён: проверка исходного кода и сверка места вызова завершены; приёмка на устройстве остаётся открытой.
+- ROADMAP §29 обновлён: проверка исходного кода и сверка места вызова завершены; device/приёмка на устройстве остаётся открытой.
 
 **Итог:** P1 автопереход/seek/queue закрыт на уровне без изменения исходников проверка исходного кода, но не закрыт по критериям приёмки. Никакие исходники не менялись; компиляция, тесты, симулятор, сборка, IPA и установка не запускались.
 
-### №120 — проверка исходного кода гонка запросов SearchModel и качества поиска YouTube/YTM
+### №120 — проверка гонки запросов SearchModel и качества поиска YouTube/YTM
 
 - **Дата:** 21 ноября 2026 года.
 - **Ветка исходников:** Pleer1-Lab, fix/youtube-resolver-cancellation-2026-11-21, HEAD 59bba3a3802968f7072fcdf960a0e51d1b776c8f.
@@ -3406,7 +3406,7 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 
 - SearchView отменяет предыдущий searchTask при новом submit и отменяет текущий task при уходе с экрана.
 - SearchModel.run использует request token и перед публикацией результата повторно проверяет token и Task cancellation. Старый запрос не должен заменить результаты нового; отменённая текущая операция снимает loading, а старая операция не сбрасывает loading более нового запроса.
-- YouTubeEngine.search, InnerTube POST и HTML transport содержат проверки cancellation; отмена пробрасывается вместо преобразования в обычную ошибку или запуска fallback после отмены.
+- YouTubeEngine.search, InnerTube POST и HTML transport содержат проверки cancellation; отмена пробрасывается вместо преобразования в обычную ошибку или запуска резервный путь после отмены.
 - Sources.run классифицирует CancellationError отдельно. Общий Sources.json намеренно оставлен без дополнительных provider-specific checks: он общий для нескольких источников; его URLSession async request вызывается внутри отменяемой дочерней задачи.
 - **Вывод:** реализация в исходниках и проверка исходного кода присутствуют. Отдельного доказанного дефект в исходникаха не найдено. Runtime-сценарий «медленный старый запрос → быстрый новый запрос → позднее завершение старого» остаётся обязательной проверкой на устройстве/в разрешённом тестовом окружении.
 
@@ -3414,48 +3414,48 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 
 - Поиск запускает параллельно три каталожных направления: YouTube Music songs, YouTube Music music videos и обычные YouTube videos. Отдельно выполняются InnerTube и HTML transports; итоговая выдача объединяется в порядке catalog → InnerTube → HTML, дедуплицируется по Track ID и затем ранжируется.
 - YouTubeSearchIntent сначала учитывает тип результата: обычный музыкальный запрос — song, musicVideo, video, playlist, Mix; явные playlist/mix слова поднимают соответствующую коллекцию. Внутри типа применяется детерминированная оценка совпадения названия/исполнителя, затем сохраняется исходный порядок как tie-break.
-- Suggestions fallback в JS catalog запускается только когда исходные YTM song и music-video shelves оба пусты. Обычные YouTube video results сохраняются и не заменяются вариантом из suggestions.
-- Следствие: слабая, но непустая YTM выдача сама по себе не запускает suggestions retry. Это подтверждённое ограничение текущей политики fallback, но не доказанный дефект: автоматическая замена непустой выдачи может ухудшить точность или изменить намерение запроса.
-- Существующие unit tests проверяют типовой порядок выдачи, exact-title ranking, parser filtering и распознавание плейлист/Mix. Они не доказывают релевантность на реальных пользовательских запросах и не содержат concurrency-теста SearchModel.
+- Suggestions резервный путь в JS catalog запускается только когда исходные YTM song и music-video shelves оба пусты. Обычные YouTube video results сохраняются и не заменяются вариантом из suggestions.
+- Следствие: слабая, но непустая YTM выдача сама по себе не запускает suggestions повторная попытка. Это подтверждённое ограничение текущей политики резервный путь, но не доказанный дефект: автоматическая замена непустой выдачи может ухудшить точность или изменить намерение запроса.
+- Существующие модульные тесты проверяют типовой порядок выдачи, exact-title ранжирование, parser filtering и распознавание плейлист/Mix. Они не доказывают релевантность на реальных пользовательских запросах и не содержат concurrency-теста SearchModel.
 
 #### Вывод и дальнейшие действия
 
-- Код поиска и ranking не менялся. Не найдено достаточных доказательств, чтобы менять порядок источников, score или запускать suggestions при любой слабой непустой выдаче.
+- Код поиска и ранжирование не менялся. Не найдено достаточных доказательств, чтобы менять порядок источников, score или запускать suggestions при любой слабой непустой выдаче.
 - P1 гонка запросов SearchModel: проверка исходного кода завершён, проверка выполнения на устройстве открыта.
-- P1 качество поиска: требуется контрольный набор репрезентативных русских и английских запросов с ожидаемыми треками/исполнителями и разбором фактической выдачи. Изменения ranking/fallback — только после таких примеров и согласования критерия.
+- P1 качество поиска: требуется контрольный набор репрезентативных русских и английских запросов с ожидаемыми треками/исполнителями и разбором фактической выдачи. Изменения ранжирование/резервный путь — только после таких примеров и согласования критерия.
 - ROADMAP §29 дополнен статусом гонка запросов SearchModel; в Таблице 2 сохранён отдельный пункт качества поиска YouTube/YTM.
 - Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
 
-### №121 — source-аудит таймеров YouTube resolver и catalog search
+### №121 — проверка таймеров YouTube resolver и поиска каталога
 
 - **Дата:** 21 ноября 2026 года.
 - **Ветка исходников:** Pleer1-Lab, fix/youtube-resolver-cancellation-2026-11-21, HEAD 59bba3a3802968f7072fcdf960a0e51d1b776c8f.
-- **Проверены:** YouTubeEngine.swift, YouTubeJSResolver.swift и youtubei-bridge.js; точки ensureReady, native Swift visitor/player requests, JS resolver, catalog search, nativeFetch и WebKit termination retry.
+- **Проверены:** YouTubeEngine.swift, YouTubeJSResolver.swift и youtubei-bridge.js; точки ensureReady, native Swift visitor/player requests, JS resolver, catalog search, nativeFetch и WebKit termination повторная попытка.
 
 #### Подтверждённые таймеры
 
 - WebView readiness: общий предел 30 секунд; отдельные ожидающие callers отменяются независимо.
-- JS stream resolve: Swift continuation timeout 120 секунд. При WebKit process termination предусмотрен один retry; перед повтором выполнение должен снова пройти readiness.
+- JS stream resolve: Swift continuation timeout 120 секунд. При WebKit process termination предусмотрен один повторная попытка; перед повтором runtime должен снова пройти readiness.
 - JS nativeFetch: URLRequest timeout 30 секунд на обычный YouTube/Google host и 6 секунд для raw.githubusercontent.com.
 - YouTube Music catalog: JS deadline 12 секунд с abort операции; внешний Swift task-group budget 15 секунд. Внутренний continuation timeout 75 секунд остаётся дополнительной страховкой и обычно не должен опережать внешний предел.
 - HTML search: URLRequest timeout 20 секунд.
 
 #### Найденные разрывы бюджета
 
-- Native Swift resolver использует один ephemeral URLSession и выполняет visitor-data запрос, затем до трёх последовательных player-client запросов. В YouTubeEngine.post URLRequest.timeoutInterval явно не задан; конфигурация requestSession также не задаёт собственный timeoutIntervalForRequest. Отдельного общего общий срок завершения на цепочку visitor → client attempts → JS fallback нет.
+- Native Swift resolver использует один ephemeral URLSession и выполняет visitor-data запрос, затем до трёх последовательных player-client запросов. В YouTubeEngine.post URLRequest.timeoutInterval явно не задан; конфигурация requestSession также не задаёт собственный timeoutIntervalForRequest. Отдельного общего общий срок завершения на цепочку visitor → client attempts → JS резервный путь нет.
 - При отсутствии свежего visitorData запрос может сначала ждать сетевой ответ/ошибку, и лишь затем использовать сохранённое значение, если оно есть. Это также входит в неограниченную общим бюджетом native-цепочку.
-- После неудачи трёх native client attempts вызывается JS fallback. Его 120-секундный предел начинается после подготовки WebView; WebKit termination retry может потребовать повторной подготовки и второй попытки. Единого общего срока для всей операции resolve нет.
+- После неудачи трёх native client attempts вызывается JS резервный путь. Его 120-секундный предел начинается после подготовки WebView; WebKit termination повторная попытка может потребовать повторной подготовки и второй попытки. Единого общего срока для всей операции resolve нет.
 - InnerTube search использует тот же native post без явного request timeout. HTML search ограничен 20 секундами, а catalog search — 12/15 секундами, но вся YouTubeEngine.search не имеет собственного общий срок завершения и ожидает результаты legacy transports.
 
 #### Вывод
 
 - Таймеры существуют и работают на разных уровнях, но они не образуют единую согласованную модель времени завершения. В частности, native Swift resolve и общий YouTube search не имеют явного общего deadline.
-- Не следует просто уменьшать 120/75/30 секунд или одновременно сокращать все вложенные таймеры: это может прервать рабочие client attempts, catalog fallback или WebView startup и изменить доступность треков.
-- До изменения исходников нужно отдельно согласовать целевой общий бюджет playback resolve и catalog search, правила распределения времени между visitor/client attempts/JS fallback, а также поведение при истечении общего deadline. Внутренние таймеры должны быть подчинены общему сроку, а не продлевать его.
+- Не следует просто уменьшать 120/75/30 секунд или одновременно сокращать все вложенные таймеры: это может прервать рабочие client attempts, catalog резервный путь или WebView startup и изменить доступность треков.
+- До изменения исходников нужно отдельно согласовать целевой общий бюджет playback resolve и catalog search, правила распределения времени между visitor/client attempts/JS резервный путь, а также поведение при истечении общего deadline. Внутренние таймеры должны быть подчинены общему сроку, а не продлевать его.
 - Таймеры уже реализованы как ограниченные задачи ожидания и сетевые request deadlines; дополнительный постоянный polling не требуется. Фактическое влияние на CPU/память/энергию всё равно измеряется только на устройстве.
 - ROADMAP §29 дополнен найденными таймерами и разрывами. Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
 
-### №122 — проверка исходного кода Network/VPN handoff YouTube playback и offline downloads
+### №122 — проверка смены сетевого маршрута/VPN для YouTube и офлайн-загрузок
 
 - **Дата:** 21 ноября 2026 года.
 - **Ветка исходников:** Pleer1-Lab, fix/youtube-resolver-cancellation-2026-11-21, HEAD 59bba3a3802968f7072fcdf960a0e51d1b776c8f.
@@ -3477,13 +3477,13 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 
 #### Вывод
 
-- Проверка исходного кода подтверждает отдельную и последовательную политику handoff для offline download queue и отдельный failure/stall recovery для активного потоковое воспроизведение.
+- Проверка исходного кода подтверждает отдельную и последовательную политику handoff для офлайн-загрузка queue и отдельный failure/stall recovery для активного потоковое воспроизведение.
 - Доказанного дефект в исходникаха, требующего второго NWPathMonitor или безусловного resolver refresh при каждом сетевом событии, не найдено. Такие изменения могут добавить лишние resolver/network requests и сбросить рабочее соединение.
-- Runtime matrix остаётся обязательной: Wi‑Fi → cellular с разрешением и без; cellular → Wi‑Fi; unsatisfied → восстановление; VPN egress change при неизменном интерфейсе; переключение маршрута во время активного stream и во время offline download; проверка позиции, повторной загрузки и отсутствия старого URL.
+- Runtime matrix остаётся обязательной: Wi‑Fi → cellular с разрешением и без; cellular → Wi‑Fi; unsatisfied → восстановление; VPN egress change при неизменном интерфейсе; переключение маршрута во время активного stream и во время офлайн-загрузка; проверка позиции, повторной загрузки и отсутствия старого URL.
 - ROADMAP §29 дополнен разделением download handoff и streaming recovery, а также ограничением обнаружения VPN egress.
 - Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
 
-### №123 — проверка исходного кода YouTube плейлисты/Mix и pagination
+### №123 — проверка плейлистов YouTube/Mix и постраничной загрузки
 
 - **Дата:** 21 ноября 2026 года.
 - **Ветка исходников:** Pleer1-Lab, fix/youtube-resolver-cancellation-2026-11-21, HEAD 59bba3a3802968f7072fcdf960a0e51d1b776c8f.
@@ -3494,33 +3494,33 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 - Обычные плейлисты распознаются по обычным playlist IDs; RD IDs отделены в Mix/radio path. Search parser поддерживает playlistRenderer, compactPlaylistRenderer, gridPlaylistRenderer и часть lockupViewModel форм.
 - Mix parser принимает radioRenderer и варианты playlistRenderer с RD ID, извлекает seed video ID из нескольких известных структур и отправляет запросы на /next. Состав Mix извлекается из playlistPanelVideoRenderer и playlistPanelVideoWrapperRenderer.
 - Обычный playlist загружается через browseId VL..., Mix — через /next с playlistId + seed videoId, затем через continuation token.
-- Обе загрузки удаляют повторяющиеся video IDs и повторяющиеся continuation tokens; цикл загрузки страниц ограничен 20 страницами. Общий предел — 1000 треков для обычного playlist и 500 для Mix.
+- Обе загрузки удаляют повторяющиеся video IDs и повторяющиеся continuation tokens; page loop ограничен 20 страницами. Общий предел — 1000 треков для обычного playlist и 500 для Mix.
 - Пустой итоговый список возвращает явную ошибку. Пустая отдельная страница не обязательно прекращает загрузку, если в ответе есть новый continuation token.
-- Каждый HTTP запрос страницы имеет timeout 25 секунд. При этом нет общего общий срок завершения на всю последовательность; теоретический предел по цикл загрузки страниц может достигать 20 последовательных request windows. Cancellation родительской collection task пробрасывается в URLSession data(for:) и в циклы.
+- Каждый HTTP page request имеет timeout 25 секунд. При этом нет общего общий срок завершения на всю последовательность; теоретический предел по page loop может достигать 20 последовательных request windows. Cancellation родительской collection task пробрасывается в URLSession data(for:) и в циклы.
 
 #### Покрытие тестами и оставшиеся риски
 
-- Существующие unit тестовые примеры проверяют базовые search renderers, разделение обычного playlist и RD Mix, распознавание seed video ID и ranking. Есть один UI сценарий: поиск playlist, открытие списка, запуск второго трека и seek.
-- Не найдено тестовые примеры реальных /browse и /next ответов для continuation, повторных video IDs, повторных continuation tokens, пустой промежуточной страницы, пустого конечного ответа, pagination caps и сочетания legacy renderer с modern lockupViewModel в одной выдаче.
-- Обычный playlist parser сначала собирает playlistVideoRenderer и использует общий video renderer fallback только если первый набор пуст. Поэтому смешанный ответ, где одновременно присутствуют legacy playlistVideoRenderer и modern lockupViewModel видео, требует отдельного fixture: текущая fallback-ветка может не собрать modern элементы при наличии хотя бы одного legacy renderer. Это проверяемый parser risk, но без реального payload не объявляется подтверждённым дефектом.
+- Существующие unit тестовые примеры проверяют базовые search renderers, разделение обычного playlist и RD Mix, распознавание seed video ID и ранжирование. Есть один UI сценарий: поиск playlist, открытие списка, запуск второго трека и seek.
+- Не найдено тестовые примеры реальных /browse и /next ответов для continuation, повторных video IDs, повторных continuation tokens, пустой промежуточной страницы, пустого конечного ответа, постраничная загрузка caps и сочетания legacy renderer с modern lockupViewModel в одной выдаче.
+- Обычный playlist parser сначала собирает playlistVideoRenderer и использует общий video renderer резервный путь только если первый набор пуст. Поэтому смешанный ответ, где одновременно присутствуют legacy playlistVideoRenderer и modern lockupViewModel видео, требует отдельного тестовый пример: текущая резервный путь-ветка может не собрать modern элементы при наличии хотя бы одного legacy renderer. Это проверяемый parser risk, но без реального payload не объявляется подтверждённым дефектом.
 - ContinuationToken извлекает первый найденный токен из вложенного ответа. Нужны реальные тестовые примеры, чтобы подтвердить, что при нескольких вложенных continuation metadata выбирается именно token следующей страницы, а не посторонний.
-- Mix parser поддерживает wrapper renderer, но современные /next формы, pagination и empty/duplicate cases не покрыты тестами.
+- Mix parser поддерживает wrapper renderer, но современные /next формы, постраничная загрузка и empty/duplicate cases не покрыты тестами.
 
 #### Вывод
 
-- Проверка исходного кода выполнен; доказанного основания менять parser без реальных ответов YouTube нет. Не переписывать fallback и traversal на предположениях.
-- P1 — плейлисты/Mix остаётся открытым по fixture/приёмка на устройстве. Следующий безопасный шаг — собрать и сохранить реальные обезличенные JSON тестовые примеры /browse и /next, затем покрыть legacy/modern mixed renderers, continuation, duplicates, empty pages и caps.
-- P1 лимиты времени ожидания дополнен замечанием: запрос страницы ограничен 25 секундами, но общего deadline на всю плейлист/Mix pagination нет.
-- ROADMAP §29 дополнен статусом parser, текущими caps и отсутствующим fixture coverage.
+- Проверка исходного кода выполнен; доказанного основания менять parser без реальных ответов YouTube нет. Не переписывать резервный путь и traversal на предположениях.
+- P1 плейлисты/Mix остаётся открытым по тестовый пример/приёмка на устройстве. Следующий безопасный шаг — собрать и сохранить реальные обезличенные JSON тестовые примеры /browse и /next, затем покрыть legacy/modern mixed renderers, continuation, duplicates, empty pages и caps.
+- P1 лимиты времени ожидания дополнен замечанием: page request ограничен 25 секундами, но общего deadline на всю плейлист/Mix постраничная загрузка нет.
+- ROADMAP §29 дополнен статусом parser, текущими caps и отсутствующим тестовый пример coverage.
 - Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
 
-### №124 — проверка исходного кода удаления YouTube offline-файлов и границы общего import/delete
+### №124 — проверка удаления офлайн-файлов YouTube и границы общего импорта/удаления
 
 - **Дата:** 21 ноября 2026 года.
 - **Ветка исходников:** Pleer1-Lab, fix/youtube-resolver-cancellation-2026-11-21, HEAD 59bba3a3802968f7072fcdf960a0e51d1b776c8f.
-- **Проверены:** FavoritesAudioCache.removeDownloaded, finishDeferredDeletions, Player.load/hasOfflineCopy/loadYouTube, Downloads screen action и трек YouTube construction.
+- **Проверены:** FavoritesAudioCache.removeDownloaded, finishDeferredDeletions, Player.load/hasOfflineCopy/loadYouTube, Downloads screen action и YouTube Track construction.
 
-#### Подтверждённое поведение офлайн-библиотека YouTube
+#### Подтверждённое поведение YouTube offline library
 
 - Удаление завершённой YouTube-загрузки удаляет файл из FavoritesAudioCache и запись из downloadedTracks. Метаданные YouTube-трека в Favorites, playlist и Recent не удаляются автоматически.
 - Эти записи не содержат прямой ссылки на локальный cache-файл как обязательный ресурс: YouTube track остаётся идентифицирован стабильным YouTube ID и может быть заново разрешён при воспроизведение при наличии сети. В offlineOnly Player проверяет наличие полного локального файла и пропускает трек, если его больше нет.
@@ -3541,7 +3541,7 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 - ROADMAP §29 дополнен этим выводом и явной границей scope.
 - Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
 
-### №125 — текущая политика загрузка YouTube-треков для офлайн-доступа и сетевой расход
+### №125 — текущая политика загрузки YouTube-треков для офлайн-доступа и сетевой расход
 
 - **Дата:** 21 ноября 2026 года.
 - **Ветка исходников:** Pleer1-Lab, fix/youtube-resolver-cancellation-2026-11-21, HEAD 59bba3a3802968f7072fcdf960a0e51d1b776c8f.
@@ -3551,7 +3551,7 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 
 - Лайк сам по себе не запускает скачивание. После успешного YouTube resolve в loadYouTube трек ставится в FavoritesAudioCache только если он уже находится в Favorites.
 - Отдельной ручной кнопки Download в TrackRow текущей реализации нет. Экран Downloads объясняет, что треки из Favorites скачиваются при первом воспроизведении.
-- AVPlayer воспроизводит stream URL, а FavoritesAudioCache выполняет отдельную полную URLSession download transfer. При первом воспроизведении избранного трека возможны два параллельных потока данных: потоковое воспроизведение и полный offline download.
+- AVPlayer воспроизводит stream URL, а FavoritesAudioCache выполняет отдельную полную URLSession передача файла загрузки. При первом воспроизведении избранного трека возможны два параллельных потока данных: потоковое воспроизведение и полный офлайн-загрузка.
 - Повторный play после завершения загрузки использует локальный FavoritesAudioCache файл до нового resolver запроса. enqueue проверяет существующий файл, активную загрузку и очередь ожидающих загрузок entry; один и тот же трек не должен повторно скачиваться из-за Repeat One или повторного вызова enqueue, пока файл готов/загрузка активна/трек уже ожидает.
 - Пропуск трека не отменяет отдельную очередь скачивания. Удаление из Favorites удаляет незавершённый queue entry и отменяет активную загрузку этого ID. Cellular transfer блокируется до разрешения пользователя; очередь загрузок последовательная.
 
@@ -3560,11 +3560,11 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 - Текущая политика — play-triggered auto-download избранных треков, а не download-on-like и не ручная загрузка.
 - Дублирование сетевого трафика при первом воспроизведении является реальным следствием двух отдельных transfers, а не повторной загрузкой при Repeat One. Нельзя утверждать точный объём или влияние на энергопотребление без измерения на устройстве.
 - В исходниках не менять trigger и не добавлять отмену при skip/background без отдельного продуктового решения. Нужно согласовать, сохраняем ли play-triggered auto-download или переходим к ручной кнопке/настройке, и ожидаем ли продолжение загрузки после skip/background.
-- Для сравнения нужны device measurements: bytes и duration AVPlayer stream, bytes и duration download, суммарный трафик, влияние на энергопотребление, поведение при skip, lock/background, cellular consent и повторном запуске.
+- Для сравнения нужны измерения на устройстве: bytes и duration AVPlayer stream, bytes и duration download, суммарный трафик, влияние на энергопотребление, поведение при skip, lock/background, cellular consent и повторном запуске.
 - ROADMAP §29 дополнен текущим поведением и тем, что продуктовое решение/измерения остаются открытыми.
 - Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
 
-### №126 — проверка исходного кода YouTube Recent/history semantics
+### №126 — проверка семантики истории «Недавние» для YouTube
 
 - **Дата:** 21 ноября 2026 года.
 - **Ветка исходников:** Pleer1-Lab, fix/youtube-resolver-cancellation-2026-11-21, HEAD 59bba3a3802968f7072fcdf960a0e51d1b776c8f.
@@ -3572,7 +3572,7 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 
 #### Подтверждённая реализация
 
-- HistoryEntry хранит только компактные метаданные: ID, title, artist, artwork/file references, added и listenedAt. Для YouTube url принудительно nil, чтобы не сохранять короткоживущий watch/stream URL; аудиоданные и resolver state не копируются.
+- HistoryEntry хранит только компактные метаданные: ID, title, artist, обложка/file references, added и listenedAt. Для YouTube url принудительно nil, чтобы не сохранять короткоживущий watch/stream URL; аудиоданные и resolver state не копируются.
 - История ограничена 40 записями; дубликат ID удаляется и переносится в начало, если он не является уже первым элементом. Старый ключ his с массивом Track мигрирует в his.v2; при наличии корректного his.v2 старый ключ удаляется.
 - Сохранение debounced на 700 ms; Store.flushPendingSaves принудительно записывает his.v2 при background/suspend.
 - Player.load вызывает Store.addHistory до YouTube resolver и AVPlayerItem readyToPlay. Следовательно, попытка запуска YouTube-трека, которая позднее завершится ошибкой resolve, уже может появиться в Recent.
@@ -3593,7 +3593,7 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 - ROADMAP §29 дополнен текущим поведением и открытыми решениями.
 - Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
 
-### №127 — проверка исходного кода YouTube artwork selection и отображения
+### №127 — проверка выбора и отображения обложек YouTube
 
 - **Дата:** 21 ноября 2026 года.
 - **Ветка исходников:** Pleer1-Lab, fix/youtube-resolver-cancellation-2026-11-21, HEAD 59bba3a3802968f7072fcdf960a0e51d1b776c8f.
@@ -3601,28 +3601,28 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 
 #### Подтверждённая реализация
 
-- YouTubeThumbnail.bestURL выбирает source с наибольшей объявленной pixel area; при отсутствии dimensions использует последний доступный candidate. Для i.ytimg.com запрашивает hq720 rendition с fallback через maxres/sd/hq/mq/default; для googleusercontent/ggpht нормализует размеры к максимуму 1080 px с сохранением пропорций, если URL поддерживает соответствующий суффикс.
-- ImageStore проверяет HTTP 200, декодирование и минимальный размер 32×32; использует cache и ограничивает каждый запрос изображения 12 секундами.
-- Cover для YouTube сохраняет исходный aspect ratio genuine wide artwork вместо принудительного square crop. Для wide canvas с centered square artwork выполняется downsample/pixel sampling боковых областей; при уверенном обнаружении включается квадратное заполнение.
-- Parser использует общий thumbnail selector для YouTube Music song/video и плейлист/Mix renderers; local artwork идёт через локальный ImageStore.
+- YouTubeThumbnail.bestURL выбирает source с наибольшей объявленной pixel area; при отсутствии dimensions использует последний доступный вариант. Для i.ytimg.com запрашивает hq720 rendition с резервный путь через maxres/sd/hq/mq/default; для googleusercontent/ggpht нормализует размеры к максимуму 1080 px с сохранением пропорций, если URL поддерживает соответствующий суффикс.
+- ImageStore проверяет HTTP 200, декодирование и минимальный размер 32×32; использует cache и ограничивает каждый image request 12 секундами.
+- Cover для YouTube сохраняет исходный aspect ratio genuine wide обложка вместо принудительного square crop. Для wide canvas с centered square обложка выполняется downsample/pixel sampling боковых областей; при уверенном обнаружении включается квадратное заполнение.
+- Parser использует общий thumbnail selector для YouTube Music song/video и плейлист/Mix renderers; local обложка идёт через локальный ImageStore.
 
 #### Покрытие и ограничения
 
-- В доступном SearchSmokeTests.swift нет unit/UI тестовые примеры для artwork selection или pixel classifier.
-- Не проверены на реальных изображениях: square-in-wide, genuine wide с однотонными боковыми областями, portrait/нестандартные пропорции, отсутствующий high-res fallback, Mix/playlist thumbnails и local metadata artwork.
-- Pixel classifier основан на эвристике боковых цветовых областей и дисперсии центра. Без fixture set нельзя утверждать, что ложных срабатываний нет для всех genuine wide thumbnails.
-- Полный custom UI redesign не относится к текущей YouTube artwork стабилизации и не должен смешиваться с этим пунктом.
+- В доступном SearchSmokeTests.swift нет unit/UI тестовые примеры для обложка selection или pixel classifier.
+- Не проверены на реальных изображениях: square-in-wide, genuine wide с однотонными боковыми областями, portrait/нестандартные пропорции, отсутствующий high-res резервный путь, Mix/playlist thumbnails и local metadata обложка.
+- Pixel classifier основан на эвристике боковых цветовых областей и дисперсии центра. Без тестовый пример set нельзя утверждать, что ложных срабатываний нет для всех genuine wide thumbnails.
+- Полный custom UI redesign не относится к текущей YouTube обложка стабилизации и не должен смешиваться с этим пунктом.
 
 #### Вывод
 
 - Проверка исходного кода завершён; доказанного дефекта, требующего изменения selector или Cover, не найдено. Алгоритм не менять без визуальных тестовые примеры и воспроизводимого ошибочного crop.
-- P2 artwork остаётся открытым по визуальной acceptance: проверить square-in-wide, genuine-wide, portrait, high-res fallback, плейлист/Mix и local metadata на iPhone.
+- P2 обложка остаётся открытым по визуальной acceptance: проверить square-in-wide, genuine-wide, portrait, high-res резервный путь, плейлист/Mix и local metadata на iPhone.
 - ROADMAP §29 дополнен текущей реализацией, пробелом тестовые примеры и границей custom UI scope.
 - Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
 
-### №128 — приведение новых записей журнала к русскому языку
+### №128 — языковое оформление новых записей журнала
 
 - **Дата:** 21 ноября 2026 года.
-- В новых записях №118–127 описательные англоязычные выражения заменены русскими формулировками. Технические имена API, классов, методов, переменных, веток, событий и диагностических меток оставлены без перевода, чтобы их можно было точно найти в исходниках.
-- Исторические блоки, перенесённые дословно записями №116 и №117, не переписывались: они сохранены как исходные архивные свидетельства. Их актуальный смысл уже изложен по-русски в записях №118–127.
-- **Правило дальше:** новые записи, выводы и объяснения — на русском; английский сохраняется только для точных технических идентификаторов и цитируемых исходных имён.
+- Описательные формулировки в новых записях №118–127 приведены к русскому языку. Названия API, классов, методов, переменных, веток, событий и диагностических меток оставлены в оригинальном написании, чтобы их можно было точно найти в исходниках.
+- Исторические фрагменты, перенесённые дословно записями №116 и №117, не переписывались: они сохранены как архивные свидетельства. Их актуальный смысл изложен по-русски в записях №118–127.
+- **Правило дальше:** новые записи, выводы и пояснения — на русском; английский сохраняется только для точных технических идентификаторов и исходных названий.
