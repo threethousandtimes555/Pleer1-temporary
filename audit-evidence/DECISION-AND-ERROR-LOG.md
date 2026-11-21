@@ -1786,3 +1786,15 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Catalog 12s JS / 15s Swift deadlines and 120s resolver timeout now trigger cancellation. Cancellation is terminal through JS client retry and catalog `Promise.allSettled`; it is not treated as another client failure or empty fallback except the intentional catalog deadline result.
 - Corrected a pre-existing doubled-backslash interpolation in `searchCatalog.apply` in the cancellation branch; base branch contained the same malformed literal. This correction ensures Swift passes the JSON argument array to JS rather than emitting a literal `\(json)` sequence.
 - Read-only source review still pending for all cancellation/completion races and task-map cleanup. No compile/test/device validation. No build, simulator, IPA, Codemagic or install.
+
+
+### #108 — Cancellation source-level closeout and validation boundary
+
+- **Дата:** 21.11.2026.
+- Cancellation branch HEAD `5c57c58bc55ad3c53bd7ccde70292e757c1c0438`, 31 commits ahead of base `fdce383e3be8095d86c99d63bd73a3221bd3fc55`; feature branch remains unchanged at `fdce383e3be8095d86c99d63bd73a3221bd3fc55`.
+- Enumerated all direct YouTubeEngine.resolve call sites: Player playback/recovery/prefetch and FavoritesAudioCache worker paths. All now have cancellable Task ownership; shared resolver uses per-consumer leases.
+- Added preflight cancellation checks to SearchModel, YouTubeEngine search/InnerTube POST, YouTubeHTMLSearch and Sources.json. FavoritesAudioCache already cancels its worker/download and cleans temp files.
+- Reviewed exactly-once completion/cleanup across Swift continuations, native fetch task registry, JS pendingFetch, activeOperations and inflight. Cancellation of one waiter leaves shared resolve alive for other consumers.
+- Confirmed AbortError terminal behavior across JS retries/fallbacks and catalog Promise.allSettled; actual caller cancellation is finished by Swift cancellation handler. Internal JS AbortError is not incorrectly converted into caller cancellation.
+- Remaining risk: operation-scoped Innertube session overhead and WKScriptMessage/URLSession scheduling races need measurement/runtime tests. Source review cannot prove runtime behavior.
+- No compile/build/tests/simulator/device/IPA/Codemagic/install. Wait for explicit user authorization before build. Required race matrix recorded in ROADMAP §36.
