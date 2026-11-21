@@ -446,11 +446,12 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 
 ### P2 — YouTube artwork
 
-- Базовая реализация в `Media.swift`: выбор наибольшей заявленной площади, запрос `hq720`/Googleusercontent rendition до 1080, fallback по размерам, NSCache, сохранение aspect ratio и conservative centered-square detection.
-- Source-аудит (журнал №140) выявил непоследовательность: основной InnerTube parser использует общий selector, но HTML fallback и YTM JS catalog выбирают `last`; JS catalog также теряет width/height, а playlist lockup normalization отбрасывает размеры до вызова selector. Поскольку YTM catalog идёт первым при merge и его art заменяется только если nil, менее качественный вариант может блокировать более качественный из других источников.
-- ImageStore последовательно перебирает до шести YouTube rendition, по 12 секунд на каждый запрос; общий deadline не задан (теоретически до ~72 секунд при зависших ответах). Lock-screen artwork передаётся как исходный bitmap и не проходит тот же centered-square transform, что SwiftUI Cover; runtime-эффект не подтверждён.
-- Нет fixture/unit тестов для shuffled thumbnail arrays, выбора по width×height, fallback rendition, square-in-wide, genuine wide, portrait, playlist/Mix и lock screen. Сборка/тесты/симулятор не запускались.
-- **Статус:** source review завершён; код пока не менялся. Рекомендуется узкое исправление выбора artwork во всех parser paths с сохранением width/height и ограничение общего fallback budget. Не менять YTM ranking, архитектуру, ratio policy или square detector без отдельного обоснования. Подробности — журнал №140.
+- Общий selector `YouTubeThumbnail.bestURL` выбирает максимальную объявленную площадь width × height; если размеры отсутствуют, сохраняет fallback на последний URL. Для `i.ytimg.com` запрашивается `hq720` с последовательным fallback на доступные rendition; Googleusercontent/Ggpht сохраняют исходные пропорции при запросе rendition до 1080.
+- Исправления source findings из журнала №140 внесены в журнале №141: HTML fallback использует общий selector; YTM JS catalog передаёт `url/width/height` в Swift и выбирает через общий selector; playlist lockup conversion сохраняет размеры. Если YTM API не сообщает dimensions, исходник не может гарантировать выбор максимального разрешения и сохраняет прежний fallback на последний URL.
+- Последовательный fallback `ImageStore` теперь ограничен общим бюджетом 24 секунды; отдельная попытка ограничена максимум 12 секундами. Порядок rendition не менялся.
+- Не менялись YTM ranking/merge precedence, `Cover`, aspect-ratio layout, centered-square detector, clipping, lock-screen rendering, локальные обложки, Player, streaming и offline download. Настоящая горизонтальная 16:9 обложка должна остаться горизонтальной; square-in-wide/native square требуют визуальной проверки на iPhone.
+- Fixture/unit tests для shuffled dimensions, реальных YTM payload, fallback и ratio cases не добавлялись. Build/compile/tests/simulator/IPA/Codemagic/install не запускались. Runtime качество YTM и корректность centered-square detection не подтверждены.
+- **Статус:** source fixes внесены и повторно прочитаны; требуется iPhone acceptance для genuine 16:9, square-in-wide, native square, YTM, playlist/Mix, отсутствующего hq720 и lock screen. Подробности — журнал №140/141.
 
 ### Отдельный UI-контракт «Моё» — вне текущей YouTube стабилизации
 
