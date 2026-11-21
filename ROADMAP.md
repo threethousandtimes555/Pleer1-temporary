@@ -362,7 +362,7 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 
 - Source review `Player.swift` выполнен: `planNext()`, `finishCurrentItem()`, `loadToken`, `completionHandledToken`, `manualSeekToEndToken`, seek identity и remote Next/Previous guards проверены. Доказанного source-дефекта в проверенном участке не найдено.
 - Отдельный automated test coverage для natural EOF/auto-advance, seek-to-end, Repeat One/All/Shuffle, одиночной очереди и stale remote command отсутствует. Это пробел тестового покрытия, а не доказательство runtime-ошибки.
-- Статус: source review завершён; device/runtime acceptance остаётся открытой. Следующий read-only шаг — сверка оставшихся call sites и доступных тестовых точек; код не менять без воспроизводимого дефекта.
+- Статус: source review и сверка call sites завершены; дополнительного source-дефекта не найдено. Автоматическое покрытие ключевых сценариев отсутствует, device/runtime acceptance остаётся открытой. Код не менять без воспроизводимого дефекта.
 
 ### P1 — качество поиска YouTube/YTM
 
