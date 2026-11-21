@@ -1688,3 +1688,13 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 - `fix/youtube-resolver-cancellation-2026-11-21` — рабочая ветка для следующего P1 cancellation.
 - Обе ветки ответвлены от одного проверенного feature HEAD. Не объединять их автоматически и не переносить изменения между ними без проверки diff.
 - Feature branch остаётся контрольной линией; сборки и установки по-прежнему запрещены без отдельного явного разрешения.
+
+
+### Дополнение к P1 cancellation — уточнения по владению задачами
+
+- Swift `YouTubeResolveCoordinator` делит один unstructured resolver Task между callers, но пока не считает активных consumers. Нельзя отменять общий Task при отмене одного caller; отменять его можно только после ухода последнего consumer.
+- JS `withClient` повторяет запрос после любого exception, а `directAudio` продолжает перебор clients после ошибки. Abort/cancellation должны распознаваться отдельно и немедленно пробрасываться, иначе отмена сама породит retry и дополнительный трафик.
+- JS catalog использует `Promise.allSettled`: после abort нужно явно завершить общий operation как cancelled, а не преобразовать все отменённые endpoints в пустую выдачу.
+- `SearchModel` сейчас защищён request token, но не хранит/cancel-ит предыдущую операцию. Новый запрос не должен ждать завершения старых источников; cancellation должна проходить через task group и сетевые клиенты.
+- В youtubei.js 18.3.0 custom fetch получает `Request`; его HTTPClient создаёт Request из исходного input/init. Публичный `GetVideoInfoOptions` не предоставляет signal, поэтому нужно отдельно спроектировать operation-bound signal injection в custom fetch. Не считать простого добавления `AbortSignal` в `nativeFetch` достаточным без доказанного пути передачи сигнала от верхней операции.
+- Не связывать отмену с одним только videoID/cache invalidation: тот же resolver job может обслуживать активное воспроизведение, предзагрузку или offline download. Использовать consumer ownership/lease identity и проверять, что отменяемая работа больше никому не нужна.
