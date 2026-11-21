@@ -1828,3 +1828,12 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Moved the failed-item URL invalidation + YouTube re-resolve sequence under the existing `youtubeLoadTask`; replacement loads cancel it. Existing identity/token checks before and after the awaited invalidation remain, and an old task cannot clear a newer task handle.
 - No retry-budget, recovery-selection, queue, or cache semantics changed. Added device race tests for switching tracks during generic download recovery and during failed-item invalidate/re-resolve.
 - Current source branch tip `8483db41b68a236764ac8a0ff1e64829373a2289`; feature branch remains `fdce383e3be8095d86c99d63bd73a3221bd3fc55`. No build, compile, tests, simulator, device, IPA, Codemagic or install validation.
+
+
+### #112 — Scope correction: YouTube module integration only
+
+- Дата: 21.11.2026.
+- User clarified that the project scope is strictly integration of the YouTube module from Musike. Archive.org is unrelated and must not be included. Reverted the Archive.org expansion task-ownership change from Player.swift; original Archive.org behavior is restored.
+- Also reverted the generic, non-YouTube `audioRecoveryTask` change around `AudioCache.download`; generic fallback recovery is outside the YouTube-module scope.
+- Retained the YouTube-specific playlist/Mix collection cancellation and YouTube failed-item retry ownership. Do not expand the task into other providers or general audio recovery without explicit approval.
+- Current source branch tip `539eac69ffe3c78f5170280fbd68f54676457b36`; feature branch remains `fdce383e3be8095d86c99d63bd73a3221bd3fc55`. No build or runtime validation.
