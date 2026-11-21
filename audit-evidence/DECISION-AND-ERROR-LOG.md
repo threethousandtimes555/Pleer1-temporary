@@ -3563,3 +3563,32 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 - Для сравнения нужны device measurements: bytes и duration AVPlayer stream, bytes и duration download, суммарный трафик, Energy Impact, поведение при skip, lock/background, cellular consent и повторном запуске.
 - ROADMAP §29 дополнен текущим поведением и тем, что продуктовое решение/измерения остаются открытыми.
 - Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
+
+### №126 — source review YouTube Recent/history semantics
+
+- **Дата:** 21 ноября 2026 года.
+- **Ветка исходников:** Pleer1-Lab, fix/youtube-resolver-cancellation-2026-11-21, HEAD 59bba3a3802968f7072fcdf960a0e51d1b776c8f.
+- **Проверены:** Store.swift, Models.swift, Player.load и HistoryEntry persistence.
+
+#### Подтверждённая реализация
+
+- HistoryEntry хранит только компактные метаданные: ID, title, artist, artwork/file references, added и listenedAt. Для YouTube url принудительно nil, чтобы не сохранять короткоживущий watch/stream URL; аудиоданные и resolver state не копируются.
+- История ограничена 40 записями; дубликат ID удаляется и переносится в начало, если он не является уже первым элементом. Старый ключ his с массивом Track мигрирует в his.v2; при наличии корректного his.v2 старый ключ удаляется.
+- Сохранение debounced на 700 ms; Store.flushPendingSaves принудительно записывает his.v2 при background/suspend.
+- Player.load вызывает Store.addHistory до YouTube resolver и AVPlayerItem readyToPlay. Следовательно, попытка запуска YouTube-трека, которая позднее завершится ошибкой resolve, уже может появиться в Recent.
+- Если тот же ID уже первый в истории, addHistory сразу возвращает; listenedAt не обновляется при повторном запуске текущего первого трека.
+- После удаления скачанного YouTube-файла запись Recent остаётся метаданными и может быть воспроизведена online через повторный resolve; offlineOnly пропустит её при отсутствии локального файла.
+
+#### Решения, которые остаются открытыми
+
+- Не согласовано, означает ли Recent «последний выбранный/попытка запуска» или «последний успешно начавший звучать трек». Текущий source реализует первый вариант.
+- Не согласовано, должен ли повтор уже первого трека обновлять listenedAt. Сейчас история представляет уникальный список, а не точное время последнего повторного прослушивания.
+- История не хранит duration. Для YouTube это не приводит к использованию устаревшего stream URL, но если длительность понадобится в UI Recent, её нужно будет добавить как отдельное metadata decision.
+- Автоматических тестов на failed resolve → Recent, повтор первого элемента, migration/relaunch и 40 unique entries в имеющемся SearchSmokeTests.swift нет.
+
+#### Вывод
+
+- Metadata-only модель сохраняет нужную границу: Recent не владеет аудиофайлом и не хранит expiring YouTube URL. Source defect не доказан.
+- Продуктовую семантику Recent не менять без решения пользователя. Device/test acceptance для migration, relaunch и 40 entries остаётся открытой.
+- ROADMAP §29 дополнен текущим поведением и открытыми решениями.
+- Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
