@@ -1837,3 +1837,13 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Also reverted the generic, non-YouTube `audioRecoveryTask` change around `AudioCache.download`; generic fallback recovery is outside the YouTube-module scope.
 - Retained the YouTube-specific playlist/Mix collection cancellation and YouTube failed-item retry ownership. Do not expand the task into other providers or general audio recovery without explicit approval.
 - Current source branch tip `539eac69ffe3c78f5170280fbd68f54676457b36`; feature branch remains `fdce383e3be8095d86c99d63bd73a3221bd3fc55`. No build or runtime validation.
+
+
+### #113 — Reject late native YouTube fetches after parent cancellation
+
+- Дата: 21.11.2026.
+- Identified a narrow WebKit boundary race: direct Swift cancellation only sees native URLSession tasks already registered. A queued `youtubeFetch` message could theoretically be delivered after that sweep and start fresh network work.
+- Added bounded (512-entry) cancelled parent-operation ID tombstones. The tombstone is recorded before cancelling registered native requests and invoking the JS abort method. `startNativeFetch` rejects messages associated with a cancelled parent operation.
+- This is limited to the YouTube JS/native resolver bridge; no unrelated providers or generic audio recovery are included. New operations use unique UUIDs; the bounded history prevents unbounded memory growth.
+- WebKit ordering and late-message behavior still require device/runtime race tests. No build or compile validation.
+- Current source branch tip `75ab1582b0ce96064dde29c791408713c17c3018`; feature branch remains `fdce383e3be8095d86c99d63bd73a3221bd3fc55`.
