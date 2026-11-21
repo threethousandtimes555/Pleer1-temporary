@@ -1774,3 +1774,15 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Reviewed all four commit diffs. No source changes to JS bridge or URLSession yet. Therefore last-consumer cancellation currently stops the shared Swift resolver Task but does not yet abort JS/native fetches; Stage B/C are required before claiming end-to-end cancellation.
 - Important remaining source review before continuing: confirm cancellation of playback/recovery tasks on all load/queue transitions; verify no task handle can be overwritten while still active; verify actor waiter completion/cancel/invalidation races; check JS session operation scoping and URLSession request registry.
 - No build, compile, tests, simulator, IPA, Codemagic or install. Source remains unverified by compiler/runtime.
+
+
+### #107 — P1 cancellation Stages B/C source implementation
+
+- **Дата:** 21.11.2026.
+- Current source branch `fix/youtube-resolver-cancellation-2026-11-21` HEAD `911482083b2fe6c5f3e702b4d891a86c10cf5bcd`; 20 commits ahead of base `fdce383e3be8095d86c99d63bd73a3221bd3fc55`. Feature branch and duration branch remain unchanged at base SHA.
+- JS top-level resolve/catalog operations now have per-request AbortControllers; cancel methods keyed by Swift request ID. `nativeFetch` handles AbortSignal and sends exact request cancel messages; parent operation ID is carried into Swift.
+- Innertube sessions are now operation-scoped to bind the correct signal per operation; no mutable global operation signal. Locale in-memory cache and native URLSession shared transport are retained. This may change session-creation CPU/memory/latency and must be measured.
+- Swift `YouTubeJSResolver` sends JS cancel commands, owns native fetch Tasks by request ID and parent operation ID, directly cancels tasks for an operation, suppresses late callbacks, and cancels all native fetch tasks on WebKit termination/teardown. WebView readiness waiters are cancellable.
+- Catalog 12s JS / 15s Swift deadlines and 120s resolver timeout now trigger cancellation. Cancellation is terminal through JS client retry and catalog `Promise.allSettled`; it is not treated as another client failure or empty fallback except the intentional catalog deadline result.
+- Corrected a pre-existing doubled-backslash interpolation in `searchCatalog.apply` in the cancellation branch; base branch contained the same malformed literal. This correction ensures Swift passes the JSON argument array to JS rather than emitting a literal `\(json)` sequence.
+- Read-only source review still pending for all cancellation/completion races and task-map cleanup. No compile/test/device validation. No build, simulator, IPA, Codemagic or install.
