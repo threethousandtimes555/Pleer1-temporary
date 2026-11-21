@@ -1820,3 +1820,25 @@ Target source branch: `fix/youtube-resolver-cancellation-2026-11-21`, initially 
 - Source diff was reviewed for four files: Player.swift, Providers.swift, Views.swift, YouTubeEngine.swift. The branch is 5 commits ahead of the feature base. No source changes were made on feature branch.
 - Build/compile/test/simulator/IPA/Codemagic/install were not run; syntax and runtime remain unverified. Do not describe Stage A as full cancellation.
 - Next: Stage B operation-scoped JS AbortController and fetch/session context; Stage C exact requestID → URLSession task cancellation and WebKit termination cleanup.
+
+
+## 35. P1 cancellation — Stages B/C implementation status — 21 ноября 2026
+
+**Target source branch HEAD:** `fix/youtube-resolver-cancellation-2026-11-21` at `911482083b2fe6c5f3e702b4d891a86c10cf5bcd` (20 commits ahead of base `fdce383e3be8095d86c99d63bd73a3221bd3fc55`). The feature branch remains at the base SHA; duration branch remains unchanged at the same base SHA.
+
+### Implemented in source after Stage A
+
+- Each JS resolver/catalog operation now has an AbortController keyed by the exact Swift request ID. Swift cancellation invokes `cancelResolve` / `cancelSearchCatalog`; cancellation is never keyed only by video ID.
+- Each Innertube operation uses an operation-scoped fetch closure/session carrying its own AbortSignal and parent operation ID. No mutable global current-operation signal is used. The existing locale-keyed in-memory session cache remains shared; native URLSession.shared transport remains unchanged.
+- JS `nativeFetch` now watches AbortSignal, cleans its pendingFetch entry, rejects with AbortError, and posts an exact native request cancellation message. It also tags each fetch with its parent operation ID.
+- Swift registers requestID → URLSession async Task, cancels exact tasks from per-fetch messages and cancels all tasks belonging to a parent operation before asking JS to abort. Late callbacks are ignored when the request token is no longer active. WebKit process termination and WebView teardown cancel all native fetch tasks.
+- `withClient` and `directAudio` treat AbortError as terminal; cancellation cannot trigger another client retry. Catalog `Promise.allSettled` checks the operation signal before parsing or suggestion fallback. JS 12-second and Swift 15-second catalog deadlines now cancel the work rather than only abandoning the result; resolver timeout also aborts its JS operation.
+- Swift resolver/catalog continuation cancellation now sends the matching JS cancel command. WebView readiness waiters are individually cancellable. Swift catalog deadline was changed to a structured task group so caller cancellation and timeout cancel the work child.
+- Search cancellation from SearchView is connected through SearchModel and YouTubeEngine's async-let provider calls; cancellation is not converted to an ordinary provider error or stale UI result. Playback, recovery, prefetch and FavoritesAudioCache remain separate resolver consumers.
+- During this pass, a pre-existing malformed doubled backslash in the Swift `searchCatalog.apply` JavaScript interpolation was found in the base branch and corrected to normal Swift interpolation. It is recorded as an incidental correctness correction because the catalog bridge argument string would otherwise not interpolate.
+
+### Important tradeoff and remaining review
+
+- Operation-scoped Innertube sessions are necessary to bind each custom fetch closure to the correct AbortSignal without cross-cancelling concurrent searches/resolves. This means session objects are no longer reused globally between independent operations. The in-memory session cache and native URLSession connection pool remain shared. Measure session creation CPU/memory and search latency in the mandatory baseline/candidate load tests; do not assume this has zero overhead.
+- The implementation has not been compiled or executed. Next source-only review must check cancellation/completion races, task-map cleanup, exact branch diff, and every retry/catch path. Pay particular attention to cancellation arriving around `youtubeFetch` / `youtubeFetchCancel` message delivery and response completion.
+- No build, compile, unit/UI test, simulator, IPA, Codemagic or install has been run. Do not claim end-to-end cancellation is runtime-verified until the authorized device test matrix passes.
