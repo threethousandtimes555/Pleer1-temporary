@@ -1818,3 +1818,13 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Sources.archiveTracks uses Sources.json and URLSession async transport, so cancellation of the owning Task propagates to the metadata request. Existing nonthrowing API, parsing and queue behavior are unchanged.
 - Added device race test: switch away during Archive.org expansion; confirm request cancellation and no stale queue replacement, then confirm normal archive expansion.
 - Source branch tip 4477f6e0fd88aacf47ac143d64ebd10c20e4d7d3; feature branch remains fdce383e3be8095d86c99d63bd73a3221bd3fc55. No build, compile, tests, simulator, device, IPA, Codemagic or install validation.
+
+
+### #111 — Player fallback recovery and failed-item retry task ownership
+
+- Дата: 21.11.2026.
+- Further Player Task sweep found generic streaming-to-file recovery (`AudioCache.download`) and bounded YouTube failed-item retry were stale-token-guarded but not retained for cancellation.
+- Added `audioRecoveryTask` and cancel it on replacement loads. AudioCache uses URLSession `download(for:)`, so cancellation of the owning Task propagates to the active download.
+- Moved the failed-item URL invalidation + YouTube re-resolve sequence under the existing `youtubeLoadTask`; replacement loads cancel it. Existing identity/token checks before and after the awaited invalidation remain, and an old task cannot clear a newer task handle.
+- No retry-budget, recovery-selection, queue, or cache semantics changed. Added device race tests for switching tracks during generic download recovery and during failed-item invalidate/re-resolve.
+- Current source branch tip `8483db41b68a236764ac8a0ff1e64829373a2289`; feature branch remains `fdce383e3be8095d86c99d63bd73a3221bd3fc55`. No build, compile, tests, simulator, device, IPA, Codemagic or install validation.
