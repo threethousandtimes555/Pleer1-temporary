@@ -1863,3 +1863,15 @@ Target source branch: `fix/youtube-resolver-cancellation-2026-11-21`, initially 
 - WKScriptMessage ordering at the exact fetch-start/cancel boundary and URLSession cancellation timing require runtime race tests. Source logic is idempotent, but it is not proof of runtime scheduling behavior.
 - No compiler, unit/UI test, simulator, device, IPA, Codemagic or install validation has been run. The cancellation work is **implemented in source and reviewed**, not yet build-verified or runtime-proven.
 - Next safe step is a final diff-only audit of all 7 changed files, then wait for the user's explicit authorization before any build. Device tests must include shared-consumer cancellation, cancel-last-consumer, rapid search A→B, track replacement, prefetch-to-playback handoff, download/playback overlap, invalidation generations, WebKit termination and response/cancel boundary races.
+
+
+## 37. P1 cancellation — YouTube playlist/Mix expansion included — 21 ноября 2026
+
+The final call-site sweep also found untracked Player Tasks for expanding selected YouTube playlists and RD Mixes. These use `YouTubePlaylistEngine`'s native URLSession transport and were stale-result-guarded by loadToken, but the underlying network request was not cancelled when a new track replaced the collection load.
+
+- Player now retains one `youtubeCollectionLoadTask` for playlist/Mix expansion and cancels it on replacement load. Cancellation is distinguished from actual playlist/Mix failure.
+- `YouTubePlaylistEngine.load`, `loadRadio` and its POST helper check Task cancellation before starting each request and after receiving the response. The existing shared URLSession is preserved; cancelling a Task cancels only its URLSession data request, not the shared session.
+- Add to device race tests: start loading a multi-page playlist or Mix, switch to another track before page completion, confirm the stale collection request stops and cannot replace the new queue. Also confirm normal playlist/Mix expansion and continuation paging still work.
+- This broadens cancellation to the YouTube collection-loading path without changing playlist parsing, queue order, Mix semantics or playback resolver ownership.
+
+Current cancellation branch tip after this addition: `48f4b9da61b47e378e37d694aa8528f9c0093442`; feature branch remains `fdce383e3be8095d86c99d63bd73a3221bd3fc55`.
