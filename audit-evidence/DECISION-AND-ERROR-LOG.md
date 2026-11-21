@@ -1733,3 +1733,14 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Сравнение должно проводиться на одном iPhone и при сопоставимых условиях с фиксацией commit/build IDs. Baseline Build #5 (7eabcbc) можно использовать как историческую контрольную точку, но из-за значительного source delta нельзя приписывать все различия одной правке. Числовые пороги не объявлять без baseline; повторяемое отклонение порядка 5–10% — повод для расследования.
 - Ветки fix/youtube-duration-natural-end-2026-11-21 и fix/youtube-resolver-cancellation-2026-11-21 оставлены без изменений: обе указывают на исходный HEAD и не меняют feature branch или исходники. Удаление/переименование сейчас не требуется.
 - Новые build, simulator, IPA, Codemagic и install не запускались; запрет пользователя остаётся в силе.
+
+
+### #103 — Source review auto-advance / seek / queue
+
+- **Дата:** 21.11.2026.
+- Read-only просмотрен Player.swift в Pleer1-Lab/feature/youtubei-js-ios-fallback-2026-11-19; blob SHA 86eb780894ddfeb15b98fea547519da421f9fa73, feature HEAD fdce383e3be8095d86c99d63bd73a3221bd3fc55.
+- Подтверждены planNext для Repeat One/All/Shuffle/Off; token + AVPlayerItem identity + completionHandledToken guard в finishCurrentItem; seek identity validation и clamping; remote Next/Previous/lock-screen seek snapshot guards.
+- Важное исправление аудита: текущий HEAD уже содержит manualSeekToEndToken и различает manual_seek_to_end, natural_avplayer_eof и forced_video_duration. Старые исторические формулировки об отсутствии provenance не описывают текущую версию. Повторно реализовывать этот механизм не нужно.
+- Duration-boundary completion требует playing, readyToPlay, отсутствие user pause/interruption; near-end watchdog только диагностический. AVPlayer EOF callback отдельно проверен на source, но edge case seek-to-end в paused/interrupted состоянии требует device test, так как поведение уведомления нельзя доказать чтением кода.
+- Остались runtime-проверки: естественный EOF без seek, ровно один advance, manual seek-to-end отдельно, pause/interruption near EOF, быстрый seek + Next/Previous, Repeat One/All/Shuffle, очередь из одного элемента и remote controls. Не вносить source patch без воспроизводимого дефекта.
+- Исходники не менялись; build/simulator/IPA/Codemagic/install не запускались.
