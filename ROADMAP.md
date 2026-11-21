@@ -293,6 +293,8 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 
 ## 28. Рабочая точка после устранения гонок — 21 ноября 2026
 
+> **Исторический срез:** этот раздел описывает состояние на HEAD `fdce383e3be8095d86c99d63bd73a3221bd3fc55`. После него рабочая ветка была продолжена; актуальная сверка — в §30.
+
 ### Состояние исходников и веток
 
 - Основная рабочая линия исходников: `Pleer1-Lab`, ветка `feature/youtubei-js-ios-fallback-2026-11-19`, HEAD `fdce383e3be8095d86c99d63bd73a3221bd3fc55`.
@@ -349,6 +351,8 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 ---
 
 ## 29. Актуальный статус стабилизации — 21 ноября 2026
+
+> **Исторический срез:** статусы cancellation в этом разделе зафиксированы на HEAD `59bba3a3802968f7072fcdf960a0e51d1b776c8f`. Впоследствии ветка продвинулась до `c6a47f800862afd9c0c5f1a6336a0a65f7d8d136`; уточнения приведены в §30.
 
 Подробная техническая хронология source-аудита, решения, гипотезы, ошибки, коммиты и промежуточные планы из прежних разделов 29–32 перенесены в журнал решений и ошибок, запись №116. Исторические сведения сохранены полностью.
 
@@ -462,3 +466,47 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 ### Ограничения
 
 Сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались. Пользовательские raw debug logs сохранять дословно и неизменно; аналитические выводы вести отдельно, не восстанавливать отсутствующие строки и не архивировать cookies/tokens/credentials. Не запускать их без отдельного явного разрешения пользователя. Следующая работа после документационной сверки — вернуться к утверждённой Таблице 2 и продолжать в её порядке.
+
+## 30. Сверка актуальной рабочей ветки с матрицей — 21 ноября 2026
+
+### Контрольная точка и ветки
+
+- Репозиторий исходников: `threethousandtimes555/Pleer1-Lab`.
+- Актуальная рабочая ветка: `fix/youtube-resolver-cancellation-2026-11-21`.
+- Проверенный HEAD: `c6a47f800862afd9c0c5f1a6336a0a65f7d8d136`.
+- Сравнение с контрольным коммитом `4edd6da89053a074ea3b1ff82f035022add1bc25`: 126 commits ahead, 0 behind; merge base — сама контрольная точка.
+- Предыдущий полный индекс из 298 SHA заканчивается snapshot `a69ddc5a7421a5346ed6a5009f749c2186a5d956`. От этого snapshot до актуального HEAD — 121 commit: 63 до `fdce383e3be8095d86c99d63bd73a3221bd3fc55` и ещё 58 до `c6a47f800862afd9c0c5f1a6336a0a65f7d8d136`.
+- Ветки `feature/youtubei-js-ios-fallback-2026-11-19` и `fix/youtube-duration-natural-end-2026-11-21` обе указывают на `fdce383e3be8095d86c99d63bd73a3221bd3fc55`; отдельного коммитного delta в duration-ветке сейчас нет. Cancellation-ветка на 58 коммитов впереди этого указателя.
+- HEAD cancellation-ветки на 12 коммитов новее промежуточной точки `59bba3a3802968f7072fcdf960a0e51d1b776c8f`, записанной в прежней версии §29.
+
+### Сверка функциональных пунктов матрицы
+
+- **P0 — длительность и завершение:** исходники содержат provenance длительности, выбор подтверждённой audio-format duration при согласии с YouTube metadata и AVPlayerItem, защиту от завершения только по AVPlayer fallback, а также отдельные источники `natural_avplayer_eof`, `manual_seek_to_end` и `forced_video_duration`. `completionHandledToken` защищает от двойного завершения. P0 не закрыт: нет выполненной проверки слышимого EOF, совпадения UI clock и реального перехода на iPhone.
+- **P0 — Repeat One:** отдельный подтверждённый source-дефект не найден. Остаётся обязательной регрессионной проверкой на streaming и offline.
+- **P1 — queue/seek/remote controls:** source review мест вызова и identity guards выполнен; автоматического покрытия natural EOF, seek-to-end, repeat modes, одиночной очереди и stale remote commands недостаточно. Runtime-приёмка открыта.
+- **P1 — SearchModel race:** SearchView отменяет предыдущую задачу при новом submit и при уходе с экрана; SearchModel проверяет request token и cancellation перед публикацией; YouTube search transports пробрасывают отмену. Runtime race test не выполнен.
+- **P1 — YouTube cancellation:** актуальный код содержит per-consumer resolver leases, отмену общей resolver-задачи после освобождения последнего потребителя, operation-scoped JS AbortController, передачу operation ID в native bridge, отмену URLSession fetch по request ID, tombstone для поздних JS сообщений и очистку native tasks/pending continuations при WebKit termination. Source review не выявил доказанного нового дефекта; runtime/stress-проверка и проверка нагрузки открыты.
+- **P1 — качество поиска:** YTM сохраняет приоритет в merge/ranking; InnerTube и HTML запускаются параллельно. Suggestions fallback запускается только при пустых YTM song и music-video shelves. Слабая непустая выдача не запускает suggestions; это текущая политика, а не подтверждённый дефект. Нужен контрольный набор реальных запросов.
+- **P1 — timeout budget:** отдельные таймеры readiness, resolver, native fetch, catalog и HTML присутствуют, но единого end-to-end deadline для native resolver/search/playlist pagination нет. Не сокращать вложенные таймеры механически; общий бюджет требует отдельного решения.
+- **P1 — Network/VPN:** offline queue реагирует на изменение NWPath status/interface и инвалидирует resolver; active streaming восстанавливается по ошибке или подтверждённому stall, а не по любому событию интерфейса. VPN egress change при неизменном интерфейсе может не обнаруживаться. Требуется device test.
+- **P1 — Playlist/Mix:** continuation lookup теперь scoped по владельцу ответа: Playlist использует playlist renderer, Mix — playlist panel renderer. Добавлены три синтетических fixture-теста на выбор ожидаемого token и отказ от постороннего feed. Прежнее замечание о безусловном выборе первого глобального continuation token в §28/§29 superseded этими изменениями. Реальные /browse и /next payload, mixed legacy/modern renderer и полная pagination acceptance остаются открытыми.
+- **P1 — YouTube offline deletion:** удаление стало failure-safe; deferred IDs сохраняются при ошибке и безопасно обходятся копией набора. Нет тестов файловых ошибок и device acceptance.
+- **P2 — offline download policy:** сохранена согласованная политика play-triggered auto-download избранного трека после успешного resolve/playback. Streaming и полная offline-загрузка могут быть двумя сетевыми передачами. Ручная кнопка и новый coordinator не добавлялись.
+- **P2 — Recent:** YouTube запись выполняется после фактического `.playing` при readyToPlay и текущем item; повтор первого элемента обновляет timestamp без дубликата. История metadata-only, лимит 40. Тестов Recent/migration нет.
+- **P2 — artwork:** HTML fallback и YTM catalog используют общий thumbnail selector; YTM и playlist lockup сохраняют width/height до выбора; последовательный fallback ограничен 24 секундами при индивидуальном timeout не более 12 секунд. YTM ranking, Cover, aspect ratio, square detection и clipping не менялись. Нужна визуальная приёмка genuine 16:9, square-in-wide, native square, playlist/Mix и lock screen.
+
+### Тесты, сборка и ограничения
+
+- В актуальном `SearchSmokeTests.swift` обнаружено 12 test methods: проверки search intent/ranking/parser, прямых Playlist/Mix URL, три continuation fixtures, standalone YouTube search и один UI-сценарий Playlist second track + seek.
+- В этом файле нет тестов cancellation races, natural EOF/Repeat, Recent, offline deletion, artwork ratio/fallback, VPN handoff и измерения нагрузки.
+- Тесты не запускались. Компиляция, simulator, IPA, Codemagic и установка не запускались. Для текущего HEAD нет опубликованных commit status entries.
+- Во время этой сверки исходники, ветки, workflows и настройки GitHub не изменялись. Выполнялось только чтение GitHub и документов.
+
+### Документационные расхождения и оставшаяся работа
+
+- §27 и `COMMIT-AUDIT-INDEX.md` остаются историческим snapshot на `a69ddc5`; они не описывают 121 последующий commit как отдельный индексный delta.
+- §28 отражает состояние feature HEAD `fdce383`; §29 первоначально фиксировал cancellation HEAD `59bba3a`. Их прежние branch references являются историческими, а этот §30 — текущая точка сверки.
+- Старое замечание об отсутствии seek provenance в раннем snapshot superseded записями №118–119 и текущим Player source.
+- Старый риск глобального continuation lookup superseded scoped lookup и тестами в коммитах `2531f196`, `6a27c22`, `4faa3c4`.
+- Commit inventory delta для 121 commits после `a69ddc5` остаётся отдельной документационной задачей; не считать его уже добавленным в 298-entry index.
+- Следующие технические действия — только по утверждённой Таблице 2 и после доступности разрешённой среды для проверок. Ни один P0 не объявлять закрытым без device acceptance.
