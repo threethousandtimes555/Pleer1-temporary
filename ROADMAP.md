@@ -423,6 +423,13 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 - Сейчас запись добавляется в момент Player.load до resolver/readyToPlay. Поэтому неудачная попытка resolve тоже может попасть в Recent. Повтор того же трека, если он уже первый, не обновляет listenedAt.
 - Статус: реализация и миграция source-reviewed; продуктовая семантика «выбран/попытался запустить» против «успешно начал звучать» не согласована. Повтор первого элемента и migration/relaunch требуют device/test проверки; код не менять до решения.
 
+### P2 — YouTube artwork
+
+- Source выбирает thumbnail по наибольшей объявленной площади, повышает rendition YouTube CDN до подходящего размера с сохранением пропорций и использует fallback URL при недоступном варианте.
+- Cover сохраняет исходное соотношение сторон YouTube wide thumbnails; для явного centered-square artwork в wide canvas есть pixel-sampling detection и квадратное отображение.
+- В текущих unit/UI tests не найдено artwork fixtures. Не подтверждены визуально: square-in-wide, genuine wide, portrait/нестандартный ratio, отсутствующий high-res fallback, Mix/playlist renderer и local metadata artwork.
+- Статус: source review выполнен; изменения алгоритма не требуются без fixture evidence. Нужна визуальная проверка на iPhone; полный custom UI redesign остаётся отдельным этапом и не входит в текущую YouTube стабилизацию.
+
 ### Ограничения
 
 Сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались. Не запускать их без отдельного явного разрешения пользователя. Следующая работа после документационной сверки — вернуться к утверждённой Таблице 2 и продолжать в её порядке.
