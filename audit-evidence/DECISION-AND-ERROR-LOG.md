@@ -1721,3 +1721,15 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Внешняя проверка youtubei.js v18.3.0: custom fetch получает объект Request через HTTPClient; `GetVideoInfoOptions` публично не предоставляет signal. Значит, добавление AbortSignal только внутрь nativeFetch недостаточно: нужно доказать operation-bound передачу сигнала в Request/custom fetch и не использовать общий session context с гонкой сигналов.
 - Решение: реализовывать cancellation через явное владение операциями и consumer leases; не отменять работу только по videoID или по факту cache invalidation. Подробный план/acceptance criteria добавлены в ROADMAP §29.
 - Ветка `fix/youtube-resolver-cancellation-2026-11-21` остаётся рабочей; feature branch не изменялась. Сборка и device tests не запускались.
+
+
+### #102 — Уточнение очередности P1 и обязательные сравнительные load tests
+
+- **Дата:** 21.11.2026.
+- Повторно сверены активные пункты ROADMAP §26–§29. Cancellation не придумана задним числом: она явно присутствует как P1 в таблице §27 и имеет подтверждённый source gap. Однако §27 ставит перед ней проверку auto-advance/seek/queue; поэтому cancellation не следует объявлять единственной следующей задачей, пока не закрыта эта последовательность.
+- Пользователь подтвердил, что cancellation также нужно решить. При реализации обязательны ownership/consumer leases для shared resolver: отмена одного consumer не должна прерывать операцию, нужную playback, download или prefetch.
+- SearchModel request token защищает UI от stale result, но не доказывает физическую отмену старых сетевых запросов. Cancellation остаётся отдельной оптимизацией/ресурсной задачей, не исправлением длительности.
+- В ROADMAP §28 добавлен обязательный сравнительный тест baseline vs candidate: CPU, память и её освобождение, Energy Impact, network requests/bytes/duration, resolver concurrency, retries и pending tasks/maps. Сценарии включают idle, rapid search/track switching, Repeat One, background/locked playback, network recovery и offline playback.
+- Сравнение должно проводиться на одном iPhone и при сопоставимых условиях с фиксацией commit/build IDs. Baseline Build #5 (7eabcbc) можно использовать как историческую контрольную точку, но из-за значительного source delta нельзя приписывать все различия одной правке. Числовые пороги не объявлять без baseline; повторяемое отклонение порядка 5–10% — повод для расследования.
+- Ветки fix/youtube-duration-natural-end-2026-11-21 и fix/youtube-resolver-cancellation-2026-11-21 оставлены без изменений: обе указывают на исходный HEAD и не меняют feature branch или исходники. Удаление/переименование сейчас не требуется.
+- Новые build, simulator, IPA, Codemagic и install не запускались; запрет пользователя остаётся в силе.
