@@ -234,10 +234,11 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 | Приоритет | Задача | Что конкретно делаем | Критерий закрытия |
 |---|---|---|---|
 | P0 | Длительность YouTube | Проследить duration от YTM/video metadata и resolver stream до AVPlayerItem, clock, watchdog и end callbacks. Сопоставить streaming playback и локально скачанный файл. Не считать метаданные доказательством фактической длительности аудио | На нескольких треках UI, реальный звук и естественный конец согласованы; нет преждевременного завершения/лишнего времени |
-| P0 | Источник завершения | Восстановить явную provenance: natural AVPlayer EOF, watchdog completion или ручной seek. Текущий HEAD не коррелирует seek с finishCurrentItem | Логи и тесты однозначно различают три источника; ручной seek не засчитывается как natural-end тест |
+| P0 | Источник завершения | Сверить и проверить уже реализованное различение natural AVPlayer EOF, ручного seek-to-end и forced duration boundary; watchdog near-end оставить диагностическим событием, а не самостоятельным основанием для advance | Логи и тесты однозначно различают три источника; ручной seek не засчитывается как natural-end тест; поведение подтверждено на iPhone |
 | P0 regression | Repeat One / Play One | Не объявлять отдельным дефектом: пользователь сообщил, что режим, вероятно, работает. Проверить после duration fix на YouTube stream и offline file | Естественное завершение повторяет текущий трек один раз за раз, без зависания и двойного перехода |
 | P1 | Auto-advance / seek / queue | Проверить естественный конец, Next/Previous, быстрый seek, lock-screen seek identity, stale load token, удалённый трек и mixed local/YouTube queue | Каждый сценарий имеет отдельный воспроизводимый тест и диагностическое подтверждение |
 | P1 | SearchModel race | Проверить request identity, отмену предыдущего поиска, loading state и защиту от позднего ответа старого запроса | Медленный старый запрос не перезаписывает результаты нового и не сбрасывает его loading |
+| P1 | Качество поиска YouTube/YTM | Проверить релевантность выдачи на репрезентативных запросах, слабую непустую выдачу и поведение fallback/suggestions; не менять ranking без воспроизводимых примеров | По контрольному набору запросов релевантные треки находятся; fallback не ухудшает корректную выдачу и не создаёт дубли |
 | P1 | JS/WebKit cancellation | Протянуть cancellation от Swift caller через catalog/resolve к JS Promise и native URLSessionTask; очищать pending maps, timers и late callbacks | После cancel/timeout/WebKit termination нет зависших continuation и продолжающихся ненужных fetch |
 | P1 | Timeout budget | Определить сквозные бюджеты для WebView readiness, visitor/player/client attempts, JS fallback и native fetch; не путать внутренние и внешние таймеры | Для каждого пути есть ограниченное время завершения и тесты timeout/retry |
 | P1 | Network/VPN handoff | Проверить Wi-Fi/cellular/unsatisfied и VPN egress change; учесть, что NWPathMonitor не гарантирует обнаружение смены внешнего IP при неизменном интерфейсе | Смена маршрута не приводит к застрявшему старому URL/загрузке; ограничения обнаружения задокументированы |
@@ -356,6 +357,17 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 - Длительность YouTube и различение источников завершения реализованы в исходниках; source review выполнен.
 - Repeat One / Play One не имеет подтверждённого отдельного source-дефекта; остаётся обязательной регрессионной проверкой.
 - **P0 не закрыты по критериям приёмки:** реальное совпадение слышимого конца, UI clock и natural auto-advance, а также Repeat One в streaming/offline требуют проверки на iPhone после отдельно разрешённой сборки.
+
+### P1 — auto-advance / seek / queue
+
+- Source review `Player.swift` выполнен: `planNext()`, `finishCurrentItem()`, `loadToken`, `completionHandledToken`, `manualSeekToEndToken`, seek identity и remote Next/Previous guards проверены. Доказанного source-дефекта в проверенном участке не найдено.
+- Отдельный automated test coverage для natural EOF/auto-advance, seek-to-end, Repeat One/All/Shuffle, одиночной очереди и stale remote command отсутствует. Это пробел тестового покрытия, а не доказательство runtime-ошибки.
+- Статус: source review завершён; device/runtime acceptance остаётся открытой. Следующий read-only шаг — сверка оставшихся call sites и доступных тестовых точек; код не менять без воспроизводимого дефекта.
+
+### P1 — качество поиска YouTube/YTM
+
+- Этот пункт восстановлен в активной матрице по итогам смысловой сверки архивной записи №117 (бывший §26): ранее отдельно отмечались слабая непустая выдача, релевантность результатов и fallback/suggestions.
+- Статус: отдельная проверка контрольного набора запросов ещё не закрыта; ranking и search algorithm не менять без конкретных примеров и согласованного критерия.
 
 ### P1 — cancellation
 
