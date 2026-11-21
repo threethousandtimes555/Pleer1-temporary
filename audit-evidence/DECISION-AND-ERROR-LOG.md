@@ -3540,3 +3540,26 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 - Доказанного source-дефекта в YouTube offline deletion не найдено. Новых source changes не требуется до device evidence.
 - ROADMAP §29 дополнен этим выводом и явной границей scope.
 - Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
+
+### №125 — текущая политика YouTube offline-download и сетевой расход
+
+- **Дата:** 21 ноября 2026 года.
+- **Ветка исходников:** Pleer1-Lab, fix/youtube-resolver-cancellation-2026-11-21, HEAD 59bba3a3802968f7072fcdf960a0e51d1b776c8f.
+- **Проверены:** Player.loadYouTube и FavoritesAudioCache.enqueue/download/status/network queue.
+
+#### Фактический trigger и поведение
+
+- Лайк сам по себе не запускает скачивание. После успешного YouTube resolve в loadYouTube трек ставится в FavoritesAudioCache только если он уже находится в Favorites.
+- Отдельной ручной кнопки Download в TrackRow текущей реализации нет. Экран Downloads объясняет, что треки из Favorites скачиваются при первом воспроизведении.
+- AVPlayer воспроизводит stream URL, а FavoritesAudioCache выполняет отдельную полную URLSession download transfer. При первом воспроизведении избранного трека возможны два параллельных потока данных: streaming playback и полный offline download.
+- Повторный play после завершения загрузки использует локальный FavoritesAudioCache файл до нового resolver запроса. enqueue проверяет существующий файл, активную загрузку и pending queue entry; один и тот же трек не должен повторно скачиваться из-за Repeat One или повторного вызова enqueue, пока файл готов/загрузка активна/трек уже ожидает.
+- Пропуск трека не отменяет отдельную очередь скачивания. Удаление из Favorites удаляет незавершённый queue entry и отменяет активную загрузку этого ID. Cellular transfer блокируется до разрешения пользователя; очередь загрузок последовательная.
+
+#### Вывод и решение, которое ещё требуется
+
+- Текущая политика — play-triggered auto-download избранных треков, а не download-on-like и не ручная загрузка.
+- Дублирование сетевого трафика при первом воспроизведении является реальным следствием двух отдельных transfers, а не повторной загрузкой при Repeat One. Нельзя утверждать точный объём или Energy Impact без измерения на устройстве.
+- В исходниках не менять trigger и не добавлять отмену при skip/background без отдельного продуктового решения. Нужно согласовать, сохраняем ли play-triggered auto-download или переходим к ручной кнопке/настройке, и ожидаем ли продолжение загрузки после skip/background.
+- Для сравнения нужны device measurements: bytes и duration AVPlayer stream, bytes и duration download, суммарный трафик, Energy Impact, поведение при skip, lock/background, cellular consent и повторном запуске.
+- ROADMAP §29 дополнен текущим поведением и тем, что продуктовое решение/измерения остаются открытыми.
+- Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
