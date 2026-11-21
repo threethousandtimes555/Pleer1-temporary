@@ -1744,3 +1744,12 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Duration-boundary completion требует playing, readyToPlay, отсутствие user pause/interruption; near-end watchdog только диагностический. AVPlayer EOF callback отдельно проверен на source, но edge case seek-to-end в paused/interrupted состоянии требует device test, так как поведение уведомления нельзя доказать чтением кода.
 - Остались runtime-проверки: естественный EOF без seek, ровно один advance, manual seek-to-end отдельно, pause/interruption near EOF, быстрый seek + Next/Previous, Repeat One/All/Shuffle, очередь из одного элемента и remote controls. Не вносить source patch без воспроизводимого дефекта.
 - Исходники не менялись; build/simulator/IPA/Codemagic/install не запускались.
+
+
+### #104 — Automated playback regression coverage inventory
+
+- **Дата:** 21.11.2026.
+- В дереве feature branch найден один Swift test file: plei/UITests/SearchSmokeTests.swift. Он проверяет search intent/parser/ranking и один UI-путь: YouTube playlist → второй трек → seek midpoint → clock continues.
+- Нет автоматических тестов для natural EOF/auto-advance, manual seek-to-end provenance, Repeat One/All/Shuffle, single-item queue, rapid Next/Previous или stale remote commands. Это coverage gap, не подтверждённый runtime defect.
+- Player.swift source review не выявил доказанного дефекта, который оправдывал бы немедленный патч очереди/seek. Не менять код наугад. Device tests остаются обязательными после разрешённой сборки.
+- Следующий source-level этап после этого read-only pass — аккуратно спроектировать P1 JS/WebKit/native URLSession cancellation; не создавать новую ветку, использовать уже существующую cancellation branch только после сверки её tip, не трогать feature control branch. Build/simulator/IPA/Codemagic/install не запускались.
