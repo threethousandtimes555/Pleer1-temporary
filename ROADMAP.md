@@ -364,6 +364,12 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 - Отдельный automated test coverage для natural EOF/auto-advance, seek-to-end, Repeat One/All/Shuffle, одиночной очереди и stale remote command отсутствует. Это пробел тестового покрытия, а не доказательство runtime-ошибки.
 - Статус: source review и сверка call sites завершены; дополнительного source-дефекта не найдено. Автоматическое покрытие ключевых сценариев отсутствует, device/runtime acceptance остаётся открытой. Код не менять без воспроизводимого дефекта.
 
+### P1 — SearchModel race
+
+- В ветке cancellation реализованы отмена предыдущего SearchView task при новом submit и при уходе с экрана, request token в SearchModel и защита от публикации позднего результата/сброса loading старым запросом.
+- YouTube search transports проверяют и пробрасывают cancellation; общий Sources.json намеренно не менялся, поскольку обслуживает и другие провайдеры, а URLSession async request получает отмену от родительской задачи.
+- Статус: source review завершён; runtime-проверка медленного старого запроса против нового остаётся открытой.
+
 ### P1 — качество поиска YouTube/YTM
 
 - Этот пункт восстановлен в активной матрице по итогам смысловой сверки архивной записи №117 (бывший §26): ранее отдельно отмечались слабая непустая выдача, релевантность результатов и fallback/suggestions.
