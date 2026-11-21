@@ -3454,3 +3454,31 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 - До source changes нужно отдельно согласовать целевой общий бюджет playback resolve и catalog search, правила распределения времени между visitor/client attempts/JS fallback, а также поведение при истечении общего deadline. Внутренние таймеры должны быть подчинены общему сроку, а не продлевать его.
 - Таймеры уже реализованы как ограниченные задачи ожидания и сетевые request deadlines; дополнительный постоянный polling не требуется. Фактическое влияние на CPU/память/энергию всё равно измеряется только на устройстве.
 - ROADMAP §29 дополнен найденными таймерами и разрывами. Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
+
+### №122 — source review Network/VPN handoff YouTube playback и offline downloads
+
+- **Дата:** 21 ноября 2026 года.
+- **Ветка исходников:** Pleer1-Lab, fix/youtube-resolver-cancellation-2026-11-21, HEAD 59bba3a3802968f7072fcdf960a0e51d1b776c8f.
+- **Проверены:** FavoritesAudioCache.swift, Player.swift, YouTubeEngine.swift и YouTubeJSResolver.swift; NWPathMonitor, download worker ownership, cellular permission, resolver invalidation и stalled-stream recovery.
+
+#### Offline downloads
+
+- NWPathMonitor в FavoritesAudioCache отслеживает NWPath.status и usesInterfaceType(.cellular/.wifi). Изменение этих признаков приводит к возврату активного трека в начало serial queue, отмене worker, очистке preferred stream и последовательной invalidation JS/Swift resolver layers.
+- pendingRouteInvalidations не позволяет запустить worker до завершения всех начатых invalidation. После завершения invalidation worker запускается снова; если старый worker ещё не освободил handle, его drainQueue повторно проверяет pending queue после выхода.
+- При cellular без разрешения активная загрузка ставится на паузу; разрешение на cellular действует в пределах текущей app session. URLSession download configuration получает allowsCellularAccess и allowsExpensiveNetworkAccess из этого разрешения.
+- При сетевой ошибке download callback дополнительно сверяет pathMonitor.currentPath, поскольку доставка NWPathMonitor может запаздывать относительно URLSession ошибки.
+
+#### Active streaming playback
+
+- В Player.swift отдельного NWPathMonitor для активного AVPlayer YouTube stream не обнаружено. Изменение интерфейса само по себе не инициирует замену текущего AVPlayerItem.
+- Восстановление потока происходит при подтверждённом item failure либо после sustained stall: AVPlayer должен находиться в waitingToPlayAtSpecifiedRate, buffer должен быть empty, playback не должен быть на ручной паузе/прерывании, а отсутствие прогресса должно сохраняться не менее 10 секунд. Затем текущий stream URL инвалидируется, resolver получает свежий URL и восстанавливает последнюю позицию.
+- Поэтому streaming handoff является реакцией на фактическую ошибку/stall, а не проактивной реакцией на NWPath change. Если VPN меняет внешний egress IP при сохранении того же Wi‑Fi/cellular интерфейса, NWPathMonitor может не сообщить об этом; при необходимости обновления URL система полагается на последующую ошибку или stall.
+- Watchdog near-end остаётся диагностическим: сам по себе неподвижный clock не завершает трек и не должен быть превращён в сигнал сетевого handoff.
+
+#### Вывод
+
+- Source review подтверждает отдельную и последовательную политику handoff для offline download queue и отдельный failure/stall recovery для активного streaming playback.
+- Доказанного source-дефекта, требующего второго NWPathMonitor или безусловного resolver refresh при каждом сетевом событии, не найдено. Такие изменения могут добавить лишние resolver/network requests и сбросить рабочее соединение.
+- Runtime matrix остаётся обязательной: Wi‑Fi → cellular с разрешением и без; cellular → Wi‑Fi; unsatisfied → восстановление; VPN egress change при неизменном интерфейсе; переключение маршрута во время активного stream и во время offline download; проверка позиции, повторной загрузки и отсутствия старого URL.
+- ROADMAP §29 дополнен разделением download handoff и streaming recovery, а также ограничением обнаружения VPN egress.
+- Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
