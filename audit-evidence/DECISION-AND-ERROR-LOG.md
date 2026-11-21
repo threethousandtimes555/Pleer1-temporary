@@ -3482,3 +3482,34 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 - Runtime matrix остаётся обязательной: Wi‑Fi → cellular с разрешением и без; cellular → Wi‑Fi; unsatisfied → восстановление; VPN egress change при неизменном интерфейсе; переключение маршрута во время активного stream и во время offline download; проверка позиции, повторной загрузки и отсутствия старого URL.
 - ROADMAP §29 дополнен разделением download handoff и streaming recovery, а также ограничением обнаружения VPN egress.
 - Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
+
+### №123 — source review YouTube Playlist/Mix и pagination
+
+- **Дата:** 21 ноября 2026 года.
+- **Ветка исходников:** Pleer1-Lab, fix/youtube-resolver-cancellation-2026-11-21, HEAD 59bba3a3802968f7072fcdf960a0e51d1b776c8f.
+- **Проверены:** YouTubePlaylistEngine.swift, YouTubeEngine search parser и SearchSmokeTests.swift.
+
+#### Подтверждённая реализация
+
+- Обычные плейлисты распознаются по обычным playlist IDs; RD IDs отделены в Mix/radio path. Search parser поддерживает playlistRenderer, compactPlaylistRenderer, gridPlaylistRenderer и часть lockupViewModel форм.
+- Mix parser принимает radioRenderer и варианты playlistRenderer с RD ID, извлекает seed video ID из нескольких известных структур и отправляет запросы на /next. Состав Mix извлекается из playlistPanelVideoRenderer и playlistPanelVideoWrapperRenderer.
+- Обычный playlist загружается через browseId VL..., Mix — через /next с playlistId + seed videoId, затем через continuation token.
+- Обе загрузки удаляют повторяющиеся video IDs и повторяющиеся continuation tokens; page loop ограничен 20 страницами. Общий предел — 1000 треков для обычного playlist и 500 для Mix.
+- Пустой итоговый список возвращает явную ошибку. Пустая отдельная страница не обязательно прекращает загрузку, если в ответе есть новый continuation token.
+- Каждый HTTP page request имеет timeout 25 секунд. При этом нет общего end-to-end deadline на всю последовательность; теоретический предел по page loop может достигать 20 последовательных request windows. Cancellation родительской collection task пробрасывается в URLSession data(for:) и в циклы.
+
+#### Покрытие тестами и оставшиеся риски
+
+- Существующие unit fixtures проверяют базовые search renderers, разделение обычного playlist и RD Mix, распознавание seed video ID и ranking. Есть один UI сценарий: поиск playlist, открытие списка, запуск второго трека и seek.
+- Не найдено fixtures реальных /browse и /next ответов для continuation, повторных video IDs, повторных continuation tokens, пустой промежуточной страницы, пустого конечного ответа, pagination caps и сочетания legacy renderer с modern lockupViewModel в одной выдаче.
+- Обычный playlist parser сначала собирает playlistVideoRenderer и использует общий video renderer fallback только если первый набор пуст. Поэтому смешанный ответ, где одновременно присутствуют legacy playlistVideoRenderer и modern lockupViewModel видео, требует отдельного fixture: текущая fallback-ветка может не собрать modern элементы при наличии хотя бы одного legacy renderer. Это проверяемый parser risk, но без реального payload не объявляется подтверждённым дефектом.
+- ContinuationToken извлекает первый найденный токен из вложенного ответа. Нужны реальные fixtures, чтобы подтвердить, что при нескольких вложенных continuation metadata выбирается именно token следующей страницы, а не посторонний.
+- Mix parser поддерживает wrapper renderer, но современные /next формы, pagination и empty/duplicate cases не покрыты тестами.
+
+#### Вывод
+
+- Source review выполнен; доказанного основания менять parser без реальных ответов YouTube нет. Не переписывать fallback и traversal на предположениях.
+- P1 Playlist/Mix остаётся открытым по fixture/runtime acceptance. Следующий безопасный шаг — собрать и сохранить реальные обезличенные JSON fixtures /browse и /next, затем покрыть legacy/modern mixed renderers, continuation, duplicates, empty pages и caps.
+- P1 timeout budget дополнен замечанием: page request ограничен 25 секундами, но общего deadline на всю playlist/Mix pagination нет.
+- ROADMAP §29 дополнен статусом parser, текущими caps и отсутствующим fixture coverage.
+- Исходники не менялись; сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались.
