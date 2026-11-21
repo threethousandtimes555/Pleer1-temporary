@@ -382,6 +382,14 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 - Source-only lifecycle review завершён; доказанного дефекта, требующего дополнительного source patch, не найдено. Runtime race/load verification остаётся открытой.
 - Область ограничена YouTube-модулем. Archive.org и общие механизмы других провайдеров в изменения не входят.
 
+### P1 — timeout budget
+
+- Для YouTube Music catalog уже заданы вложенные ограничения: 12 секунд в JS и 15 секунд на стороне Swift; отдельный 75-секундный timeout continuation остаётся защитным внутренним пределом. WebView readiness имеет общий 30-секундный предел.
+- Для JS stream resolver есть 120-секундный Swift timeout; native fetch внутри JS ограничен 30 секундами на запрос (6 секунд для загрузки remote client config).
+- Native Swift resolver выполняет visitor-data запрос и до трёх последовательных player-client попыток через URLSession без явно заданного request timeout и без общего end-to-end deadline. После них может запускаться JS fallback; повтор после WebKit termination может добавить ещё один цикл readiness/resolve.
+- InnerTube search также использует общий native post без явного request timeout; HTML search имеет 20 секунд. Для всей операции YouTubeEngine.search единого end-to-end deadline нет.
+- Статус: source-аудит таймеров завершён; бюджеты разных уровней не сведены к единой согласованной модели. Следующий шаг — определить отдельные общие пределы для playback resolve и catalog search, затем менять код только после согласования. Не сокращать вложенные таймеры механически.
+
 ### Ограничения
 
 Сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались. Не запускать их без отдельного явного разрешения пользователя. Следующая работа после документационной сверки — вернуться к утверждённой Таблице 2 и продолжать в её порядке.
