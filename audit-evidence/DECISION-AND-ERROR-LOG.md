@@ -1708,3 +1708,16 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - **Важное ограничение реализации:** resolver requests deduplicated и могут иметь несколько consumers (playback, prefetch, download). Нельзя отменять общую операцию, пока она нужна действующему consumer. Сначала определить ownership/ref-count и отдельно обрабатывать cancellation consumer vs cancellation общей операции.
 - Создана рабочая ветка `fix/youtube-resolver-cancellation-2026-11-21` от feature HEAD `fdce383e3be8095d86c99d63bd73a3221bd3fc55`. Отдельная ветка `fix/youtube-duration-natural-end-2026-11-21` остаётся контрольной для source-аудита P0; в ней не было изменений исходников.
 - Исходники в рамках этой записи не менялись. Build, simulator, IPA, Codemagic и device install не запускались; запрет пользователя на сборку остаётся в силе.
+
+
+### #101 — P1 cancellation: уточнение ownership и retry-ловушек
+
+- **Дата:** 21.11.2026.
+- Продолжен read-only аудит ветки `fix/youtube-resolver-cancellation-2026-11-21`; исходники не менялись.
+- Подтверждено: `YouTubeResolveCoordinator` использует один shared unstructured Task на video ID, но не ведёт число активных consumers. Отмена одного playback/prefetch/download consumer не должна отменять общую операцию, если она нужна другим; когда consumers больше нет, shared task можно отменить.
+- Подтверждено: JS `withClient` делает retry после любого exception, а `directAudio` продолжает fallback к следующему client после любого exception. AbortError/cancellation нужно пробрасывать немедленно, иначе отмена вызовет новые попытки и увеличит трафик.
+- Подтверждено: `searchCatalogInternal` использует `Promise.allSettled`; при cancellation нужно отдельно проверить сигнал и завершить весь catalog operation как cancelled, не превращая отменённые endpoints в обычный пустой результат.
+- Подтверждено: `SearchModel` защищает UI request token, но не отменяет предыдущие источники поиска. Это защищает результат, но не экономит уже выполняющийся сетевой трафик.
+- Внешняя проверка youtubei.js v18.3.0: custom fetch получает объект Request через HTTPClient; `GetVideoInfoOptions` публично не предоставляет signal. Значит, добавление AbortSignal только внутрь nativeFetch недостаточно: нужно доказать operation-bound передачу сигнала в Request/custom fetch и не использовать общий session context с гонкой сигналов.
+- Решение: реализовывать cancellation через явное владение операциями и consumer leases; не отменять работу только по videoID или по факту cache invalidation. Подробный план/acceptance criteria добавлены в ROADMAP §29.
+- Ветка `fix/youtube-resolver-cancellation-2026-11-21` остаётся рабочей; feature branch не изменялась. Сборка и device tests не запускались.
