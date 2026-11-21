@@ -446,10 +446,11 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 
 ### P2 — YouTube artwork
 
-- Source выбирает thumbnail по наибольшей объявленной площади, повышает rendition YouTube CDN до подходящего размера с сохранением пропорций и использует fallback URL при недоступном варианте.
-- Cover сохраняет исходное соотношение сторон YouTube wide thumbnails; для явного centered-square artwork в wide canvas есть pixel-sampling detection и квадратное отображение.
-- В текущих unit/UI tests не найдено artwork fixtures. Не подтверждены визуально: square-in-wide, genuine wide, portrait/нестандартный ratio, отсутствующий high-res fallback, Mix/playlist renderer и local metadata artwork.
-- Статус: source review выполнен; изменения алгоритма не требуются без fixture evidence. Нужна визуальная проверка на iPhone; полный custom UI redesign остаётся отдельным этапом и не входит в текущую YouTube стабилизацию.
+- Базовая реализация в `Media.swift`: выбор наибольшей заявленной площади, запрос `hq720`/Googleusercontent rendition до 1080, fallback по размерам, NSCache, сохранение aspect ratio и conservative centered-square detection.
+- Source-аудит (журнал №140) выявил непоследовательность: основной InnerTube parser использует общий selector, но HTML fallback и YTM JS catalog выбирают `last`; JS catalog также теряет width/height, а playlist lockup normalization отбрасывает размеры до вызова selector. Поскольку YTM catalog идёт первым при merge и его art заменяется только если nil, менее качественный вариант может блокировать более качественный из других источников.
+- ImageStore последовательно перебирает до шести YouTube rendition, по 12 секунд на каждый запрос; общий deadline не задан (теоретически до ~72 секунд при зависших ответах). Lock-screen artwork передаётся как исходный bitmap и не проходит тот же centered-square transform, что SwiftUI Cover; runtime-эффект не подтверждён.
+- Нет fixture/unit тестов для shuffled thumbnail arrays, выбора по width×height, fallback rendition, square-in-wide, genuine wide, portrait, playlist/Mix и lock screen. Сборка/тесты/симулятор не запускались.
+- **Статус:** source review завершён; код пока не менялся. Рекомендуется узкое исправление выбора artwork во всех parser paths с сохранением width/height и ограничение общего fallback budget. Не менять YTM ranking, архитектуру, ratio policy или square detector без отдельного обоснования. Подробности — журнал №140.
 
 ### Отдельный UI-контракт «Моё» — вне текущей YouTube стабилизации
 
