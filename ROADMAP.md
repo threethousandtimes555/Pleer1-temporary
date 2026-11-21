@@ -404,6 +404,12 @@ https://github.com/threethousandtimes555/Pleer1-temporary/actions/runs/441054506
 - В существующих тестах есть parser fixtures для базовых playlist/Mix search renderers, RD playlistRenderer, direct playlist/Mix URL и один UI сценарий открытия playlist/воспроизведения второго трека. Fixtures реальных /browse и /next pages, continuation, duplicate IDs/tokens, empty page и pagination limits отсутствуют.
 - Статус: source review выполнен; parser не менять без реальных payload/fixtures. Следующий шаг — собрать fixture matrix для legacy/modern и смешанных renderer shapes, проверить continuation и caps; runtime playlist/Mix на iPhone остаётся открытым.
 
+### P1 — удаление YouTube offline-файлов
+
+- Удаление скачанного YouTube-файла очищает запись offline library и сам cache-файл, но не удаляет метаданные трека из Favorites, playlists или Recent. Это не dangling file reference: YouTube Track сохраняет source identity и при обычном online playback может быть заново разрешён; в offline-only без файла он пропускается.
+- Если пользователь удаляет текущий YouTube-трек, файл помечается для отложенного удаления; после смены трека Player вызывает finishDeferredDeletions. Требуется device-проверка перехода с активного локального YouTube item и relaunch с сохранённой deferred deletion.
+- Статус: source review YouTube offline-cache deletion выполнен; доказанного дефекта удаления не найдено. Общий Inbox share/import и удаление произвольных локальных файлов не расширяются в рамках текущего аудита YouTube-модуля и остаются отдельной задачей общей библиотеки.
+
 ### Ограничения
 
 Сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались. Не запускать их без отдельного явного разрешения пользователя. Следующая работа после документационной сверки — вернуться к утверждённой Таблице 2 и продолжать в её порядке.
