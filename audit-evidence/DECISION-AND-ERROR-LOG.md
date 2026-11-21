@@ -1764,3 +1764,13 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - JS `withClient`/`directAudio` currently retry/fallback on generic errors; `searchCatalogInternal` uses `Promise.allSettled`; both must treat AbortError as terminal cancellation. JS 12s and Swift 15s catalog deadlines currently can leave work running unless cancellation is propagated.
 - Stage plan and race matrix recorded in ROADMAP §33. Target branch `fix/youtube-resolver-cancellation-2026-11-21` is confirmed identical to feature HEAD before work; feature branch must remain untouched.
 - No source edits, builds, simulator, IPA, Codemagic or install performed in this stage.
+
+
+### #106 — P1 cancellation Stage A source changes and review
+
+- **Дата:** 21.11.2026.
+- Target branch `fix/youtube-resolver-cancellation-2026-11-21` now has 5 commits ahead of base `fdce383e3be8095d86c99d63bd73a3221bd3fc55`; current HEAD `062d443137655ca452b5b3c85a13de7c240a0f9b`. Feature branch was not modified.
+- Changed four source files: YouTubeEngine.swift adds coordinator waiter leases and last-consumer cancellation while preserving old-generation consumers across invalidation; Player.swift stores/cancels active load and stream-recovery Tasks; Views.swift stores/cancels submitted search Task; Providers.swift and YouTubeEngine.swift propagate search cancellation and avoid publishing cancelled results.
+- Reviewed all four commit diffs. No source changes to JS bridge or URLSession yet. Therefore last-consumer cancellation currently stops the shared Swift resolver Task but does not yet abort JS/native fetches; Stage B/C are required before claiming end-to-end cancellation.
+- Important remaining source review before continuing: confirm cancellation of playback/recovery tasks on all load/queue transitions; verify no task handle can be overwritten while still active; verify actor waiter completion/cancel/invalidation races; check JS session operation scoping and URLSession request registry.
+- No build, compile, tests, simulator, IPA, Codemagic or install. Source remains unverified by compiler/runtime.
