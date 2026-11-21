@@ -1798,3 +1798,13 @@ Lab commit: 81c38b8e83a96bbfe4d67868076aeb947c3afce3. Проверка стат�
 - Confirmed AbortError terminal behavior across JS retries/fallbacks and catalog Promise.allSettled; actual caller cancellation is finished by Swift cancellation handler. Internal JS AbortError is not incorrectly converted into caller cancellation.
 - Remaining risk: operation-scoped Innertube session overhead and WKScriptMessage/URLSession scheduling races need measurement/runtime tests. Source review cannot prove runtime behavior.
 - No compile/build/tests/simulator/device/IPA/Codemagic/install. Wait for explicit user authorization before build. Required race matrix recorded in ROADMAP §36.
+
+
+### #109 — Cancellation coverage extended to playlist/Mix expansion
+
+- **Дата:** 21.11.2026.
+- Final call-site sweep found untracked Player Tasks for YouTube playlist and RD Mix expansion. They had loadToken stale-result guards but their URLSession requests continued after track replacement.
+- Added `youtubeCollectionLoadTask` ownership in Player; new load cancels previous collection expansion. Playlist/Mix cancellation is not reported as ordinary load failure.
+- Added Task cancellation checks at entry and around URLSession response handling in YouTubePlaylistEngine load/loadRadio/post. Shared URLSession is retained; only the per-request data task is cancelled.
+- Added required device race test for switching away during multi-page playlist/Mix expansion; verify no stale queue replacement and normal continuation paging remains intact.
+- Current cancellation branch tip `48f4b9da61b47e378e37d694aa8528f9c0093442`; feature branch remains `fdce383e3be8095d86c99d63bd73a3221bd3fc55`. No build or runtime validation.
