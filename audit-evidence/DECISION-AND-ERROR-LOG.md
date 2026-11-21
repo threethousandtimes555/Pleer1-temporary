@@ -3932,3 +3932,20 @@ Semantic reconciliation continued for the network/download commit cluster, inclu
 - **Рекомендация для минимального исправления:** унифицировать выбор thumbnail на всех входах (InnerTube, HTML, YTM JS catalog, playlist lockup), не терять width/height до выбора; не менять ranking/приоритет YTM и не менять видимые пропорции. Отдельно ограничить суммарное время fallback одним общим бюджетом, сохранив существующий порядок rendition. Не менять детектор square-canvas и lock-screen rendering без согласования после визуальной приёмки.
 - **Статус:** source-аудит завершён; изменения исходников на этом шаге не вносились. Это подтверждённые несогласованные пути выбора источника и риски, а не доказательство, что все текущие обложки отображаются неверно.
 - **Сборка, компиляция, тесты, симулятор, IPA, Codemagic и установка не запускались. Для закрытия нужны thumbnail fixtures и визуальная приёмка на iPhone: square-in-wide, genuine wide, portrait/odd ratio, shuffled dimensions, missing hq720 fallback, playlist/Mix, local metadata и lock screen.
+
+
+### №141 — узкие исправления выбора YouTube artwork и общего fallback budget
+
+- **Дата:** 21 ноября 2026 года.
+- **Исходный репозиторий:** `threethousandtimes555/Pleer1-Lab`, ветка `fix/youtube-resolver-cancellation-2026-11-21`; итоговый HEAD после пяти последовательных source commits: `c6a47f800862afd9c0c5f1a6336a0a65f7d8d136`.
+- **Решение пользователя:** сначала проверять реальные ошибки; не менять существующее качество без основания; настоящая горизонтальная 16:9 обложка должна оставаться горизонтальной и не обрезаться; квадратная должна оставаться квадратной. Не менять пропорции и текущую визуальную политику.
+- **Подтверждённые source-проблемы из №140 исправлены:**
+  - HTML fallback теперь использует `YouTubeThumbnail.bestURL` для music renderer, lockup и video renderer вместо выбора последнего URL.
+  - YTM JS catalog теперь передаёт массив thumbnail source objects с `url/width/height`; Swift выбирает через общий `bestURL`. Если API не сообщает размеры, selector сохраняет прежний fallback на последний доступный URL — реальное максимальное разрешение для таких ответов исходником гарантировать нельзя.
+  - Playlist lockup conversion больше не отбрасывает width/height до общего selector.
+  - `ImageStore.image` получил общий deadline 24 секунды на последовательность rendition attempts; индивидуальный timeout каждой попытки остаётся не более 12 секунд. Порядок rendition не менялся.
+- **Что намеренно не менялось:** `YouTubeThumbnail.optimizedURL` и CDN rendition policy; YTM ranking и merge precedence; `Cover`, aspect-ratio layout, centered-square detector и clipping; lock-screen artwork; локальные обложки; player, streaming и offline download.
+- **Проверка после записи:** повторно получены все изменённые исходники из целевой ветки и проверены SHA/ключевые участки. HTML-пути больше не используют `.last`; YTM source dimensions доходят до Swift selector; playlist lockup сохраняет размеры; Cover display code остался без изменений. Это source/diff verification, не runtime-проверка качества картинок.
+- **Коммиты Pleer1-Lab:** `e9f1628500e11e547b4260e3702b8cf541efc463` (общий fallback deadline); `6927b1bc2735ecccbb646568d72401665f0cc44f` (HTML selector); `67be340b760f51ce7673715314500dc9903fd038` (Swift YTM selection); `ece1e98421f31a049d2bf28419649407fe01ce50` (YTM dimensions); `c6a47f800862afd9c0c5f1a6336a0a65f7d8d136` (playlist dimensions).
+- **Ограничения:** fixtures для shuffled dimensions и реальных YTM payload не добавлялись; build, compile, tests, simulator, IPA, Codemagic и install не запускались. Нужно проверить на iPhone genuine 16:9, square-in-wide, native square, YTM result, playlist/Mix, fallback при отсутствующем hq720 и lock screen. В частности, подтвердить, что реальная горизонтальная картинка не попадает под centered-square heuristic.
+- **Статус:** source fixes внесены и повторно прочитаны; runtime-приёмка не выполнена. Не объявлять качество YTM гарантированным, если ответ не содержит размеров.
